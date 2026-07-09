@@ -46,6 +46,28 @@ library that others (including future-you) will depend on:
   code prove itself: the gates hold everything (and everyone) to the same
   standard, and bypassing them is mechanically blocked
 
+### What it demands (know before you invest)
+
+| Resource | What you need |
+| --- | --- |
+| **Machine** | 8 GB RAM minimum (16 GB comfortable once the project grows — fat-LTO release builds are hungry); a few CPU cores (gates run parallel); SSD strongly recommended |
+| **Disk** | ~2 GB pinned toolchain + ~1 GB gate tools + 1-2 GB build dir for the skeleton, growing with your code — plan for **10 GB+** per project over time |
+| **Network** | First setup downloads roughly 3-4 GB (toolchain, tools, crate index) |
+| **Accounts & keys** | A GitHub account, `gh` CLI authenticated, and a **commit-signing key (SSH or GPG)** — the pre-push gate requires every commit signed, and it is a hard gate: no key, no push |
+| **Time** | ~30-45 minutes from empty machine to first green `just go` (mostly downloads/compiles); afterwards 2-15 s per commit, 20-60 s per push (warm) |
+| **Platform** | macOS and Linux are first-class; Windows works with Git-Bash for the hooks |
+
+### The commitment
+
+Once you are in, **the machine does not allow shortcuts — for you or for
+your AI assistant**. Hooks reject bad commits, the push gate rejects
+unsigned or failing work, CI re-checks everything, and the bypass
+(`--no-verify`) is mechanically blocked for AI sessions and treated as an
+incident for humans. That is the deal: you give up the ability to cut
+corners, and in return every green build actually means something — the
+discipline you would need to impose on yourself (and on generated code) is
+enforced by the repo instead.
+
 **The price, stated plainly:** a pinned nightly toolchain (10-minute stable
 downgrade documented), ~10 dev tools installed by `just setup`, a few seconds
 per commit and under a minute per push for the gates, and lints that WILL

@@ -150,10 +150,12 @@ sign-branch:
 
 # Verify commit signing is set up so commits can land on main.
 #
-# Checks, in order: commit.gpgsign is on; a signing key is configured; GPG
-# can actually produce a signature with it; and the key is registered on
-# GitHub (so commits render as "verified").  Each is a soft check with a
-# clear fix; exits non-zero if any fails.
+# Supports BOTH signing formats: SSH (`gpg.format = ssh`, the low-friction
+# modern path) and OpenPGP (classic gpg). Checks, in order: commit.gpgsign
+# is on; a signing key is configured; the signer can actually produce a
+# signature with it; and the key is registered on GitHub (so commits render
+# as "verified").  Each is a soft check with a clear fix; exits non-zero if
+# any fails.
 doctor-signing:
     #!/usr/bin/env bash
     set -uo pipefail
@@ -175,7 +177,20 @@ doctor-signing:
         bad "no user.signingkey — set it: git config user.signingkey <KEYID>"
     fi
 
-    if printf 'test' | gpg ${key:+--local-user "$key"} --clearsign >/dev/null 2>&1; then
+    format=$(git config --get gpg.format || echo openpgp)
+    if [[ "$format" == "ssh" ]]; then
+        keyfile="${key/#\~/$HOME}"
+        if [[ -f "$keyfile" || -f "${keyfile%.pub}" ]]; then
+            sigkey="$keyfile"; [[ -f "${keyfile%.pub}" ]] && sigkey="${keyfile%.pub}"
+            if printf 'test' | ssh-keygen -Y sign -n git -f "$sigkey" >/dev/null 2>&1; then
+                ok "SSH signing works with the configured key"
+            else
+                bad "ssh-keygen cannot sign with '$key' — is the private key present and unlocked?"
+            fi
+        else
+            bad "gpg.format=ssh but user.signingkey does not point at a key file: $key"
+        fi
+    elif printf 'test' | gpg ${key:+--local-user "$key"} --clearsign >/dev/null 2>&1; then
         ok "GPG can sign with the configured key"
     else
         bad "GPG cannot sign (broken agent / locked key) — check 'gpg --list-secret-keys'"
