@@ -33,6 +33,8 @@
 #   --join OWNER/REPO     clone an existing project built from the template
 #   --template OWNER/REPO which template --new instantiates
 #                         (default: acmex-org/acmex — override after forking)
+#   --dir PATH            parent directory the project lands in (interactive
+#                         runs ask; default: the current directory)
 #   --public              make --new repos public (default: private)
 #   --help                this text
 #
@@ -50,13 +52,14 @@ warn() { printf "  ${C_YELLOW}⚠  %s${C_OFF}\n" "$1"; }
 die()  { printf "  ${C_YELLOW}✋ %s${C_OFF}\n" "$1"; exit 1; }
 
 # ── Flags ────────────────────────────────────────────────────────────
-YES=0; NEW=""; JOIN=""; TEMPLATE="acmex-org/acmex"; VISIBILITY="--private"
+YES=0; NEW=""; JOIN=""; TEMPLATE="acmex-org/acmex"; VISIBILITY="--private"; DEST=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --yes) YES=1 ;;
         --new) NEW="${2:?--new needs OWNER/NAME}"; shift ;;
         --join) JOIN="${2:?--join needs OWNER/REPO}"; shift ;;
         --template) TEMPLATE="${2:?--template needs OWNER/REPO}"; shift ;;
+        --dir) DEST="${2:?--dir needs a path}"; shift ;;
         --public) VISIBILITY="--public" ;;
         --help) grep -E '^#( |$)' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) die "unknown flag: $1 (see --help)" ;;
@@ -241,6 +244,22 @@ say "6/7 The repository"
 if [[ $IN_REPO -eq 1 ]]; then
     ok "already inside a repo checkout — skipping acquisition"
 else
+    # Where should the project live? Your layout is yours (e.g.
+    # ~/private/github) — discovery order: --dir flag, the remembered
+    # `forge.projectsDir` git setting, then ask (default $PWD).
+    REMEMBERED=$(git config --global --get forge.projectsDir 2>/dev/null || true)
+    if [[ -z "$DEST" ]]; then
+        DEST=$(ask "Parent directory for the project" "${REMEMBERED:-$PWD}")
+    fi
+    DEST="${DEST/#\~/$HOME}"
+    mkdir -p "$DEST" && cd "$DEST"
+    ok "projects land in: $(pwd)"
+    if [[ "$(pwd)" != "$REMEMBERED" && $YES -eq 0 ]] \
+        && confirm "Remember $(pwd) as your projects directory for next time?" N; then
+        git config --global forge.projectsDir "$(pwd)"
+        ok "saved (git config --global forge.projectsDir)"
+    fi
+
     mode=""
     if [[ -n "$NEW" ]]; then mode="new"
     elif [[ -n "$JOIN" ]]; then mode="join"
@@ -295,7 +314,10 @@ else
     ok "project already initialized"
 fi
 if confirm "Install all gate tools + wire the git hooks (just setup)?"; then just setup; fi
-if [[ $YES -eq 1 ]]; then
+# Signing: never touch a working setup (GPG or SSH) — check first.
+if just doctor-signing >/dev/null 2>&1; then
+    ok "commit signing already configured and working — untouched"
+elif [[ $YES -eq 1 ]]; then
     # Unattended: wire up a pre-provisioned key; never mint one.
     if [[ -f "$HOME/.ssh/id_ed25519" ]]; then
         just setup-signing || warn "signing setup incomplete — run 'just setup-signing' later"
