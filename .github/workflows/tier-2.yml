@@ -1,6 +1,6 @@
 # ACMEX Tier 2 Nightly CI
 # Copyright (c) 2025-2026 Acmex Placeholder LLC.
-# SPDX-License-Identifier: MPL-2.0
+# SPDX-License-Identifier: MIT OR Apache-2.0
 #
 # Tier 2 keeps the slower nightly checks out of the PR path while still
 # exercising the important scheduled/on-demand validation gates.

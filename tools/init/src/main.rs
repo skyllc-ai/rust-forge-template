@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Acmex Placeholder LLC
 
 //! One-shot init ceremony for a repository created from rust-forge-template.
@@ -35,7 +35,15 @@ struct Identity {
     author: String,
     /// Domain used in contact addresses (default `<org>.example`).
     domain: String,
+    /// SPDX license expression (default keeps the template's
+    /// `MIT OR Apache-2.0`). A custom value rewrites every SPDX header,
+    /// Cargo.toml, REUSE.toml, and the LICENSE pointer; the `reuse` gate
+    /// then stays red until LICENSES/ holds the matching text(s).
+    license: String,
 }
+
+/// The template's shipped license expression.
+const DEFAULT_LICENSE: &str = "MIT OR Apache-2.0";
 
 fn parse_args() -> Result<Identity, String> {
     let mut values: BTreeMap<String, String> = BTreeMap::new();
@@ -74,12 +82,17 @@ fn parse_args() -> Result<Identity, String> {
         .get("domain")
         .cloned()
         .unwrap_or_else(|| format!("{org}.example"));
+    let license = values
+        .get("license")
+        .cloned()
+        .unwrap_or_else(|| DEFAULT_LICENSE.to_string());
     Ok(Identity {
         slug,
         org,
         entity,
         author,
         domain,
+        license,
     })
 }
 
@@ -94,7 +107,7 @@ fn replacements(id: &Identity) -> Vec<(String, String)> {
         }
     };
     let upper = id.slug.to_ascii_uppercase();
-    vec![
+    let mut table = vec![
         (
             "Acmex Placeholder Dev <dev@acmex.example>".to_string(),
             id.author.clone(),
@@ -107,7 +120,11 @@ fn replacements(id: &Identity) -> Vec<(String, String)> {
         ("ACMEX".to_string(), upper),
         ("Acmex".to_string(), capitalized),
         ("acmex".to_string(), id.slug.clone()),
-    ]
+    ];
+    if id.license != DEFAULT_LICENSE {
+        table.push((DEFAULT_LICENSE.to_string(), id.license.clone()));
+    }
+    table
 }
 
 /// Winget-style capitalized org segment (`my-org` -> `MyOrg`).
@@ -278,6 +295,18 @@ fn ceremony() -> Result<(), String> {
 
     // 5. Acid test.
     assert_clean(&id.slug)?;
+
+    // 5b. Custom license: the identifiers are rewritten, but the license
+    //     TEXTS are the user's job — and the reuse gate enforces it.
+    if id.license != DEFAULT_LICENSE {
+        println!();
+        println!("⚖️  license set to `{}` — finish the relicense:", id.license);
+        println!("   * add LICENSES/<id>.txt for each id in the expression");
+        println!("     (texts: https://spdx.org/licenses/) and remove the");
+        println!("     MIT/Apache-2.0 texts if no longer used");
+        println!("   * rewrite the LICENSE pointer file's prose");
+        println!("   * `reuse lint` (part of every commit) stays red until done");
+    }
 
     // 6. Self-delete (best effort; on failure print the manual step).
     match std::fs::remove_dir_all("tools/init") {

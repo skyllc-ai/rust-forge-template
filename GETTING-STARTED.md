@@ -1,5 +1,5 @@
 <!--
-SPDX-License-Identifier: MPL-2.0
+SPDX-License-Identifier: MIT OR Apache-2.0
 Copyright (c) 2026 Acmex Placeholder LLC
 -->
 
@@ -75,6 +75,11 @@ just init name=myproj org=my-org entity="My Org LLC" author="Me <me@example.com>
 
 It finishes by asserting that **zero** placeholder references survive, then
 deletes itself. If `rg -i acmex` prints nothing, the ceremony worked.
+
+The project starts dual-licensed **MIT OR Apache-2.0**. To use a different
+license, pass `license="<SPDX expression>"` — the ceremony rewrites every
+SPDX header and manifest, then the `reuse` gate stays red until you put the
+matching text(s) into `LICENSES/` (it prints the exact steps).
 
 ## Step 3 — Set up your environment (once per machine)
 

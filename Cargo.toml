@@ -29,7 +29,7 @@ edition = "2024"
 # nightly toolchain (rust-toolchain.toml) for the unstable rustfmt options.
 # Projects that migrate to stable: re-add `rust-version` here and `msrv` in
 # clippy.toml (see README appendix "Stable downgrade").
-license = "MPL-2.0"
+license = "MIT OR Apache-2.0"
 repository = "https://github.com/acmex-org/acmex"
 authors = ["Acmex Placeholder Dev <dev@acmex.example>"]
 description = "acmex — template placeholder project"

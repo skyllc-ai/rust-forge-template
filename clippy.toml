@@ -1,7 +1,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # ACMEX — Clippy Configuration
 # ─────────────────────────────────────────────────────────────────────────────
-# SPDX-License-Identifier: MPL-2.0
+# SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2025-2026 Acmex Placeholder LLC.
 # This file configures Clippy behavior that cannot be set via [workspace.lints]
 # in Cargo.toml.  It is picked up automatically by all crates in the workspace.

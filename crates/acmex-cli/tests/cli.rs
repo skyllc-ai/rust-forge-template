@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Acmex Placeholder LLC
 
 //! End-to-end integration tests for the `acmex` binary.
