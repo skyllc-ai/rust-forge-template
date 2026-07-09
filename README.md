@@ -102,7 +102,7 @@ gh repo create my-org/myproj --template <owner>/rust-forge-template --private --
 cd myproj
 
 # 2. Run the init ceremony (renames acmex → your identity, resets earned state)
-just init name=myproj org=my-org entity="My Org LLC" author="Me <me@example.com>"
+just init myproj my-org "My Org LLC" "Me <me@example.com>"
 
 # 3. Install every gate tool + wire the hooks, set up commit signing
 #    (both idempotent), then prove the machine

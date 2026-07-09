@@ -113,14 +113,16 @@ The repo arrives under the placeholder identity `acmex`. One command rewrites
 it to yours — file contents, file names, manifests, workflows, licenses:
 
 ```bash
-just init name=myproj org=my-org entity="My Org LLC" author="Me <me@example.com>"
+just init myproj my-org "My Org LLC" "Me <me@example.com>"
 ```
 
 It finishes by asserting that **zero** placeholder references survive, then
 deletes itself. If `rg -i acmex` prints nothing, the ceremony worked.
 
 The project starts dual-licensed **MIT OR Apache-2.0**. To use a different
-license, pass `license="<SPDX expression>"` — the ceremony rewrites every
+license, pass it as the sixth positional argument
+(`just init myproj my-org "My Org LLC" "Me <m@e.x>" "" "BSD-3-Clause"`) —
+the ceremony rewrites every
 SPDX header and manifest, then the `reuse` gate stays red until you put the
 matching text(s) into `LICENSES/` (it prints the exact steps).
 
@@ -258,6 +260,28 @@ Still stuck? `just` (no arguments) lists every available command with a
 one-line description.
 
 ---
+
+## Unattended / fleet provisioning (`--yes`)
+
+Provisioning many workstations (MDM, Ansible, CI runners)? `bootstrap.sh`
+has an unattended lane:
+
+```bash
+export GH_TOKEN=<fine-grained PAT>        # gh honors it automatically
+curl -fsSL https://raw.githubusercontent.com/<owner>/<repo>/main/bootstrap.sh   | bash -s -- --yes --join my-org/myproj
+```
+
+What `--yes` does: auto-approves every step, installs missing tools (skips
+optional updates for reproducibility), clones the repo, runs `just setup`.
+What it deliberately does **not** do: generate signing keys. Key issuance is
+an identity decision — pre-provision `~/.ssh/id_ed25519` through your fleet
+tooling (then the signing step wires it up non-interactively), or leave it
+to each developer's first `just setup-signing`. The script reports loudly
+either way, so an unsigned machine cannot silently look "done".
+
+At real fleet scale, consider baking the environment instead of scripting
+it — a devcontainer/Nix image is the natural next step (a future
+`COMPONENTS.md` recipe).
 
 ## Performance tuning (optional)
 

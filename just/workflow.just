@@ -156,6 +156,11 @@ sign-branch:
 # SIGNING key via the API, and finishes with the doctor. Idempotent — safe
 # to re-run; never overwrites an existing key. GPG users: configure
 # manually and run `just doctor-signing` instead.
+#
+# Fleet / unattended machines: this recipe never GENERATES a key without a
+# human (key issuance is an identity decision — pre-provision
+# ~/.ssh/id_ed25519 via your fleet tooling instead; with a key already in
+# place, this recipe is fully non-interactive: config + registration + doctor).
 setup-signing:
     #!/usr/bin/env bash
     set -euo pipefail
