@@ -67,7 +67,7 @@ This project maintains the following security practices.
 - **No unsafe code** — Zero `unsafe` blocks in production code without
   explicit `#[allow(unsafe_code)]` and safety documentation
 - **SPDX compliance** — Every source file carries
-  `SPDX-License-Identifier: MPL-2.0`
+  `SPDX-License-Identifier: MIT OR Apache-2.0`
 
 ### Dependencies
 

@@ -2,7 +2,7 @@
 # scripts/ci-pipeline/Cargo.toml - ACMEX CI Pipeline Driver
 # =============================================================================
 #
-# SPDX-License-Identifier: MPL-2.0
+# SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2025-2026 Acmex Placeholder LLC.
 #
 # Phase 7 promotion of `scripts/ci/ci-pipeline.rs` from a standalone

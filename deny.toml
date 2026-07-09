@@ -2,7 +2,7 @@
 # deny.toml
 # =============================================================================
 #
-# SPDX-License-Identifier: MPL-2.0
+# SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2025-2026 Acmex Placeholder LLC.
 #
 # ACMEX - Ultra Fast File Search
@@ -36,7 +36,7 @@ allow = [
   "Unlicense",                      # Public domain equivalent (aho-corasick, memchr, walkdir, etc.)
 
   # Weak copyleft licenses (file-level, compatible with commercial use)
-  "MPL-2.0",           # Mozilla Public License 2.0 (colored, our own crates)
+  "MPL-2.0",           # Mozilla Public License 2.0 (ecosystem crates, e.g. colored)
   "LGPL-2.1-or-later", # GNU Lesser GPL 2.1+ (r-efi) - weak copyleft, acceptable
 
   # Special purpose licenses required by dependencies

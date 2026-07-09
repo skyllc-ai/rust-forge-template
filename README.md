@@ -1,5 +1,5 @@
 <!--
-SPDX-License-Identifier: MPL-2.0
+SPDX-License-Identifier: MIT OR Apache-2.0
 Copyright (c) 2026 Acmex Placeholder LLC
 -->
 
@@ -112,6 +112,9 @@ in the template first (its own CI proves them), then flow down.
 
 ## License
 
-Template scaffolding: MPL-2.0 placeholder — the init ceremony rewrites the
-license identity (`LICENSE`, `LICENSES/`, `REUSE.toml`, SPDX headers) to your
-project's choice.
+Dual-licensed **MIT OR Apache-2.0** (the Rust-ecosystem default), so projects
+of any license can adopt the scaffolding. Keep the dual license or pass
+`license=<SPDX-id>` to `just init`: the ceremony rewrites every SPDX header,
+`Cargo.toml`, `REUSE.toml`, and the `LICENSE` pointer, then the `reuse` gate
+holds the build red until you drop the matching text into `LICENSES/` —
+the machine itself enforces a complete relicense.

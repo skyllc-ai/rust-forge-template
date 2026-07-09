@@ -1,6 +1,6 @@
 # Codecov Configuration for ACMEX
 # Copyright (c) 2025-2026 Acmex Placeholder LLC.
-# SPDX-License-Identifier: MPL-2.0
+# SPDX-License-Identifier: MIT OR Apache-2.0
 
 codecov:
   # Token is provided via GitHub Secrets (${{ secrets.CODECOV_TOKEN }})

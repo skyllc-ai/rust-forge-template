@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MPL-2.0
+# SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2025-2026 Acmex Placeholder LLC.
 
 
@@ -16,7 +16,7 @@ legal-check:
 legal-fix:
     @printf "\033[0;34m🔧 Fixing REUSE compliance...\033[0m\n"
     @if command -v reuse >/dev/null 2>&1; then \
-        reuse annotate --license "MPL-2.0" --copyright "Acmex Placeholder LLC." --template rust crates/**/*.rs; \
+        reuse annotate --license "MIT OR Apache-2.0" --copyright "Acmex Placeholder LLC." --template rust crates/**/*.rs; \
     else \
         printf "\033[0;31m❌ reuse tool not installed. Install with: just install-legal-tools\033[0m\n"; \
     fi
@@ -48,5 +48,5 @@ legal-setup: install-legal-tools legal-check
     @printf "\033[0;34mLegal Information:\033[0m\n"
     @echo "  Copyright: Acmex Placeholder LLC."
     @echo "  Contact: 50460704+acmex-owner@users.noreply.github.com"
-    @echo "  License: MPL-2.0"
+    @echo "  License: MIT OR Apache-2.0"
 

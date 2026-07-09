@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MPL-2.0
+# SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Acmex Placeholder LLC
 #
 # The init-ceremony tool. Deliberately a STANDALONE crate (the empty
@@ -14,7 +14,7 @@ name = "init"
 description = "One-shot rename ceremony: acmex placeholder -> your project identity"
 version = "0.1.0"
 edition = "2021"
-license = "MPL-2.0"
+license = "MIT OR Apache-2.0"
 publish = false
 
 [workspace]

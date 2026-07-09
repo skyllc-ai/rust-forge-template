@@ -29,7 +29,7 @@ The ACMEX **name and logo** are separate. They identify *this* project —
 the one at <https://github.com/acmex-org/acmex> — and
 distinguish it from forks, reimplementations, and unrelated software
 that might look or sound similar. Copyright and trademark are two
-different legal regimes; MPL-2.0 grants the first and says nothing about
+different legal regimes; the code license grants the first and says nothing about
 the second.
 
 This separation is standard practice. Mozilla does it for Firefox. The

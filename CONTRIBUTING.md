@@ -1,5 +1,5 @@
 <!--
-SPDX-License-Identifier: MPL-2.0
+SPDX-License-Identifier: MIT OR Apache-2.0
 Copyright (c) 2026 Acmex Placeholder LLC
 -->
 
@@ -7,7 +7,7 @@ Copyright (c) 2026 Acmex Placeholder LLC
 
 Thanks for helping improve ACMEX.
 
-> By contributing you agree your contribution is licensed under [MPL-2.0](LICENSE) and that the ACMEX name and logo remain governed by [TRADEMARK.md](TRADEMARK.md).
+> By contributing you agree your contribution is dual-licensed under [MIT OR Apache-2.0](LICENSE) and that the ACMEX name and logo remain governed by [TRADEMARK.md](TRADEMARK.md).
 
 ## Contact
 
