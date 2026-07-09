@@ -84,7 +84,7 @@ RULESET_JSON=$(cat <<'JSON'
       "parameters": {
         "strict_required_status_checks_policy": true,
         "required_status_checks": [
-          { "context": "required" }
+          { "context": "PR Fast CI / required" }
         ]
       }
     },
