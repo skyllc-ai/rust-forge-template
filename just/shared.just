@@ -635,6 +635,13 @@ setup:
     command -v reuse >/dev/null 2>&1 || printf "\033[1;33m⚠  reuse missing (license gate soft-skips) — install with: pipx install reuse\033[0m\n"
     # Wire the git hooks (the local quality gates)
     just install-hooks
+    # Commit signing is a hard pre-push gate — check it, and say exactly
+    # how to fix it (key generation needs YOU for the passphrase, so it
+    # lives in its own one-shot recipe rather than running silently here).
+    if ! just doctor-signing >/dev/null 2>&1; then
+        printf "\033[1;33m⚠  Commit signing not configured — the pre-push gate will reject pushes.\033[0m\n"
+        printf "\033[1;33m   One command fixes it: \033[0;36mjust setup-signing\033[0m\n"
+    fi
     # Smoke check
     printf "\033[0;34m🔎 Smoke check (cargo check --workspace)...\033[0m\n"
     cargo check --workspace

@@ -148,6 +148,43 @@ sign-branch:
     git push --force-with-lease
     printf "\033[0;32m✅ Branch re-signed and pushed — every commit now carries a signature.\033[0m\n"
 
+# One-command commit-signing setup (SSH format, the low-friction path).
+#
+# Does everything that CAN be automated: creates an ed25519 key if you have
+# none (you choose the passphrase), points git at it (global config, SSH
+# signing format, sign commits + tags), registers the key on GitHub as a
+# SIGNING key via the API, and finishes with the doctor. Idempotent — safe
+# to re-run; never overwrites an existing key. GPG users: configure
+# manually and run `just doctor-signing` instead.
+setup-signing:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    KEYFILE="$HOME/.ssh/id_ed25519"
+    printf "\033[0;34m🔏 Commit-signing setup (SSH format)\033[0m\n"
+    # 1. Key material (interactive: you pick the passphrase)
+    if [[ -f "$KEYFILE" ]]; then
+        printf "  \033[0;32m✅ SSH key exists: %s\033[0m\n" "$KEYFILE"
+    else
+        printf "  \033[0;36m→ No SSH key found — generating one (choose a passphrase when asked)\033[0m\n"
+        ssh-keygen -t ed25519 -f "$KEYFILE"
+    fi
+    # 2. Point git at it (global: every repo on this machine signs)
+    git config --global gpg.format ssh
+    git config --global user.signingkey "$KEYFILE.pub"
+    git config --global commit.gpgsign true
+    git config --global tag.gpgsign true
+    printf "  \033[0;32m✅ git configured: sign all commits + tags with %s.pub\033[0m\n" "$KEYFILE"
+    # 3. Register on GitHub as a SIGNING key (separate registration from the
+    #    authentication use of the same key). Tolerate already-registered.
+    if gh ssh-key add "$KEYFILE.pub" --type signing --title "$(hostname) signing" 2>/dev/null; then
+        printf "  \033[0;32m✅ key registered on GitHub as a signing key\033[0m\n"
+    else
+        printf "  \033[0;36mℹ️  GitHub registration skipped (already registered, or token lacks admin:ssh_signing_key scope —\033[0m\n"
+        printf "  \033[0;36m   run: gh auth refresh -h github.com -s admin:ssh_signing_key   then re-run this recipe)\033[0m\n"
+    fi
+    # 4. Prove it
+    just doctor-signing
+
 # Verify commit signing is set up so commits can land on main.
 #
 # Supports BOTH signing formats: SSH (`gpg.format = ssh`, the low-friction
