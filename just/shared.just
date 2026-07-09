@@ -31,11 +31,21 @@ export CLICOLOR_FORCE := "1"
 export TERM := "xterm-256color"
 export COLORTERM := "truecolor"
 export CARGO_TERM_COLOR := "always"
-# Build caching is deliberately NOT configured here or in .cargo/config.toml:
-# the template ships stock Cargo behavior. Developers who want sccache (or a
-# different wrapper) enable it in their own ~/.cargo/config.toml — recipes
-# and hooks inherit whatever the user configured. See GETTING-STARTED.md
-# § "Performance tuning (optional)".
+# ── Resilient build caching ─────────────────────────────────────────
+# The repo's .cargo/config.toml stays stock (a hard `rustc-wrapper =
+# "sccache"` would break every machine without the binary). Instead the
+# just layer AUTO-DETECTS: when sccache is installed AND functional, all
+# just-driven cargo invocations (recipes, hooks, pipeline) use it with
+# incremental compilation off (sccache cannot cache incremental
+# artifacts); when it is absent or broken, everything silently runs
+# stock. Install via `just setup-sccache`; inspect via `just
+# sccache-stats`. The `sccache rustc -vV` probe (not just `command -v`)
+# matters: a present-but-sandboxed sccache would otherwise fail every
+# build with "Operation not permitted".
+sccache_detected := `command -v sccache >/dev/null 2>&1 && sccache rustc -vV >/dev/null 2>&1 && echo sccache || true`
+export RUSTC_WRAPPER := sccache_detected
+export CARGO_INCREMENTAL := if sccache_detected == "sccache" { "0" } else { "" }
+
 export CARGO_NET_RETRY := "3"
 export CARGO_HTTP_TIMEOUT := "30"
 export CARGO_HTTP_MULTIPLEXING := "true"

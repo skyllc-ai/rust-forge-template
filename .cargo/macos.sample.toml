@@ -1,0 +1,64 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Acmex Placeholder LLC
+#
+# =============================================================================
+# SAMPLE user-level Cargo config — macOS (Apple Silicon + Intel)
+# =============================================================================
+# This file is INERT where it sits. To use it:
+#
+#   1. Copy the parts you want into  ~/.cargo/config.toml  (your HOME, not
+#      this repo — the repo ships stock Cargo behavior on purpose; see
+#      .cargo/config.toml for the rationale).
+#   2. Uncomment selectively. Everything here is optional tuning.
+#
+# A local repo-level override also works (git-ignored): copy to
+# .cargo/macos.toml and merge into .cargo/config.toml locally — but prefer
+# HOME so every workspace on your machine benefits.
+# =============================================================================
+
+[build]
+# ── Compiler cache (HIGHLY RECOMMENDED) ─────────────────────────────────────
+# 2-10x faster warm rebuilds across ALL your workspaces.
+#   cargo install sccache
+# sccache refuses incremental artifacts, so the two lines pair:
+# rustc-wrapper = "sccache"
+# incremental = false
+
+# ── Target directory redirect (READ THE WARNING) ────────────────────────────
+# Useful to keep build artifacts off iCloud/Dropbox-synced paths.
+# ⚠  A shared redirect (e.g. /tmp/rust-target) makes `cargo clean` and repo
+#    deletion stop reclaiming space; caches silently grow by hundreds of GB
+#    until the volume fills. If you redirect, use one dir PER PROJECT and
+#    put it on a volume you monitor:
+# target-dir = "/Volumes/FastSSD/rust-target/<project>"
+
+# ── Parallel jobs ───────────────────────────────────────────────────────────
+# Omit to auto-detect (logical CPU count). Pin lower on thermally-limited
+# laptops: Apple Silicon performance-core counts work well.
+# jobs = 8
+
+[target.aarch64-apple-darwin]
+linker = "clang"
+rustflags = [
+  # Optimize for YOUR CPU — user-level only; in a repo this bakes the build
+  # machine's CPU into everyone's binaries and breaks cross-compilation.
+  "-C",
+  "target-cpu=native",
+  # Frame pointers: better profiling/debugging stacks (Instruments, samply)
+  # at ~1% runtime cost.
+  "-C",
+  "force-frame-pointers=yes",
+]
+
+[target.x86_64-apple-darwin]
+linker = "clang"
+rustflags = ["-C", "target-cpu=native", "-C", "force-frame-pointers=yes"]
+
+# ── Faster linking with mold (optional) ─────────────────────────────────────
+#   brew install mold
+# then add to the rustflags above:  "-C", "link-arg=-fuse-ld=mold"
+
+# ── Faster dev iteration (optional profile overrides) ───────────────────────
+# [profile.dev]
+# codegen-units = 16
+# split-debuginfo = "unpacked"   # fastest debug-info mode on macOS

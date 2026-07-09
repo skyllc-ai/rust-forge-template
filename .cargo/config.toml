@@ -11,9 +11,16 @@
 #   * Toolchain pin                               -> rust-toolchain.toml
 #   * Release-build RUSTFLAGS (CPU baseline etc.) -> .github/workflows/release.yml
 #
-# Machine-specific tuning (build caches, linkers, target-dir redirects,
-# target-cpu=native) belongs in YOUR user-level ~/.cargo/config.toml, never
-# in the repo — see GETTING-STARTED.md § "Performance tuning (optional)".
+# Build caching is RESILIENT, not required: the just layer auto-detects a
+# functional sccache and uses it for every just-driven build (recipes,
+# hooks, go/ship pipeline); without it everything runs stock. A hard
+# `rustc-wrapper = "sccache"` here would instead break every machine that
+# lacks the binary. Enable for plain `cargo` too via ~/.cargo/config.toml.
+#
+# Machine-specific tuning (linkers, target-dir redirects, target-cpu=native)
+# belongs in YOUR user-level ~/.cargo/config.toml, never in the repo —
+# ready-made samples: .cargo/macos.sample.toml + .cargo/windows.sample.toml,
+# walkthrough: GETTING-STARTED.md § "Performance tuning (optional)".
 # Two hard-won reasons:
 #
 #   * `target-cpu=native` in repo config bakes the BUILD MACHINE's CPU into

@@ -92,12 +92,12 @@ This installs the pinned toolchain, every tool the gates call
 `taplo`, ...), wires the git hooks, and smoke-checks the workspace.
 Idempotent — re-run it any time.
 
-Plain `cargo` builds use **stock settings** — no wrapper, no custom flags,
-default `./target` directory. (The `just go` / `just ship` pipeline is the
-one exception: it auto-detects an installed `sccache` and uses it for its
-own lanes; opt out with `--no-sccache`.) Making ALL your builds faster is an
-opt-in, user-level choice: see "Performance tuning (optional)" at the end of
-this guide.
+Build caching is **resilient**: every `just`-driven build (recipes, hooks,
+the go/ship pipeline) auto-detects an installed, functional `sccache` and
+uses it — and silently runs stock Cargo when it is absent. `just setup`
+installs sccache, so you get warm-cache speed from day one without the repo
+ever *requiring* it. Plain `cargo` invocations stay stock unless you opt in
+user-level: see "Performance tuning (optional)" at the end of this guide.
 
 ## Step 4 — Prove the machine
 
@@ -221,23 +221,18 @@ one-line description.
 The repo deliberately ships **stock Cargo behavior**; speed-ups are personal,
 machine-level choices in `~/.cargo/config.toml` (never committed):
 
-```toml
-# ~/.cargo/config.toml — YOUR machine, your call
+Ready-made, fully commented samples ship in the repo — copy the parts you
+want into your HOME config (they are inert where they sit):
 
-[build]
-# Compiler cache across all your workspaces (~2-10x on warm rebuilds):
-#   cargo install sccache        (then:)
-# rustc-wrapper = "sccache"
-# incremental = false            # sccache requires incremental off
-
-# Optimize for your exact CPU — LOCAL builds only. Never put this in a
-# repo: it bakes the build machine's CPU into shipped binaries and breaks
-# cross-compilation.
-# [target.aarch64-apple-darwin]
-# rustflags = ["-C", "target-cpu=native"]
-```
+- **`.cargo/macos.sample.toml`** — sccache, per-project target-dir redirects,
+  `target-cpu=native`, frame pointers, mold linker, dev-profile speedups
+- **`.cargo/windows.sample.toml`** — sccache, Dropbox/OneDrive-safe target
+  dir, rust-lld, Defender exclusions
 
 Helpers: `just setup-sccache` (install + cache stats), `just sccache-stats`.
+Note that `just`-driven builds already use sccache automatically whenever it
+is installed — the user-level config extends that to plain `cargo` and your
+IDE's builds.
 
 A warning from experience: redirecting `target-dir` to a shared location
 (e.g. `/tmp/rust-target`) makes `cargo clean` and repo deletion stop
