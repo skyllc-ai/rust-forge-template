@@ -239,9 +239,12 @@ current.)
 | `CARGO_TARGET_DIR` | `path` | `target/` | Cargo / user shell | `scripts/ci-pipeline/src/context.rs` | Custom target-directory override.  CARGO class. |
 | `HOME` | `path` | (Unix: user home) | Unix shell login | `scripts/ci-pipeline/src/context.rs` | Used to locate per-user caches.  STANDARD class. |
 
-(`RUSTC_WRAPPER` is *written* — not read — by `scripts/ci-pipeline` to
-toggle sccache for child builds; writes are out of scope for this
-registry but noted here to keep the name discoverable.)
+(`RUSTC_WRAPPER` and `CARGO_INCREMENTAL` are *written* — not read — in
+two places: `just/shared.just` exports them for every just-driven build
+after probing for a functional sccache (empty when absent → stock
+behavior), and `scripts/ci-pipeline` sets them per-lane with the same
+probe. Writes are out of scope for this registry but noted here to keep
+the names discoverable.)
 
 **Total: 11 distinct env-var names** across 3 scope categories.
 
