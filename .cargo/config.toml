@@ -1,105 +1,24 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
-# Copyright (c) 2025-2026 Acmex Placeholder LLC.
+# Copyright (c) 2026 Acmex Placeholder LLC
 #
 # =============================================================================
-# Cargo Configuration — All Platforms (macOS ARM/Intel, Windows, Linux)
+# Cargo configuration — deliberately (almost) empty
 # =============================================================================
 #
-# WINDOWS DROPBOX USERS: Set environment variable to avoid file locking:
-#   set CARGO_TARGET_DIR=C:\rust-target\acmex
+# The template ships STOCK Cargo behavior. Policy lives where it is portable:
 #
-# PREREQUISITES:
-#   cargo install sccache
+#   * Optimization / LTO / panic / strip choices  -> [profile.*] in Cargo.toml
+#   * Toolchain pin                               -> rust-toolchain.toml
+#   * Release-build RUSTFLAGS (CPU baseline etc.) -> .github/workflows/release.yml
 #
-# =============================================================================
-
-[build]
-# Keep the checked-in target directory deterministic for artifact discovery.
-# Cargo config paths are config-relative, so `~/...` becomes `<workspace>/~/...`
-# instead of expanding to $HOME. Use an explicit CARGO_TARGET_DIR environment
-# variable locally if you want to place artifacts in an external cache.
-# Windows users can set: CARGO_TARGET_DIR=C:\rust-target\acmex
-target-dir = "target"
-
-# sccache + incremental=false is the canonical local cache policy.
-# Paired here (not split between `.cargo/config.toml` and `just/shared.just`)
-# so every cargo invocation — including those spawned by git hooks,
-# rust-script, IDE plugins, etc. — inherits both settings as one atomic
-# config.  sccache refuses to wrap rustc when CARGO_INCREMENTAL=1 because
-# incremental artifacts are non-cacheable; pairing them here eliminates
-# the drift that caused v0.5.71's sccache-inheritance bug (Bug B in
-# docs/architecture/dev-flow.md § 5.2).  See
-# docs/architecture/dev-flow-implementation-plan.md § 2.1 / 6.4 and
-# https://doc.rust-lang.org/cargo/reference/config.html#build
-rustc-wrapper = "sccache"
-incremental = false
-
-[net]
-retry = 3
-git-fetch-with-cli = true
-
-# =============================================================================
-# macOS Apple Silicon (M1/M2/M3/M4)
-# =============================================================================
-[target.aarch64-apple-darwin]
-linker = "clang"
-rustflags = ["-C", "target-cpu=native", "-C", "link-arg=-Wl,-dead_strip"]
-
-# =============================================================================
-# macOS Intel
-# =============================================================================
-[target.x86_64-apple-darwin]
-linker = "clang"
-rustflags = ["-C", "target-cpu=native", "-C", "link-arg=-Wl,-dead_strip"]
-
-# =============================================================================
-# Windows x86_64 MSVC
-# =============================================================================
-# NOTE: Do NOT use target-cpu=native here - it breaks cross-compilation from
-# macOS ARM64 (the host CPU "apple-m4" is not valid for x86_64 targets).
-# Use x86-64-v3 for AVX2 support (Intel Haswell 2013+, AMD Zen 2017+).
+# Machine-specific tuning (build caches, linkers, target-dir redirects,
+# target-cpu=native) belongs in YOUR user-level ~/.cargo/config.toml, never
+# in the repo — see GETTING-STARTED.md § "Performance tuning (optional)".
+# Two hard-won reasons:
 #
-# NOTE: Do NOT use embed-bitcode=no here - it's incompatible with LTO (release builds).
-# The xwin-dev profile handles COFF archive size limits for debug builds instead.
-# See: docs/xwin-msvc-rlib-size-root-cause-and-workarounds.md
-#
-# NOTE: Using MSVC link.exe instead of rust-lld to avoid potential lld-specific issues.
-[target.x86_64-pc-windows-msvc]
-linker = "link.exe"
-rustflags = [
-  "-C",
-  "target-cpu=x86-64-v3",
-  "-C",
-  "link-arg=/OPT:REF",
-  "-C",
-  "link-arg=/OPT:ICF",
-]
-
-# =============================================================================
-# Linux x86_64
-# =============================================================================
-# NOTE: Do NOT use target-cpu=native here (same reasoning as the Windows
-# section above) — it breaks cross-compilation from macOS ARM64 (the host CPU
-# "apple-m4" is not valid for x86_64), and worse: release CI builds this leg
-# natively on whatever GitHub runner it lands on, so `native` baked the
-# RUNNER's CPU features into the shipped binaries (an AVX-512 runner emits
-# binaries that crash on older user CPUs). x86-64-v3 pins a deterministic
-# baseline with AVX2 (Intel Haswell 2013+, AMD Zen 2017+) — matching the
-# Windows leg.
-# NOTE: the `linker` below only applies to host-native builds; cross builds
-# from macOS go through cargo-zigbuild, which injects its own zig-cc linker
-# (toolchain-sync Phase 2c).
-[target.x86_64-unknown-linux-gnu]
-linker = "clang"
-rustflags = ["-C", "target-cpu=x86-64-v3", "-C", "link-arg=-Wl,--gc-sections"]
-
-# =============================================================================
-# Terminal
-# =============================================================================
-[term]
-verbose = false
-color = "auto"
-
-# =============================================================================
-# Profiles - defined in Cargo.toml (do not duplicate here)
-# =============================================================================
+#   * `target-cpu=native` in repo config bakes the BUILD MACHINE's CPU into
+#     everyone's binaries (and breaks cross-compilation outright).
+#   * Shared target-dir redirects (e.g. /tmp/rust-target) silently accumulate
+#     hundreds of GB across workspaces and take down the machine when the
+#     volume fills — keep the default per-repo ./target, which `cargo clean`
+#     and repo removal actually clean up.
