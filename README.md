@@ -57,6 +57,30 @@ library that others (including future-you) will depend on:
 | **Time** | ~30-45 minutes from empty machine to first green `just go` (mostly downloads/compiles); afterwards 2-15 s per commit, 20-60 s per push (warm) |
 | **Platform** | macOS and Linux are first-class; Windows works with Git-Bash for the hooks |
 
+### The CI bill (measured, not estimated)
+
+Numbers from a real PR through this repo itself — the hello-world floor
+(`acmex-core` + the `acmex` binary), so this is the **minimum**; your code
+grows it:
+
+| Path | Jobs | Wall clock | Compute minutes |
+| --- | --- | --- | --- |
+| Docs-only PR (classifier skips Rust jobs) | 7 | ~1-2 min | ~3 |
+| Code-touching PR (full battery: clippy ×3 incl. Windows, tests, docs, security, drift) | 15 | ~3 min | ~14 |
+| Merge-queue pass (the full battery again, on the queued state) | 15 | ~3.5 min | ~14 |
+
+So a code change pays roughly **~6-7 minutes wall clock and ~28 compute
+minutes** from "PR opened" to "merged through the queue" — industrial-strength
+processing, and that is its time price. On top: the weekly tier-2 deep suite
+(miri, mutation testing, coverage — tens of compute minutes) and the nightly
+canary.
+
+**The money:** on a **public** repo, GitHub-hosted runners are **free** —
+the whole machine costs $0. On a private repo at GitHub's list rates
+(Linux $0.008/min, Windows $0.016/min), the full battery is ~$0.13 per run,
+~$0.26 per queued code change — a few dollars a month for an active
+project, before the free-tier minutes that most plans include.
+
 ### The commitment
 
 Once you are in, **the machine does not allow shortcuts — for you or for
