@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: MPL-2.0
+# Copyright (c) 2025-2026 Acmex Placeholder LLC.
+#
+# .reuseignore — Files excluded from REUSE (reuse.software) compliance checks.
+# Only list files that genuinely cannot carry SPDX headers (binary, generated,
+# or third-party). Prefer REUSE.toml annotations for files that CAN be tagged.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Build artifacts & generated files (never committed or auto-generated)
+# ─────────────────────────────────────────────────────────────────────────────
+target/
+.git/
+Cargo.lock
+build/
+
+# ─────────────────────────────────────────────────────────────────────────────
+# IDE & editor state (user-specific, not source)
+# ─────────────────────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+.qodo/
+*.swp
+*.swo
+*~
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Third-party / machine-generated data (cannot carry headers)
+# ─────────────────────────────────────────────────────────────────────────────
+SPDXLICENSES
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Trash / quarantine (local-only working area)
+# ─────────────────────────────────────────────────────────────────────────────
+_trash/

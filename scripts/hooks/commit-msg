@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MPL-2.0
+# Copyright (c) 2025-2026 Acmex Placeholder LLC.
+#
+# Tracked commit-msg git hook for the ACMEX workspace.
+#
+# **Purpose**: validate the commit subject against Conventional Commits
+# (the same regex CI's `.github/workflows/commitlint.yml` runs on the
+# PR title) BEFORE git finalises the commit.  Catches malformed scopes
+# like `feat(acmex-core, daemon)` at type-time \u2014 one `git commit --amend`
+# fixes it without ever needing to push, force-push, or rewrite later.
+#
+# **git hook contract**: invoked with one argument \u2014 the path to the
+# file containing the proposed commit message.  Exiting non-zero
+# aborts the commit and the message is preserved in `.git/COMMIT_EDITMSG`
+# so the user can re-run `git commit -e` (or `--amend -e`) without
+# losing their text.
+#
+# **Skipped scenarios** \u2014 the hook silently exits 0 when:
+#   * the message is empty (git's own pre-flight aborts already);
+#   * the commit is a merge / squash / cherry-pick continuation
+#     (detected via `.git/MERGE_MSG`, `.git/SQUASH_MSG`, or
+#     `.git/CHERRY_PICK_HEAD` presence) \u2014 those use auto-generated
+#     subjects that don't follow Conventional Commits;
+#   * the message is a `fixup!` / `squash!` autosquash placeholder
+#     (rebase --autosquash will rewrite the subject during the
+#     interactive rebase, so the placeholder doesn't need validation).
+#
+# **Bypass once**: `git commit --no-verify` skips this hook.  Same
+# escape hatch documented for `pre-commit` / `pre-push`.
+#
+# **Install via**: `just install-hooks` (sets core.hooksPath to
+#                  `scripts/hooks/`).
+# **Uninstall**:    `just uninstall-hooks`.
+
+set -euo pipefail
+
+# Path to the proposed commit message file.  git always passes this
+# as the first argument; bail out if missing (defensive \u2014 should
+# never happen via the hook contract).
+msg_file="${1:-}"
+if [[ -z "$msg_file" || ! -f "$msg_file" ]]; then
+    exit 0
+fi
+
+# Skip auto-generated message scenarios.  GIT_DIR points at .git
+# (or a worktree's gitdir); these markers exist for the duration
+# of the merge / squash / cherry-pick.
+GIT_DIR="$(git rev-parse --git-dir 2>/dev/null || echo .git)"
+for marker in MERGE_MSG SQUASH_MSG CHERRY_PICK_HEAD MERGE_HEAD REVERT_HEAD; do
+    if [[ -e "$GIT_DIR/$marker" ]]; then
+        exit 0
+    fi
+done
+
+# Skip autosquash placeholders \u2014 `git commit --fixup=<sha>` and
+# `--squash=<sha>` produce subjects that begin with the literal
+# `fixup!` / `squash!` / `amend!` prefix; they're rewritten during
+# `git rebase --autosquash` and don't need to match Conventional
+# Commits at this stage.
+first_line="$(awk '!/^#/ && NF { print; exit }' "$msg_file")"
+case "$first_line" in
+    fixup!*|squash!*|amend!*)
+        exit 0
+        ;;
+esac
+
+# Delegate to the workspace validator.  `file` mode reads the first
+# non-comment, non-blank line and matches it against the canonical
+# regex.  Non-zero exit (= non-conformant) aborts the commit; the
+# validator already prints a clear error block + fix-up hint to
+# stderr so we propagate verbatim.
+exec bash "$(dirname "$0")/../ci/check_commit_subjects.sh" file "$msg_file"

@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: MPL-2.0
+# Copyright (c) 2025-2026 Acmex Placeholder LLC.
+#
+# `taplo` (TOML formatter) configuration for the ACMEX workspace.
+#
+# Scope is intentionally narrow: `taplo` formats everything it's run
+# against by default, but a handful of directories have their own
+# bespoke TOML formatters that would fight taplo otherwise:
+#
+# * `supply-chain/` — formatted by `cargo vet fmt`.  `cargo vet check`
+#   hard-fails if the store (`audits.toml`, `config.toml`,
+#   `imports.lock`) is out of sync with its own formatter, and taplo's
+#   and cargo-vet's opinions on column-aligned comments disagree.
+#   cargo-vet's format wins because the lint-pre-push hook runs
+#   `cargo vet check` as a HARD gate — taplo running on these files
+#   would churn them back into taplo-shape every commit.
+#
+# If you add new exclusions, document *why* in the comment above —
+# silent format drift is what this config exists to prevent.
+exclude = ["supply-chain/**"]

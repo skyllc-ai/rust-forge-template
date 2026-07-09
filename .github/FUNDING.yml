@@ -1,0 +1,42 @@
+# ACMEX — Sponsor Channels
+#
+# This file controls the "Sponsor this project" button that GitHub renders
+# in the repository sidebar and on the org profile.
+#
+# Channels are shown in the order listed.  Uncomment each line the moment
+# the corresponding account is live — the button updates on the next page
+# load, no release or deploy needed.
+#
+# Docs: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository
+
+# ── GitHub Sponsors ────────────────────────────────────────────────────────
+# Primary channel for individual supporters ($5–$50/month).
+# Zero platform fees on org-account sponsorships.
+# Enroll at: https://github.com/sponsors  (requires acmex-org org owner login)
+# Profile submitted for review 2026-06-03; enable the moment it is approved:
+github: acmex-org
+
+# ── Open Collective ─────────────────────────────────────────────────────────
+# Primary channel for company sponsors who need invoices and receipts.
+# Provides automatic invoicing, transparent expense ledger, fiscal hosting.
+# Create profile at: https://opencollective.com/create
+# Uncomment once the Open Collective profile is live:
+open_collective: acmex-search
+
+# ── Ko-fi ───────────────────────────────────────────────────────────────────
+# Low-friction one-time tips.  Takes ~20 min to set up.
+# Create at: https://ko-fi.com  (handle: acmexsearch — 4-char "acmex" is paywalled).
+# Live:
+ko_fi: acmexsearch
+
+# ── Patreon ─────────────────────────────────────────────────────────────────
+# Not used — Patreon is optimised for creative content, not developer tooling.
+# Our audience lives on GitHub; GitHub Sponsors converts better here.
+
+# ── Tidelift ────────────────────────────────────────────────────────────────
+# Not used at this stage — Tidelift is for packages published to registries
+# (crates.io, npm, PyPI).  Revisit when acmex-* crates are published.
+
+# ── Custom ──────────────────────────────────────────────────────────────────
+# Reserved for a future dedicated sponsor / enterprise page on acmex.example.
+# custom: https://acmex.example/sponsor

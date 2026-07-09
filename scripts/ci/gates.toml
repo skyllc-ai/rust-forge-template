@@ -1,0 +1,819 @@
+# SPDX-License-Identifier: MPL-2.0
+# Copyright (c) 2025-2026 Acmex Placeholder LLC.
+#
+# ACMEX quality-gate manifest — single source of truth for the gate
+# set enforced at pre-commit, pre-push, and PR Fast CI.
+#
+# This file is the implementation of Phase 1 of
+# `docs/architecture/gates-manifest-plan.md`.  See that doc for the
+# full schema spec, generator interface, and migration order.
+#
+# Phase 1 status: this manifest is INFORMATIONAL.  The consumer files
+# (`scripts/hooks/_lint_fast.sh`, `scripts/hooks/_lint_pre_push.sh`,
+# `.github/workflows/pr-fast.yml`) are still hand-maintained.  The
+# `scripts/ci/check_gates_drift.sh` drift detector verifies the
+# manifest stays in sync with what those files actually do — it
+# fails CI if any gate listed here is missing from the corresponding
+# consumer, or if a consumer-defined gate is missing from this file.
+#
+# Phase 2/3 will replace the hand-maintenance with codegen FROM this
+# file.  Until then, every gate change must be made in TWO places:
+# the consumer file AND this manifest.  The drift detector enforces
+# that you didn't forget either side.
+#
+# Field semantics: see `docs/architecture/gates-manifest-plan.md` §3.
+
+[manifest]
+version = 1
+generated_files = [
+  # Phase 1: empty — nothing is generated yet.
+  # Phase 2: "scripts/hooks/_lint_pre_push.sh"
+  # Phase 3: + "scripts/hooks/_lint_fast.sh", ".github/workflows/pr-fast.yml"
+]
+
+# Change-classification regexes used by the pre-push hook + CI's
+# `classify` job to gate condition-driven jobs.  These MUST be kept
+# in lockstep across consumers; the drift detector grep's for them.
+[classification]
+rust = '\.rs$'
+dep = '^(.*Cargo\.toml$|Cargo\.lock$|supply-chain/)'
+infra = '^(\.github/|scripts/|\.cargo/|\.config/|just/|rust-toolchain|clippy\.toml$|rustfmt\.toml$|deny\.toml$|REUSE\.toml$|codecov\.yml$)'
+docs = '\.md$'
+# code = (rust OR dep OR infra) — derived; not a regex
+
+# ─────────────────────────────────────────────────────────────────────
+# Always-on gates — fire regardless of change classification
+# ─────────────────────────────────────────────────────────────────────
+
+[[gate]]
+id = "fmt"
+label = "cargo fmt --check"
+command = ["cargo", "fmt", "--all", "--", "--check"]
+tiers = ["pre-commit", "pre-push", "pr-fast"]
+gate_when = "rust_changed"
+hard = true
+tool = "cargo"
+expected_runtime_secs = 1
+bucket = "bg"
+order = 10
+consumer_names = { "pre-commit" = "fmt-check" }
+notes = """
+Always-on at pre-push; gated on `rust_changed` at pre-commit (which
+is staged-scoped) and at pr-fast (`fmt` job's `if:` condition).
+Legacy: pre-commit hook calls it `fmt-check` (historical); pre-push
+and pr-fast call it `fmt`.  Phase 2/3 codegen will normalise.
+"""
+
+[[gate]]
+id = "file-size"
+label = "file-size policy"
+command = ["bash", "scripts/ci/check_file_size_policy.sh"]
+tiers = ["pre-commit", "pre-push", "pr-fast"]
+gate_when = "always"
+hard = true
+tool = "bash"
+expected_runtime_secs = 1
+bucket = "bg"
+order = 20
+notes = """
+Enforces the workspace's 800-LOC-per-Rust-file policy with a
+documented exception list at `scripts/ci/file_size_exceptions.txt`.
+"""
+
+[[gate]]
+id = "gates-drift"
+label = "Gate-manifest drift detector"
+command = ["bash", "scripts/ci/check_gates_drift.sh"]
+tiers = ["pre-push", "pr-fast"]
+gate_when = "always"
+hard = true
+tool = "bash"
+expected_runtime_secs = 1
+bucket = "bg"
+order = 25
+notes = """
+Phase 1 of `docs/architecture/gates-manifest-plan.md`.  Self-referential
+gate that verifies this manifest stays in lockstep with the gate set
+actually defined in `_lint_fast.sh`, `_lint_pre_push.sh`, and
+`pr-fast.yml`.  Bypass once via `BYPASS_GATES_DRIFT=1 git push`
+(mirrors `COMMIT_SUBJECT_BYPASS=1`); CI has no bypass — drift on
+`main` is a deliberate "fix-me-now" signal.
+"""
+
+[[gate]]
+id = "hooks-drift"
+label = "Hook codegen drift detector (acmex-gen-hooks --check)"
+command = [
+  "cargo",
+  "run",
+  "-q",
+  "--release",
+  "-p",
+  "acmex-gen-hooks",
+  "--",
+  "--check",
+]
+tiers = ["pre-push", "pr-fast"]
+gate_when = "always"
+hard = true
+tool = "cargo"
+expected_runtime_secs = 2
+bucket = "bg"
+order = 26
+notes = """
+Phase 2 of `docs/architecture/gates-manifest-plan.md`.  Verifies that
+the on-disk `scripts/hooks/_lint_pre_push.sh` is byte-for-byte equal
+to what `acmex-gen-hooks` would emit from the canonical
+`scripts/ci/gates.toml`.  Catches the failure mode where someone
+manually edits the generated hook (whose AUTO-GENERATED banner
+explicitly warns "MANUAL EDITS WILL BE OVERWRITTEN") instead of
+editing the manifest and regenerating via `just acmex-gen-hooks`.
+
+Pairs with `gates-drift`: the latter ensures the manifest matches
+the *gate set* of every consumer; this one ensures the generator's
+emitted hook matches what the manifest would produce.
+"""
+
+[[gate]]
+id = "workflow-drift"
+label = "Workflow structural drift detector (acmex-gen-workflow --check)"
+command = [
+  "cargo",
+  "run",
+  "-q",
+  "--release",
+  "-p",
+  "acmex-gen-workflow",
+  "--",
+  "--check",
+]
+tiers = ["pre-push", "pr-fast"]
+gate_when = "always"
+hard = true
+tool = "cargo"
+expected_runtime_secs = 2
+bucket = "bg"
+order = 27
+notes = """
+Phase 3 of `docs/architecture/gates-manifest-plan.md`.  Validates four
+structural properties of `.github/workflows/pr-fast.yml` against this
+manifest: (1) every pr-fast-tier gate has a corresponding job, (2) each
+job's `if:` predicate is at least as permissive as the LUB of its
+folded gates' `gate_when` classes, (3) every gate's resolved job-id is
+present in `required.needs:` AND the bash `declare -A R=(...)`
+aggregator, and (4) the `required` job's `name:` is exactly
+`PR Fast CI / required` (the literal string in the repo's
+branch-protection rule).  The `notify-failure.needs:` invariant
+was retired in the Design C refactor for #209 (failure notification
+now lives in `.github/workflows/ci-failure-notify.yml`).  See plan §4.2 for the full property
+specification and the rationale for the structural-validator design
+(vs. the originally-planned YAML emitter).
+
+Pairs with `gates-drift` and `hooks-drift`: each detector covers a
+different drift axis.  `gates-drift` ensures the manifest matches the
+gate-set of every consumer; `hooks-drift` ensures the on-disk pre-push
+hook matches what the generator would emit; `workflow-drift` ensures
+the structural properties of the per-gate jobs in `pr-fast.yml` are
+consistent with the manifest, including the rename-bookkeeping failure
+mode (`required.needs:` / aggregator table) that motivated the whole
+gate-manifest plan.
+"""
+
+[[gate]]
+id = "fast-drift"
+label = "Pre-commit hook codegen drift detector (acmex-gen-hooks --target pre-commit --check)"
+command = [
+  "cargo",
+  "run",
+  "-q",
+  "--release",
+  "-p",
+  "acmex-gen-hooks",
+  "--",
+  "--target",
+  "pre-commit",
+  "--check",
+]
+tiers = ["pre-push", "pr-fast"]
+gate_when = "always"
+hard = true
+tool = "cargo"
+expected_runtime_secs = 2
+bucket = "bg"
+order = 28
+notes = """
+Phase 3a of `docs/architecture/gates-manifest-plan.md`.  Verifies that
+the on-disk `scripts/hooks/_lint_fast.sh` is byte-for-byte equal to
+what `acmex-gen-hooks --target pre-commit` would emit from this manifest.
+A manual edit to the pre-commit hook (or a manifest change without a
+regen) hard-fails this gate at pre-push and CI.
+
+Sibling of `hooks-drift` for the pre-commit tier.  Same `acmex-gen-hooks`
+binary, same `--check` semantics, different `--target` (and therefore
+different output-path).  Lives in the pre-push + pr-fast tiers (NOT
+pre-commit) — running the pre-commit drift detector inside the
+pre-commit hook itself would compile the validator on every commit
+and add unwanted latency to T1 (~sub-2 s budget); pre-push is the
+right place to catch the drift before it reaches the remote.
+"""
+
+[[gate]]
+id = "manifest-drift"
+label = "Workspace manifest-inheritance drift detector (acmex-manifest-audit --check)"
+command = [
+  "cargo",
+  "run",
+  "-q",
+  "--release",
+  "-p",
+  "acmex-manifest-audit",
+  "--",
+  "--check",
+]
+tiers = ["pre-push", "pr-fast"]
+gate_when = "dep_changed"
+hard = true
+tool = "cargo"
+expected_runtime_secs = 2
+bucket = "bg"
+order = 29
+notes = """
+Phase 1 follow-up from
+`docs/dev/architecture/code_clean/phase_1_manifest_implementation_plan.md`
+(local-only) — issue #211.  Encodes the 15 Phase-1 manifest invariants
+(§3 of the plan) as machine-checkable assertions and runs them against
+every member `Cargo.toml`.  Catches the drift class the manual Phase-1
+audit can only detect on the annual cadence: a new crate landing
+without `[lints] workspace = true`, an accidental `edition = "..."`
+override, a `[profile.*]` block sneaking into a member manifest, a
+new path-dep pointing outside `[workspace.members]`, etc.
+
+Gated on `dep_changed` (Cargo.{toml,lock} | supply-chain/) because the
+audit only needs to fire when a manifest actually changes.  Documented
+exceptions (the `KnownExceptions` allow-lists in
+scripts/ci/acmex-manifest-audit/src/audit.rs — empty in the template,
+populated as crates earn documented deviations)
+are hardcoded in the audit with in-code citations — adding a new
+deviation requires updating the exception list AND citing why,
+keeping the gate green on intentional deviations while still firing
+on accidental ones.
+"""
+
+[[gate]]
+id = "commit-subjects"
+label = "Conventional Commits subject validator"
+command = [
+  "bash",
+  "scripts/ci/check_commit_subjects.sh",
+  "range",
+  "{{COMMIT_RANGES}}",
+]
+tiers = ["pre-push"]
+gate_when = "always"
+hard = true
+tool = "bash"
+expected_runtime_secs = 1
+bucket = "bg"
+order = 30
+notes = """
+Validates every non-merge commit subject in the pushed range against
+the SAME Conventional Commits regex CI's
+`.github/workflows/commitlint.yml` runs on the PR title.  Closes the
+local-vs-remote feedback loop that used to surface scope typos like
+`feat(acmex-core, daemon)` only after the workflow had already failed
+upstream.  Bypass via `COMMIT_SUBJECT_BYPASS=1 git push`.
+"""
+
+[[gate]]
+id = "commit-signatures"
+label = "Commit-signature validator"
+command = [
+  "bash",
+  "scripts/ci/check_commit_signatures.sh",
+  "range",
+  "{{COMMIT_RANGES}}",
+]
+tiers = ["pre-push"]
+gate_when = "always"
+hard = true
+tool = "bash"
+expected_runtime_secs = 1
+bucket = "bg"
+order = 31
+notes = """
+Verifies every non-merge commit in the pushed range carries a signature.
+`main` is governed by a `required_signatures` ruleset (plus a merge
+queue), so an unsigned commit passes every other local gate yet is
+rejected at the merge queue — a slow, maximally-late failure after a full
+CI round-trip.  This moves the catch left to ~1 s at push time and points
+at the `just sign-branch` self-heal.  No bypass: an unsigned commit bound
+for `main` will be rejected upstream regardless, so skipping only defers
+the same failure.
+"""
+
+# ─────────────────────────────────────────────────────────────────────
+# Rust-changed gates — fire when *.rs is touched
+# ─────────────────────────────────────────────────────────────────────
+
+[[gate]]
+id = "lint-prod"
+label = "ultra-strict production clippy (--lib --bins)"
+command = ["just", "lint-prod"]
+tiers = ["pre-commit", "pre-push"]
+gate_when = "rust_changed"
+hard = true
+tool = "cargo"
+expected_runtime_secs = 8
+bucket = "seq"
+order = 30
+flag_template = "prod_flags"
+notes = """
+Pedantic + nursery + cargo + unwrap_used + missing_docs_in_private_items.
+NOT in pr-fast (pr-fast's `clippy` job uses `lint-ci`'s --all-targets
+flag stack which subsumes lint-prod's --lib --bins).
+"""
+
+[[gate]]
+id = "lint-tests"
+label = "strict test clippy (--tests, unwrap allowed)"
+command = ["just", "lint-tests"]
+tiers = ["pre-commit", "pre-push"]
+gate_when = "rust_changed"
+hard = true
+tool = "cargo"
+expected_runtime_secs = 8
+bucket = "seq"
+order = 40
+flag_template = "test_flags"
+notes = """
+Same lint base as `lint-prod` with unwrap/expect allowed for test
+code.  Same not-in-pr-fast rationale.
+"""
+
+[[gate]]
+id = "lint-ci"
+label = "CI-mirror clippy (--all-targets -D warnings)"
+command = ["just", "lint-ci"]
+tiers = ["pre-commit", "pre-push", "pr-fast"]
+gate_when = "rust_changed"
+hard = true
+tool = "cargo"
+expected_runtime_secs = 10
+bucket = "seq"
+order = 20
+consumer_names = { "pr-fast" = "clippy" }
+notes = """
+The exact clippy flag stack `pr-fast.yml`'s `clippy` job runs.
+Kept in lockstep manually until Phase 2 codegen lands.
+"""
+
+[[gate]]
+id = "lint-ci-no-default"
+label = "CI-mirror clippy --no-default-features (-D warnings)"
+command = ["just", "lint-ci-no-default"]
+tiers = ["pre-push", "pr-fast"]
+gate_when = "rust_changed"
+hard = true
+tool = "cargo"
+expected_runtime_secs = 30
+bucket = "seq"
+order = 25
+consumer_names = { "pr-fast" = "clippy-no-default" }
+notes = """
+Phase 8e regression guard for issue #295 — feature additivity.
+
+`cargo clippy --workspace --no-default-features --all-targets -- -D warnings`
+catches the class of bug that surfaced post-Phase-8 closeout: items
+reachable only when feature X is on, but not themselves
+`#[cfg(feature = "X")]`-gated.  The existing `lint-ci` gate runs
+`--all-features` which masks the dead-code + unfulfilled-`expect`
+warnings these gaps emit.
+
+Catches the classic regression class: an item only compiled under
+`--no-default-features` (or a non-default feature combination) that
+default-features builds never see — un-gated helpers, stale
+`cfg(feature = ...)` fences, feature-gated `expect` attributes.
+
+Mirrors `lint-ci` in flag stack and `-D warnings` strictness; differs
+only in `--no-default-features` instead of `--all-features`.  Together
+the two gates establish the additivity property: every `pub`/`pub(crate)`
+item reachable only with feature X must compile cleanly both with
+feature X off AND with all features on.
+
+Documented in
+`docs/architecture/code-quality/dependency_policy.md` §2.
+"""
+
+[[gate]]
+id = "rustdoc"
+label = "rustdoc -D warnings"
+command = [
+  "env",
+  "RUSTDOCFLAGS=-Dwarnings",
+  "cargo",
+  "doc",
+  "--workspace",
+  "--all-features",
+  "--no-deps",
+  "--locked",
+  "--document-private-items",
+]
+tiers = ["pre-push", "pr-fast"]
+gate_when = "rust_changed"
+hard = true
+tool = "cargo"
+expected_runtime_secs = 1
+bucket = "seq"
+order = 50
+consumer_names = { "pr-fast" = "docs" }
+notes = """
+Catches broken doc-links, unresolved `[symbol]` references, and any
+intra-doc cross-reference drift.  pr-fast's `docs` job runs both
+this and `doc-tests` in one step.
+
+`--document-private-items` is REQUIRED: without it rustdoc validates
+only links reachable from the public API surface, so a broken
+`[`crate::path::pub_crate_item`]` (or a `//!` shortcut to a private
+sibling) silently renders as dead text instead of failing.  Cross-
+platform — `#[cfg(windows)]` items absent on the macOS/Linux runner
+are written as code spans, not links.
+
+INTENTIONAL: we do NOT add `-D rustdoc::private_intra_doc_links`, and
+this is the desired posture — do not "harden" it in.  `-Dwarnings`
+already denies the whole default warning set; that lint stays quiet
+here because `--document-private-items` documents the internals, so a
+`//!`/public link to a `pub(crate)` sibling is a *valid internal
+cross-reference*, not a leak.  (Verified: `-Dwarnings` +
+`--document-private-items` = 0 warnings; adding an explicit
+`-D rustdoc::private_intra_doc_links` flips 2 such links in
+`acmex-cli/src/main.rs` to errors.)  That lint guards a *published*
+crate's public docs from dangling to items a downstream user cannot
+see — a concern that does not apply to our internal-only doc build.
+Turning it on would force valid internal `[symbol]` links down to
+dead code spans (a doc regression) for zero correctness gain.  The
+real failure class we care about — broken / unresolved links anywhere
+— is already caught by `broken-intra-doc-links` under `-Dwarnings`.
+"""
+
+[[gate]]
+id = "doc-tests"
+label = "cargo test --doc"
+command = [
+  "env",
+  "RUSTDOCFLAGS=-Dwarnings",
+  "cargo",
+  "test",
+  "--doc",
+  "--workspace",
+  "--all-features",
+  "--locked",
+]
+tiers = ["pre-push", "pr-fast"]
+gate_when = "rust_changed"
+hard = true
+tool = "cargo"
+expected_runtime_secs = 14
+bucket = "seq"
+order = 60
+consumer_names = { "pr-fast" = "docs" }
+notes = """
+Phase 1 addition (dev-flow §6.2): actually EXECUTES the `/// ```rust`
+blocks rustdoc only compiled.  CI catches this today, but the local
+gate closes a ~30 s round-trip for broken doctests.  Bundled into
+pr-fast's `docs` job alongside `rustdoc`.
+"""
+
+# ─────────────────────────────────────────────────────────────────────
+# Code-changed gates (rust|dep|infra) — fire when any code class touched
+# ─────────────────────────────────────────────────────────────────────
+
+[[gate]]
+id = "cargo-check"
+label = "cargo check --workspace --all-targets --all-features --locked"
+command = [
+  "cargo",
+  "check",
+  "--workspace",
+  "--all-targets",
+  "--all-features",
+  "--locked",
+]
+tiers = ["pre-push", "pr-fast"]
+gate_when = "code_changed"
+hard = true
+tool = "cargo"
+expected_runtime_secs = 1
+bucket = "seq"
+order = 10
+consumer_names = { "pr-fast" = "sanity" }
+notes = """
+Fastest compile gate; runs FIRST in Bucket 2 so the most likely
+failure class (type errors after a refactor) surfaces before
+clippy / rustdoc / tests pay their setup cost.  `pr-fast.yml`'s
+`sanity` job runs the equivalent.
+"""
+
+[[gate]]
+id = "test-build"
+label = "test compile (nextest --no-run)"
+command = [
+  "cargo",
+  "nextest",
+  "run",
+  "--workspace",
+  "--all-targets",
+  "--all-features",
+  "--no-run",
+  "--locked",
+  "--hide-progress-bar",
+]
+tiers = ["pre-push", "pr-fast"]
+gate_when = "code_changed"
+hard = true
+tool = "cargo-nextest"
+expected_runtime_secs = 4
+bucket = "seq"
+order = 70
+consumer_names = { "pre-push" = "tests" }
+notes = """
+Links every test binary without running it.  Catches `#[cfg(test)]`
+drift, missing dev-deps, and linker-level regressions that
+`cargo clippy --all-targets` (check-only, no linking) misses.
+Legacy: pre-push hook calls it `tests` (the run_seq label is
+`tests` even though the command is `--no-run`); pr-fast calls it
+`test-build`.  Phase 2/3 codegen will normalise.
+"""
+
+[[gate]]
+id = "smoke"
+label = "nextest pre-push-smoke profile"
+command = [
+  "cargo",
+  "nextest",
+  "run",
+  "--workspace",
+  "--profile",
+  "pre-push-smoke",
+  "--locked",
+]
+tiers = ["pre-push"]
+gate_when = "code_changed"
+hard = true
+tool = "cargo-nextest"
+expected_runtime_secs = 9
+bucket = "seq"
+order = 80
+notes = """
+Phase 1 addition (dev-flow §6.X): RUNS a fast unit-test subset
+(~6 s warm).  The template runs the full (tiny) suite; exclude heavy
+integration suites via the pre-push-smoke default-filter in
+.config/nextest.toml as the project grows.  Full suite still runs in CI.
+"""
+
+[[gate]]
+id = "tests"
+label = "full nextest run (PR CI)"
+command = [
+  "cargo",
+  "nextest",
+  "run",
+  "--workspace",
+  "--all-targets",
+  "--all-features",
+  "--locked",
+]
+tiers = ["pr-fast"]
+gate_when = "code_changed"
+hard = true
+tool = "cargo-nextest"
+expected_runtime_secs = 300
+notes = """
+The full test suite, deferred from pre-push (too slow) to PR CI.
+`pre-push` has the `smoke` subset above and `test-build` for compile
+confidence.
+"""
+
+# ─────────────────────────────────────────────────────────────────────
+# Dep-changed gates — fire when Cargo.{toml,lock} or supply-chain/ touched
+# ─────────────────────────────────────────────────────────────────────
+
+[[gate]]
+id = "vet"
+label = "cargo vet check --locked"
+command = ["cargo", "vet", "check", "--locked"]
+tiers = ["pre-push", "pr-fast"]
+gate_when = "dep_changed"
+hard = true
+tool = "cargo-vet"
+expected_runtime_secs = 2
+bucket = "bg"
+order = 40
+consumer_names = { "pr-fast" = "security" }
+notes = """
+HARD-FAIL if `cargo-vet` is missing when Cargo.{toml,lock} or
+supply-chain/** changed.  Closes the CI-only loophole that caused
+PR #43's 4x round-trip.  Soft-skip with install-hint advisory when
+the trigger doesn't fire.  pr-fast's `security` job bundles vet + deny.
+"""
+
+[[gate]]
+id = "vet-audit-discipline"
+label = "cargo-vet exemption-audit discipline"
+command = ["bash", "scripts/ci/check_vet_audit_discipline.sh", "pre-push"]
+tiers = ["pre-push", "pr-fast"]
+gate_when = "dep_changed"
+hard = true
+tool = "bash"
+expected_runtime_secs = 1
+bucket = "bg"
+order = 45
+consumer_names = { "pr-fast" = "security" }
+notes = """
+Four-layer cargo-vet audit-discipline policy (Layer 1 + Layer 4 — see
+`docs/architecture/security/supply-chain-posture.md` §"Mandating
+audits over blanket bumps").  Hard-fails any `[[exemptions.<crate>]]`
+version-bump in the pushed range that is not paired with BOTH (A) a
+matching `[[audits.<crate>]]` delta block in `supply-chain/audits.toml`
+AND (B) a `Vet-Reviewed-Diff: <crate>@<old>-><new>` commit trailer in
+the same range.
+
+Closes the lazy-bump anti-pattern that PR #166 introduced (and PR #170
+manually undid).  The companion `just vet-bump <crate>` recipe (Layer
+2) emits the exact commands an operator needs to run; the
+`supply-chain/` CODEOWNERS line (Layer 3) routes the resulting PR to
+a human reviewer.
+
+Bypass: `BYPASS_VET_AUDIT_DISCIPLINE=1 git push`.  CI has no bypass —
+the gate is hard on `main`.  pr-fast bundles this into the existing
+`security` job alongside `vet` and `deny`.
+"""
+
+[[gate]]
+id = "machete"
+label = "cargo-machete unused-dep check"
+command = ["cargo-machete", "--skip-target-dir"]
+tiers = ["pre-push", "pr-fast"]
+gate_when = "code_changed"
+hard = true
+tool = "cargo-machete"
+expected_runtime_secs = 1
+bucket = "bg"
+order = 47
+consumer_names = { "pr-fast" = "security" }
+notes = """
+Fast AST-based unused-dependency detector.  Greps source for
+`use <crate>` / `<crate>::path` patterns and cross-references the
+`[dependencies]` / `[dev-dependencies]` / `[build-dependencies]`
+sections in every workspace `Cargo.toml`.
+
+Complementary to `cargo-udeps` (Tier 2 weekly) which actually
+compiles the workspace to detect unused deps — `udeps` is more
+accurate (catches deps used only behind `#[cfg]` that machete's
+static grep misses) but multi-minute and nightly-only.  machete
+runs sub-second on stable, fits the pre-push budget cleanly.
+
+Gate fires on any code change (rust / dep / infra) because either
+class can flip machete's verdict: removing the last `use foo` from
+a `.rs` file or adding `foo = "..."` to a `Cargo.toml` without a
+consumer both produce a new finding.
+
+HARD-FAIL with install hint when missing (`cargo install
+cargo-machete` or `cargo binstall cargo-machete`; ~3 MB binary,
+sub-second build via binstall).  pr-fast bundles into the existing
+`security` job alongside `vet` + `deny` + `vet-audit-discipline`.
+
+Invocation form: `cargo-machete` (direct binary) rather than
+`cargo machete` (cargo subcommand dispatch).  Background: cargo
+1.97-nightly + cargo-machete v0.9.1 interact badly when invoked
+via the cargo subcommand wrapper — cargo passes the subcommand
+name `machete` as argv[1], and cargo-machete's gumdrop CLI parser
+treats that leading positional as a path and stops parsing flags
+(so `--skip-target-dir` lands as a second path).  The failure mode
+is silent under `cargo machete --skip-target-dir` in a developer
+terminal (works fine via shell PATH resolution) but reproduces in
+the git pre-push hook context, breaking `just ship-fresh` on the
+2026-05-12 release attempt of v0.5.95.  Direct binary invocation
+bypasses the cargo dispatch entirely — argv becomes
+`["cargo-machete", "--skip-target-dir"]` and `--skip-target-dir`
+is correctly recognised as a flag.  Both forms work in normal
+terminals; the direct form is the form that always works.
+"""
+
+[[gate]]
+id = "deny"
+label = "cargo deny check"
+command = ["cargo", "deny", "check", "--hide-inclusion-graph"]
+tiers = ["pre-push", "pr-fast"]
+gate_when = "dep_changed"
+hard = true
+tool = "cargo-deny"
+expected_runtime_secs = 5
+bucket = "seq"
+order = 90
+consumer_names = { "pr-fast" = "security" }
+notes = """
+Advisories / bans / licences / sources.  Note: cargo-deny does not
+accept --locked (it reads Cargo.lock from disk directly); cargo-vet
+takes --locked on the bucket-1 side.  pr-fast's `security` job
+bundles vet + deny.
+"""
+
+# ─────────────────────────────────────────────────────────────────────
+# Cross-platform gate — Windows lint via cargo-xwin
+# ─────────────────────────────────────────────────────────────────────
+
+[[gate]]
+id = "lint-ci-windows"
+label = "Windows xwin clippy (-D warnings)"
+command = ["just", "lint-ci-windows"]
+tiers = ["pre-push", "pr-fast"]
+gate_when = "code_changed"
+hard = false
+tool = "cargo-xwin"
+expected_runtime_secs = 6
+bucket = "seq"
+order = 100
+consumer_names = { "pr-fast" = "windows-lint" }
+notes = """
+Phase W5.5 + W5.6 of `windows-clippy-and-linux-cross-plan.md` (PR
+#138) upgraded this from `cargo xwin check` (compile-only) to `cargo
+xwin clippy -- -D warnings`.
+
+Pre-push hook runs `just lint-ci-windows` (cross-compiled cargo-xwin
+clippy with the strict flag stack).  Soft-skip with install-hint
+when `cargo-xwin` missing (MSVC SDK download is ~400 MB; not all
+contributors want that footprint).
+
+Authoritative gate is `pr-fast.yml::windows-lint` which runs the
+equivalent strict clippy NATIVELY on `windows-latest`.
+"""
+
+# ─────────────────────────────────────────────────────────────────────
+# Optional / advisory gates — soft-skip with install hint
+# ─────────────────────────────────────────────────────────────────────
+
+[[gate]]
+id = "typos"
+label = "typos spell-check"
+command = ["typos", "."]
+tiers = ["pre-commit", "pre-push"]
+gate_when = "always"
+hard = false
+tool = "typos"
+expected_runtime_secs = 1
+bucket = "bg"
+order = 50
+notes = """
+Cheap workspace-wide spell-check.  Soft-skip with install hint when
+`typos` is missing (dev-loop nicety, not a hard prerequisite).
+"""
+
+[[gate]]
+id = "reuse"
+label = "reuse SPDX header check"
+command = ["reuse", "lint", "--quiet"]
+tiers = ["pre-commit", "pre-push"]
+gate_when = "always"
+hard = false
+tool = "reuse"
+expected_runtime_secs = 1
+bucket = "bg"
+order = 60
+notes = """
+SPDX licence header compliance.  Soft-skip with `pipx install reuse`
+hint when missing.
+"""
+
+[[gate]]
+id = "taplo"
+label = "taplo TOML format check (staged scope)"
+command = ["taplo", "fmt", "--check", "{{STAGED_TOML}}"]
+tiers = ["pre-commit"]
+gate_when = "always"
+hard = false
+tool = "taplo"
+expected_runtime_secs = 1
+bucket = "bg"
+order = 70
+notes = """
+Pre-commit only — `*.toml` staged-scope.  At pre-push there is no
+staged set; running over the whole workspace surfaces pre-existing
+TOML drift that is out of scope for the push being validated.
+"""
+
+[[gate]]
+id = "vet-fmt"
+label = "cargo-vet config format check"
+command = ["bash", "scripts/hooks/_check_vet_fmt.sh"]
+tiers = ["pre-commit"]
+gate_when = "always"
+hard = true
+tool = "bash"
+expected_runtime_secs = 1
+bucket = "bg"
+order = 80
+notes = """
+Catches `cargo vet` config drift (missing newlines, etc.) before
+push.  Hard at pre-commit only — at pre-push the `vet` gate already
+checks the same constraints transitively.
+"""

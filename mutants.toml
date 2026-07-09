@@ -1,0 +1,66 @@
+# SPDX-FileCopyrightText: 2025-2026 Acmex Placeholder LLC.
+# SPDX-License-Identifier: MPL-2.0
+
+# ─────────────────────────────────────────────────────────────────────────────
+# cargo-mutants configuration (consumed by the weekly tier-2 `mutants`
+# job; see `docs/policies/lint-posture.md` for the tier rationale).
+#
+# Default repo-root config consulted by both:
+#   * Tier 2 weekly `.github/workflows/tier-2.yml::mutants` (CI)
+#   * Maintainer ad-hoc `cargo mutants` invocations (local)
+#
+# Both call paths inherit the same exclusion / args / timeout policy
+# so the local-vs-CI delta is exactly the runner-environment shape
+# (parallelism, output retention) — not the test selection.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Pass --locked through to every cargo invocation cargo-mutants
+# spawns (baseline + each mutant).  Matches `§2.8` workspace-wide
+# convention: every CI test invocation locks the resolver to the
+# committed `Cargo.lock` so the mutant comparison is genuinely
+# isolating the source mutation, not a lockfile drift.
+additional_cargo_args = ["--locked"]
+
+# 2.0x baseline runtime as the per-mutant timeout (default is 5.0x
+# + a 20 s floor).  Tighter so an infinite-loop mutation (the
+# canonical pathological case — e.g. `while i < n` mutated to
+# `while i <= n` in code that breaks on equality) fails fast
+# instead of consuming the whole job budget.  With a fast baseline
+# suite (a few seconds warm), 2.0x + the 20 s minimum floor gives a
+# roughly 20-30 s per-mutant ceiling.
+timeout_multiplier = 2.0
+
+# Skip mutations that are statistically un-useful for safety-
+# critical-path analysis.  Each entry is justified individually
+# below; do NOT broaden without a comment-driven explanation of
+# why the mutation class is genuinely uninteresting.
+#
+# Documentation entries: mutating doc strings is never useful.
+# Test bodies: a test body mutation rarely teaches anything about
+# the system-under-test; if the test relies on a specific value,
+# the assertion will catch the mutation, but the diagnostic value
+# is low and the runtime cost dominates.
+exclude_globs = [
+  # Test modules embedded in lib source (`#[cfg(test)]`
+  # mod tests {} blocks).  cargo-mutants already
+  # skips `#[cfg(test)]` items by default for mutation generation,
+  # but listing the test-file glob too gives belt-and-suspenders
+  # defence against accidentally regressing the skip behaviour in
+  # a future cargo-mutants release.
+  "**/tests/**",
+  "**/*_test.rs",
+  "**/test_*.rs",
+]
+
+# Skip mutating function bodies whose visibility is `pub` but
+# annotated `#[cfg(not(test))]` shims around an FFI / OS-call
+# boundary.  These are not "logic" — they're integration glue and
+# their tests live elsewhere (smoke tests, integration suites).
+# Leaving these unmutated keeps the signal focused on actual
+# decision logic.
+exclude_re = [
+  # Constructors that just `Self { ... }` — mutating the field
+  # ordering / values produces noise that the type checker would
+  # catch anyway.
+  "fn new[A-Z_].*\\{ Self \\{",
+]

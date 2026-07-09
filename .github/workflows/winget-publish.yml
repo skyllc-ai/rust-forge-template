@@ -1,0 +1,122 @@
+# SPDX-License-Identifier: MPL-2.0
+# Copyright (c) 2025-2026 Acmex Placeholder LLC.
+#
+# WinGet Publish — auto-submit the winget-pkgs manifest on every release.
+#
+# When `release.yml` finishes and publishes a non-draft, non-prerelease
+# GitHub Release (it sets `draft: false`, `prerelease: false`), GitHub
+# emits a `release: released` event.  This workflow reacts to that event
+# and uses `winget-releaser` (komac under the hood) to open a pull
+# request against microsoft/winget-pkgs that bumps `AcmexOrg.Acmex` to the
+# new version.
+#
+# The action clones the *previous* version's manifest as a template and
+# updates only the version, installer URL, SHA256, and release date — so
+# the nested-installer structure (InstallerType: zip / NestedInstallerType:
+# portable, the PortableCommandAlias `acmex`) carries over automatically
+# with no manifest authoring on our side.
+#
+# NOTE: komac PRESERVES NestedInstallerFiles across version bumps but
+# does NOT auto-add executables it finds in the zip.  If additional
+# workspace binaries are ever bundled into the zip, their aliases must
+# be seeded into the winget manifest once (the donor project automated
+# this with a seeder script; re-add one when the need arises).
+#
+# ── Required secret ──────────────────────────────────────────────────
+# `WINGET_TOKEN` — a **classic** Personal Access Token with the
+# `public_repo` scope (fine-grained tokens that can fork + push to
+# microsoft/winget-pkgs also work).  The default `GITHUB_TOKEN` CANNOT
+# be used: it has no permission to fork an external repo or push the
+# manifest branch.  Create it under the maintainer account that owns the
+# winget-pkgs fork (the same account that hand-submitted PR
+# microsoft/winget-pkgs#378294 for v0.5.102), then add it at
+# Settings → Secrets and variables → Actions → New repository secret.
+
+name: 📦 WinGet Publish
+
+run-name: 📦 WinGet ${{ inputs.release-tag }}
+
+# `workflow_dispatch` ONLY — deliberately NOT `on: release`.
+#
+# A GitHub Release published by `release.yml` using the default
+# `GITHUB_TOKEN` does **not** emit a `release` event: GitHub suppresses
+# event cascades from `GITHUB_TOKEN`-authored actions to prevent
+# workflow-trigger loops.  So an `on: release:` trigger here would
+# NEVER fire from our release pipeline — it was dead config.
+#
+# Instead, `release.yml`'s `submit-winget` job explicitly dispatches
+# this workflow via `gh workflow run` once the release is published
+# (the documented `GITHUB_TOKEN` → `workflow_dispatch` exception, which
+# IS permitted).  `release-tag` is therefore always supplied; this is
+# also the manual re-submit entry point if a release predates the
+# automation or a previous run failed (e.g. expired token).
+on:
+  workflow_dispatch:
+    inputs:
+      release-tag:
+        description: 'Git tag to publish to WinGet (e.g. v0.5.102)'
+        required: true
+        type: string
+
+# Serialise submissions so two releases landing close together queue
+# cleanly instead of racing to open competing winget-pkgs PRs.
+concurrency:
+  group: winget-publish-${{ inputs.release-tag }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Submit winget-pkgs manifest
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Dormancy guard: inert until the repo variable LANE_WINGET is set
+    # to 'true'.  Never run from forks — only the canonical repo holds
+    # WINGET_TOKEN.
+    if: vars.LANE_WINGET == 'true' && github.repository_owner == 'acmex-org'
+    steps:
+      # Graceful no-op when the token is absent: warn (not ❌) so a
+      # missing/rotated secret never shows as a hard failure.  The
+      # weekly `winget-token-expiry-check.yml` is the durable alarm for
+      # this condition; here we just skip cleanly.  `outputs.present`
+      # gates the submit step below.
+      - name: Check WINGET_TOKEN is configured
+        id: token
+        env:
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+        shell: bash
+        run: |
+          if [[ -z "${WINGET_TOKEN:-}" ]]; then
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=WINGET_TOKEN missing::Skipping winget-pkgs submission for ${{ inputs.release-tag }} — set the WINGET_TOKEN secret, then re-run this workflow manually."
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Submit manifest to winget-pkgs
+        if: steps.token.outputs.present == 'true'
+        uses: vedantmgoyal9/winget-releaser@4ffc7888bffd451b357355dc214d43bb9f23917e # v2
+        with:
+          identifier: AcmexOrg.Acmex
+          # Match the Windows ZIP asset uploaded by release.yml. The
+          # action derives the package version from the release tag,
+          # stripping the leading `v` (v0.5.102 → 0.5.102).
+          installers-regex: 'acmex-windows-x64\.zip$'
+          release-tag: ${{ inputs.release-tag }}
+          # The account that owns the microsoft/winget-pkgs fork komac
+          # pushes the manifest branch to.  MUST match the account that
+          # owns WINGET_TOKEN — i.e. the maintainer who submitted the
+          # original PR microsoft/winget-pkgs#378294, NOT the `acmex-org`
+          # org (the action's default `github.repository_owner`, which
+          # has no winget-pkgs fork).
+          fork-user: acmex-owner
+          token: ${{ secrets.WINGET_TOKEN }}
+
+      # NOTE: the donor project had an additional "Seed nested aliases"
+      # step here that pushed extra PortableCommandAliases into the komac
+      # PR for its multi-binary zip.  The template ships a single binary
+      # (`acmex`), whose alias komac carries over from the previous
+      # manifest, so no seeding is needed.  Re-add a seeder step if the
+      # zip ever bundles more than one executable.

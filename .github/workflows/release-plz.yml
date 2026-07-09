@@ -1,0 +1,412 @@
+# SPDX-FileCopyright (c) 2025-2026 Acmex Placeholder LLC.
+# SPDX-License-Identifier: MPL-2.0
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Release-plz — release-PR / tag automation + OIDC crates.io publishing.
+#
+# What this does:
+#
+#   On `workflow_dispatch` (manual release-pr mode), this workflow runs
+#   the official `release-plz/action` in its default two-step mode:
+#
+#     1. release-pr — open or update a release PR titled
+#                     `chore: release vX.Y.Z` containing the proposed
+#                     workspace version bump and the regenerated
+#                     CHANGELOG.md entries.  Idempotent: if the PR
+#                     already exists with the same plan, no-op.
+#
+#     2. release    — runs ONLY when the head commit is the squash-
+#                     merge of the release PR (release-plz detects
+#                     this by inspecting the commit subject + the
+#                     `pr_branch_prefix = "release-plz-"` marker
+#                     from `release-plz.toml`).  In that case it
+#                     creates the `vX.Y.Z` git tag and the matching
+#                     GitHub Release.  Tag push triggers
+#                     `release.yml` which builds + uploads the
+#                     platform binaries, CHECKSUMS, SBOMs.
+#
+#   A third job (`crates-io-publish`) publishes the publishable-crate
+#   set to crates.io via OIDC trusted publishing on `v*` tag pushes /
+#   `publish_tag` dispatches — see its comment block below.
+#
+# Publishing dormancy:
+#
+#   `cargo publish` does NOT run from the release-plz action itself:
+#
+#     1. `release-plz.toml` workspace `publish = false` (first layer).
+#     2. No `CARGO_REGISTRY_TOKEN` env var passed to the action
+#        (second layer).  release-plz/action documents that without
+#        this token it skips publishing entirely and only does the
+#        PR / tag / Release operations.
+#
+# Why `release-plz/action` and not the manual CLI:
+#
+#   The action handles two pieces of book-keeping the manual CLI
+#   doesn't:
+#
+#     1. Detection of "is this push the merge of the release PR?" —
+#        needed to decide between `release-pr` and `release`.  The
+#        action checks the head-commit subject and the previous
+#        release PR's merged state via the GitHub API.  Doing this
+#        manually would require ~30 lines of bash.
+#
+#     2. Idempotency: if the same proposed plan is pushed twice
+#        (e.g. CI retry), the action no-ops instead of opening a
+#        duplicate PR or creating a duplicate tag.
+#
+# Two-job structure (matches release-plz's own recommended workflow):
+#
+#   release-plz/action does NOT have a single "do both" command —
+#   the action's `command:` input takes EITHER `release-pr` OR
+#   `release`, never both at once.  release-plz docs and the
+#   release-plz repo's OWN release-plz.yml use TWO separate jobs:
+#
+#     1. release-plz-pr   (command: release-pr) — runs on every push,
+#                          opens or updates the release PR.
+#     2. release-plz-release (command: release) — runs on every push,
+#                          but no-ops unless HEAD is the merge of the
+#                          release PR (release-plz detects this
+#                          internally; non-merge runs exit cleanly).
+#
+#   We mirror that structure here.  Both jobs are nearly identical
+#   apart from the `command:` value and per-job `permissions:`.
+#
+# ─── Downstream workflow trigger limitation (DOCUMENTED, not blocked) ───
+#
+# When release-plz creates a tag (`vX.Y.Z`) using the default
+# `GITHUB_TOKEN`, the resulting tag push DOES NOT trigger
+# `release.yml` (which has `on: push: tags: [v*]`).  This is by
+# GitHub's anti-loop design — actions triggered by GITHUB_TOKEN can
+# create refs but those refs don't fire downstream workflows.
+#
+# Workarounds, in order of preference (deferred to a follow-up PR):
+#
+#   A. GitHub App token — the canonical fix per release-plz docs.
+#      Requires creating a GitHub App, installing it on the repo,
+#      and storing `APP_ID` + `APP_PRIVATE_KEY` as secrets.  This is
+#      what the release-plz repo itself uses.
+#   B. Personal Access Token (PAT) stored as `RELEASE_PLZ_TOKEN`
+#      secret — simpler but ties release authority to a person.
+#   C. `release.yml` adds an `on: workflow_run` trigger that fires
+#      after this workflow completes — fully automatic but requires
+#      `release.yml` changes.
+#
+# Until one of those is set up, the maintainer manually pushes the tag
+# (or pushes their own Cargo.toml + CHANGELOG bump for the first
+# release) — that's a user-driven push, NOT a GITHUB_TOKEN push, so
+# `release.yml` fires normally.
+#
+# References:
+#
+#   • https://release-plz.ieni.dev/docs/github/quickstart
+#   • https://release-plz.ieni.dev/docs/usage/release-pr
+#   • https://release-plz.ieni.dev/docs/usage/release
+#   • https://github.com/release-plz/release-plz/blob/main/.github/workflows/release-plz.yml
+
+name: "🚀 Release-plz"
+
+on:
+  # No push.branches:[main] trigger by design — binary releases are cut
+  # manually and on-demand, and release-plz only proposes bumps when
+  # the PUBLISHED crates' files change, which makes it the wrong driver
+  # for binary releases.  A normal merge to `main` intentionally
+  # triggers no release.  The OIDC `crates-io-publish` job below runs
+  # in two ways:
+  #   * a real `v*` tag push, and
+  #   * a `workflow_dispatch` with `publish_tag` set — how `release.yml`'s
+  #     `submit-crates` job fires it after a release.  The release tag is
+  #     created by GITHUB_TOKEN, which by GitHub anti-loop policy does NOT
+  #     trigger the `push: tags` event, so the automated path must dispatch —
+  #     exactly like `submit-winget` dispatches winget-publish.yml.
+  # The release-pr / release jobs stay workflow_dispatch-only AND only run
+  # when `publish_tag` is empty (manual release-pr mode), so a crates-publish
+  # dispatch runs only the publish job.
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      publish_tag:
+        description: 'Release tag to publish to crates.io (set by release.yml submit-crates; empty = manual release-pr mode).'
+        required: false
+        default: ''
+
+# Default to ZERO permissions; each job grants only what it needs.
+# Matches the release-plz repo's own workflow shape.
+permissions: {}
+
+env:
+  # sccache is configured for local dev via .cargo/config.toml
+  # (`rustc-wrapper = "sccache"`); the GitHub-hosted runners don't
+  # have it installed, so release-plz's internal `cargo package`
+  # invocation dies with "could not execute process `sccache ...`
+  # (never executed)".  An empty RUSTC_WRAPPER defeats the config
+  # value without touching .cargo/config.toml (which would hurt
+  # local dev UX).  Mirrors the same guard in pr-fast.yml.
+  RUSTC_WRAPPER: ""
+  # Match local policy (.cargo/config.toml sets `incremental = false`)
+  # so green-locally ↔ green-in-CI, and so sccache's CARGO_INCREMENTAL
+  # refusal can't resurface here.
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  # ────────────────────────────────────────────────────────────────
+  # Release PR job — opens/updates the release PR on every push.
+  # ────────────────────────────────────────────────────────────────
+  release-plz-pr:
+    name: Release-plz / release-pr
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # Dormancy guard: inert until the repo variable LANE_RELEASE_PLZ is
+    # set to 'true'.  Skip on forks (fork PRs can't access the repo's
+    # secrets and would produce noisy "permission denied" runs).
+    # Restricted to workflow_dispatch: the `v*` tag trigger is reserved
+    # for the crates-io-publish job, so the release-pr job must not run
+    # on a tag push.
+    if: vars.LANE_RELEASE_PLZ == 'true' && github.repository_owner == 'acmex-org' && github.event_name == 'workflow_dispatch' && inputs.publish_tag == ''
+
+    # Push branch + open/update PR.  Granted at job level so the
+    # release job below can run with a tighter (no pull-requests)
+    # permission set.
+    permissions:
+      contents: write
+      pull-requests: write
+
+    # Serialise PR-job runs on the same ref so two close-together
+    # merges don't race on opening / updating the release PR.
+    # `cancel-in-progress: false` because each push deserves a
+    # complete plan refresh.
+    concurrency:
+      group: release-plz-pr-${{ github.ref }}
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout repository (full history for tag analysis)
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          # release-plz needs the full git history to find the latest
+          # tag (`vX.Y.Z`) and walk forward to determine the proposed
+          # version bump.  Shallow clones break this analysis.
+          fetch-depth: 0
+          # The action handles its own auth via the `GITHUB_TOKEN` env
+          # var below — no need to persist credentials in the local
+          # checkout.  Matches release-plz's own workflow shape.
+          persist-credentials: false
+
+      - name: Install pinned nightly (from rust-toolchain.toml)
+        # release-plz internally invokes `cargo package` in worktrees
+        # checked out to past tags, so the toolchain must match what
+        # the rest of CI uses.  `rustup show` reads
+        # `rust-toolchain.toml` and installs the exact channel +
+        # components pinned there.
+        run: rustup show
+
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          # Dedicated cache key — release-plz compiles different things
+          # during `cargo package` per-tag worktrees than the main CI
+          # build, so it gets its own cache.
+          shared-key: release-plz-active-pr
+
+      - name: Run release-plz release-pr
+        # Pinned to commit SHA of the v0.5.128 tag (resolved 2026-05-08)
+        # for supply-chain hygiene.  Bump alongside other action pins
+        # via the standard Dependabot or manual-refresh process.
+        uses: release-plz/action@e8792575c7f2366cf6ff3ccc33ead9ace5b691c7 # v0.5.130
+        with:
+          command: release-pr
+          config: release-plz.toml
+        env:
+          # `contents: write` + `pull-requests: write` granted at job
+          # level; release-plz reads this token to push the release-PR
+          # branch and open / update the PR.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # NO `CARGO_REGISTRY_TOKEN` — `release-pr` doesn't publish
+          # anyway, but keeping the env clean documents intent.
+
+  # ────────────────────────────────────────────────────────────────
+  # Release job — creates tag + GitHub Release on release-PR merge.
+  # ────────────────────────────────────────────────────────────────
+  release-plz-release:
+    name: Release-plz / release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # Dormancy guard (LANE_RELEASE_PLZ) + workflow_dispatch only — the
+    # `v*` tag trigger is reserved for the crates-io-publish job; this
+    # release job must not fire on a tag push (release.yml already
+    # builds binaries from the tag).
+    if: vars.LANE_RELEASE_PLZ == 'true' && github.repository_owner == 'acmex-org' && github.event_name == 'workflow_dispatch' && inputs.publish_tag == ''
+
+    # Tag push only — no PR operations from this job.
+    permissions:
+      contents: write
+
+    # Exposed for the `crates-io-publish` job below: publish only fires
+    # when this run actually cut a release (version bump merged), never
+    # on the no-op pushes where release-plz detects nothing to do.
+    outputs:
+      releases_created: ${{ steps.release-plz.outputs.releases_created }}
+
+    steps:
+      - name: Checkout repository (full history for tag analysis)
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install pinned nightly (from rust-toolchain.toml)
+        run: rustup show
+
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          shared-key: release-plz-active-release
+
+      - name: Run release-plz release
+        # `command: release` no-ops if HEAD is not the merge of the
+        # release PR — release-plz detects this internally.  So this
+        # job runs on every push but only does work when the PR
+        # actually merged.
+        id: release-plz
+        uses: release-plz/action@e8792575c7f2366cf6ff3ccc33ead9ace5b691c7 # v0.5.130
+        with:
+          command: release
+          config: release-plz.toml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # NO `CARGO_REGISTRY_TOKEN` — see "Publishing dormancy"
+          # comment block at the top of this file.  Adding this env
+          # var is the SECOND of TWO layers that must change to
+          # enable publishing from the action itself.
+
+      # Bridge to release.yml — release-plz creates tags via GITHUB_TOKEN
+      # which doesn't trigger downstream workflows (GitHub anti-loop policy).
+      # Explicitly dispatch release.yml to build binaries.
+      - name: Trigger release.yml for binary builds
+        if: steps.release-plz.outputs.releases_created == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Releases created: ${{ steps.release-plz.outputs.releases }}"
+          for release in ${{ steps.release-plz.outputs.releases }}; do
+            tag=$(echo "$release" | jq -r '.tag')
+            gh workflow run release.yml --ref main \
+              -f version="$tag" \
+              -f triggered_by="release-plz[$tag]"
+          done
+
+  # ─────────────────────────────────────────────────────────────────
+  # OIDC Trusted Publishing to crates.io (ACTIVE)
+  # ─────────────────────────────────────────────────────────────────
+  #
+  # Fires on every `v*` release tag (gated by the repo variables
+  # `LANE_RELEASE_PLZ` and `ENABLE_CRATES_IO_PUBLISH`), minting a
+  # short-lived crates.io token via OIDC — no long-lived registry
+  # token is ever stored.
+  #
+  # A repo-variable gate is used instead of a literal `if: false` for
+  # two reasons: (1) actionlint rejects constant `if:` conditions, and
+  # (2) it makes activation a one-click Settings → Variables toggle
+  # rather than a workflow edit + PR cycle.  The gate is a genuine
+  # dormancy switch, NOT a lint-suppression hack — the job still never
+  # runs until the maintainer deliberately sets the variable.
+  #
+  # Activating this automated path requires only:
+  #   1. Configure crates.io crate-level trusted publishers (web UI)
+  #      — Workflow filename `release-plz.yml`, Environment
+  #        `crates.io-publish` (must match `environment:` below exactly)
+  #   2. Create the `crates.io-publish` environment with required
+  #      reviewers (manual approval gate for each published version)
+  #   3. Set repo variables `LANE_RELEASE_PLZ = true` and
+  #      `ENABLE_CRATES_IO_PUBLISH = true`
+  #      (Settings → Secrets and variables → Actions → Variables)
+  #
+  # OIDC replaces the legacy `CARGO_REGISTRY_TOKEN` secret entirely —
+  # no long-lived token is ever stored once trusted publishing is on.
+  #
+  crates-io-publish:
+    name: crates.io / OIDC publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # Three gates, all required:
+    #   1. Repo variable LANE_RELEASE_PLZ=true — the workflow-lane
+    #      dormancy switch.
+    #   2. Repo variable ENABLE_CRATES_IO_PUBLISH=true — the master
+    #      publish switch (unset / any-other-value keeps the job dormant).
+    #   3. A `v*` release-tag push — the ship pipeline (and release.yml)
+    #      cut exactly one such tag per release, so publish fires once
+    #      per released version and never on ordinary pushes.  The
+    #      checkout below resolves to the tag ref, so cargo publishes the
+    #      freshly-released version.  Re-running against an already-live
+    #      version is a harmless no-op-error from crates.io.
+    if: ${{ vars.LANE_RELEASE_PLZ == 'true' && vars.ENABLE_CRATES_IO_PUBLISH == 'true' && (startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.publish_tag != '')) }}
+
+    environment: crates.io-publish
+    permissions:
+      contents: read
+      id-token: write  # Required for OIDC token exchange with crates.io
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          # On a submit-crates dispatch, resolve to the release tag so we
+          # publish exactly that version; on a real `v*` tag push github.ref
+          # is already the tag.
+          ref: ${{ inputs.publish_tag || github.ref }}
+
+      - name: Install Rust (nightly toolchain)
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          shared-key: crates-io-publish
+
+      # OIDC debug — verify token is available before attempting publish
+      - name: Verify OIDC token availability
+        run: |
+          echo "OIDC token endpoint: $ACTIONS_ID_TOKEN_REQUEST_URL"
+          echo "OIDC request token available: ${{ secrets.ACTIONS_ID_TOKEN_REQUEST_TOKEN != '' }}"
+
+      # Mint a short-lived crates.io token via OIDC trusted publishing.
+      # No long-lived CARGO_REGISTRY_TOKEN secret is ever stored — the
+      # token is exchanged at runtime against the trusted-publisher
+      # registrations on crates.io (one per publishable crate, bound to
+      # this workflow filename + the `crates.io-publish` environment).
+      - name: Authenticate with crates.io (OIDC)
+        id: auth
+        uses: rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18 # v1.0.5
+
+      # Publish the publishable crates, dependency-ordered.  The set is
+      # derived from `cargo metadata` (publish != []) so it adapts as
+      # crates flip to publishable — today the template has NO
+      # publishable crates (workspace-level `publish = false` default),
+      # so the loop below no-ops until a crate opts in.
+      #
+      # `cargo publish` is a no-op-error if the version already exists,
+      # so in steady state release-plz bumps the version first; this job
+      # then publishes the freshly bumped version.  `--locked` enforces
+      # the committed Cargo.lock.  `--no-verify` is intentionally NOT
+      # used — we want the pre-upload build to catch packaging errors.
+      - name: Publish to crates.io (OIDC, dependency-ordered)
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+        run: |
+          set -euo pipefail
+          mapfile -t crates < <(
+            cargo metadata --no-deps --format-version 1 \
+              | jq -r '.packages[] | select(.publish != []) | .name' \
+              | sort
+          )
+          echo "Publishable crates: ${crates[*]}"
+          for crate in "${crates[@]}"; do
+            echo "::group::cargo publish -p ${crate}"
+            cargo publish -p "${crate}" --locked
+            echo "::endgroup::"
+          done

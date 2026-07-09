@@ -1,0 +1,252 @@
+# SPDX-FileCopyright (c) 2025-2026 Acmex Placeholder LLC.
+# SPDX-License-Identifier: MPL-2.0
+#
+# Release-cache warming.
+#
+# Why this workflow exists (issue #132):
+#
+#   `release.yml` saves a `v0-rust-release-${target}-…` cache at the end
+#   of every release run.  In principle the next release should restore
+#   it via Swatinem/rust-cache's automatic prefix-fallback (matching
+#   `v0-rust-release-${target}-${OS}-${arch}-`).  In practice every
+#   release reported `No cache found` because:
+#
+#     1. Releases are weekly-ish.  Each `just ship` runs `cargo update`,
+#        producing a different `Cargo.lock` hash and a different
+#        `Cargo.toml`-version-hash.  Exact-key match misses every time.
+#     2. Prefix-fallback would still find the previous release's cache
+#        — but **only if it still exists**.  GitHub Actions evicts
+#        caches via LRU at the 10-GB-per-repo cap, and unconditionally
+#        deletes them 7 days after their last access.  A weekly release
+#        cadence collides with the 7-day TTL: by the time `release.yml`
+#        runs again, the previous release's cache has been deleted, so
+#        prefix-fallback finds nothing.  Each release ships a
+#        from-scratch ~30-min build.
+#
+#   This workflow refreshes the same `release-${target}` cache on every
+#   `Cargo.lock`/`Cargo.toml`/`crates/**` push to `main`, plus a weekly
+#   schedule.  Both restore the cache (resetting its access-time so
+#   LRU/TTL eviction stops counting against it) and re-save it (so any
+#   newer dep code lands in the cache).  When `release.yml` next runs
+#   on a tag-dispatch from `auto-tag-release.yml`, the cache is fresh
+#   on `refs/heads/main` and prefix-fallback restores it.
+#
+#   Why not extend `release.yml` to also trigger on main pushes:
+#
+#     `release.yml` is the single source of truth for "did this version
+#     ship".  Adding a `push: branches: main` trigger there couples the
+#     warm-cache job to the production release flow's `concurrency:`
+#     group, `permissions:`, OIDC token issuance, and SLSA attestation
+#     scaffolding — none of which apply to a cache-warm run, all of
+#     which would have to be carefully gated.  A separate workflow
+#     keeps the contract clean: `release.yml` ships releases,
+#     `release-cache-warm.yml` keeps its caches hot.
+#
+# Cost calibration:
+#
+#   ~3 × 45 min CI per trigger × ~weekly Cargo.lock-touching pushes
+#   plus a weekly cron = ~5-10 hours/week on the public-repo free
+#   minutes.  Worth it: every release saves the same amount in
+#   wall-clock time (~30 min × 3 platforms = ~90 min cold-build per
+#   release), and the cache also accelerates failure-recovery re-runs
+#   of `release.yml` itself.
+
+name: 🔥 Release cache warm
+
+on:
+  push:
+    branches: [main]
+    paths:
+      # Only re-warm when something a release-mode build cares about
+      # changes.  Pure-docs / scripts / CHANGELOG-only changes don't
+      # invalidate the cache, so they shouldn't re-trigger a 45-min
+      # compile per platform.  Mirror the file set against
+      # `release.yml`'s `cargo build --workspace --bins` — anything
+      # that influences that command's input set must be listed here.
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'crates/**'
+      - 'rust-toolchain.toml'
+      - '.cargo/config.toml'
+      # Also re-trigger if THIS workflow changes (so a config tweak
+      # to the warming logic re-runs against current main).
+      - '.github/workflows/release-cache-warm.yml'
+  schedule:
+    # Weekly cron — Monday 05:00 UTC.  Belt-and-suspenders for periods
+    # of dependency stability when no `Cargo.lock`-touching pushes
+    # happen for >7 days (the GitHub Actions cache TTL).  Without this,
+    # a 7-day quiet stretch would let every release-${target} cache
+    # age out, and the next release would pay the full cold-build tax.
+    - cron: '0 5 * * 1'
+  workflow_dispatch:
+    # Manual re-trigger.  Useful after rotating the cache (e.g. after
+    # a `cargo update` storm) when the operator wants the cache fresh
+    # on `main` before pushing the next release tag.
+
+# Cancel older in-flight warm runs when a new commit lands.  Cache-warm
+# is best-effort by design — only the latest commit's cache state is
+# interesting.  `release.yml` runs are NOT in this concurrency group,
+# so a tag-dispatched release won't be canceled by a same-time main
+# push.
+concurrency:
+  group: release-cache-warm-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  # Read repo contents.  No write scope — this workflow ships nothing.
+  contents: read
+  # Cache read/write happens via the actions/cache backend, not via
+  # the `actions:` permission scope.  Documented here for explicitness.
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  # Override `.cargo/config.toml`'s `rustc-wrapper = "sccache"` setting
+  # for the same reason `release.yml` does — sccache isn't preinstalled
+  # on GitHub-hosted runners and would crash every `cargo` invocation
+  # at exec time.  Empty `RUSTC_WRAPPER` disables the wrapper without
+  # touching `config.toml`.
+  RUSTC_WRAPPER: ""
+
+jobs:
+  warm:
+    # Mirrors `release.yml::build-release-binaries`'s matrix exactly.
+    # If you add or change a target there, change it here too —
+    # otherwise the new target's cache will not be warmed and its
+    # release runs will pay the cold-build tax.
+    name: 🔥 Warm ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    # Dormancy guard: cache-warming only makes sense once the release
+    # lane itself is enabled (repo variable LANE_RELEASE = 'true').
+    if: vars.LANE_RELEASE == 'true'
+    timeout-minutes: ${{ matrix.timeout }}
+    # Cache-warming is best-effort by design (see header comment).  A
+    # transient runner-image flake on any single target should not show
+    # the workflow as ❌ in PR checks / branch protection — only the
+    # release pipeline that consumes the warmed cache matters for
+    # release correctness.  Real regressions still surface via the
+    # workflow's run history and the per-job summary table.
+    continue-on-error: true
+    env:
+      RUSTFLAGS: ${{ matrix.rustflags }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            rustflags: "-C target-cpu=x86-64-v3"
+            timeout: 75
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            rustflags: "-C target-cpu=apple-m1 -C link-arg=-Wl,-dead_strip"
+            timeout: 45
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-22.04
+            rustflags: "-C target-cpu=x86-64-v3 -C link-arg=-Wl,--gc-sections"
+            timeout: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Free up disk space (Linux only)
+        if: runner.os == 'Linux'
+        run: |
+          # Same recovery as `release.yml` — Polars + ring + LTO=fat
+          # exhausts ubuntu-22.04's default 14-GB free-budget.
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+          sudo rm -rf /usr/local/share/boost /usr/local/graalvm
+          df -h /
+
+      - name: Install pinned nightly (from rust-toolchain.toml)
+        shell: bash
+        run: |
+          # `rustup show` reads `rust-toolchain.toml` and installs the
+          # exact channel + components pinned there.
+          rustup show
+
+          # Defensive: on `macos-latest` runner images the
+          # `~/.cargo/bin/cargo` proxy is occasionally a stale symlink
+          # pointing at `rustup-init` (the installer) instead of the
+          # proxy that forwards to the active toolchain's real cargo.
+          # When that happens, every subsequent `cargo build` /
+          # `cargo metadata` exits with `error: unexpected argument
+          # 'build' found` and a `rustup_init::run_rustup_inner`
+          # backtrace.  Forcibly re-setting the default toolchain
+          # rewrites the proxy binaries in `~/.cargo/bin`, so the
+          # symlinks resolve to the active toolchain's cargo.
+          rustup default "$(rustup show active-toolchain | awk '{print $1}')"
+
+          # Fail-fast smoke check: surface a broken proxy in ~1 s here
+          # instead of letting Swatinem/rust-cache's `cargo metadata`
+          # (and then a 30+ min `cargo build`) silently waste runner
+          # minutes before failing on the same root cause.
+          cargo --version
+          rustc --version
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          # MUST match `release.yml::build-release-binaries`'s shared-key
+          # exactly so this workflow's saves are reachable from
+          # release.yml's cache-restore step.
+          shared-key: release-${{ matrix.target }}
+          # Save even on a partial / failed build so a slow-evolving
+          # cache still progresses toward warm rather than alternating
+          # between empty and populated.
+          cache-on-failure: 'true'
+
+      - name: Repair rustup proxy after cache restore (macOS guard)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          # Mirrors `release.yml`'s same-named step — see that workflow
+          # for the full rationale.  Summary: `Swatinem/rust-cache`
+          # restores `~/.cargo/bin/` from a prior run's cache, which on
+          # `macos-latest` can hold a poisoned `cargo` symlink pointing
+          # at `rustup-init` instead of the toolchain proxy.  Re-running
+          # `rustup default` *after* the restore rewrites the proxy so
+          # the subsequent `cargo build` reaches the real cargo.
+          #
+          # Without this step the cache-warm workflow itself would re-
+          # save the poisoned cache on every macOS run, perpetuating
+          # the regression that broke release pipeline #97 / v0.5.98.
+          # Fixing it here lets the next successful warm run save a
+          # clean cache that `release.yml` can consume.
+          rustup default "$(rustup show active-toolchain | awk '{print $1}')"
+          cargo --version
+
+      - name: Pre-warm release-mode build cache
+        shell: bash
+        run: |
+          echo "🔥 Warming release cache for ${{ matrix.target }}"
+          echo "   RUSTFLAGS=$RUSTFLAGS"
+
+          # Identical invocation to `release.yml::build-release-binaries`.
+          # If that command's flags ever diverge from this one, the cache
+          # produced here will still hit on key but might not match the
+          # actual artifact set release.yml needs — keep them aligned.
+          # `--locked` per the workspace's §2.8 policy.
+          #
+          # Single auto-retry on failure absorbs GitHub-runner-image
+          # flakes (transient network blips during dep download,
+          # occasional rustup proxy regressions on macos-latest that
+          # the Install-step's repair didn't catch, etc.) without
+          # making release pipeline maintainers babysit re-runs.  The
+          # 10-s sleep lets transient network state recover before the
+          # second attempt.
+          set +e
+          for attempt in 1 2; do
+            cargo build --locked --release --target ${{ matrix.target }} \
+              --workspace --bins
+            rc=$?
+            if [[ $rc -eq 0 ]]; then
+              echo "✅ Cache warmed for ${{ matrix.target }} on attempt $attempt"
+              exit 0
+            fi
+            echo "::warning::cargo build for ${{ matrix.target }} failed on attempt $attempt (exit $rc); retrying after 10s..."
+            sleep 10
+          done
+          echo "::error::cargo build for ${{ matrix.target }} failed twice; giving up."
+          exit 1

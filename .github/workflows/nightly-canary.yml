@@ -1,0 +1,148 @@
+# SPDX-FileCopyrightText: 2025-2026 Acmex Placeholder LLC.
+# SPDX-License-Identifier: MPL-2.0
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# nightly-canary — early-warning probe against the LATEST floating nightly.
+#
+# "Pin the gate; float the canary."
+#
+# Every other workflow installs the *pinned* toolchain from
+# `rust-toolchain.toml` via `rustup show` — that pin is the single
+# source of truth and the merge gate.  This workflow deliberately does
+# the opposite: it installs the newest available nightly and builds +
+# clippies the workspace against it on BOTH Linux and Windows.  The goal
+# is to learn that an upcoming nightly will break us *before* a
+# `just toolchain-sync` pin bump runs into it, rather than discovering
+# the regression mid-bump (the exact pain that produced the stale
+# `rust-toolchain.toml` rationale block — see that file's history note
+# and the ethnum 1.5.2 E0512 episode).
+#
+# Non-blocking by construction:
+#
+#   * Trigger is `schedule` + `workflow_dispatch` only — it is NEVER part
+#     of the PR path and NEVER added to the `main-protection` ruleset's
+#     required checks (`PR Fast CI / required`).  A red canary therefore
+#     cannot block any merge.
+#   * Crucially it does NOT use `continue-on-error`: the job fails
+#     honestly so that `ci-failure-notify.yml` (which only fires on
+#     `conclusion == 'failure'`) catches it and files a tracking issue.
+#     Non-blocking comes from *not being a required check*, not from
+#     swallowing the failure — the same model tier-2 uses.
+#
+# Coverage rationale (mirrors the PR-path clippy matrix):
+#
+#   * Linux + Windows + macOS all run, because `#[cfg(target_os = "…")]`
+#     / `#[cfg(unix)]`-but-Darwin-specific code is stripped on the other
+#     host targets and would otherwise escape the probe (the platform-
+#     gated-lint gap noted in the acmex-products OSS sync report §6 — e.g.
+#     the macOS-only `~/Library/Logs/acmex` log-dir branch).
+#   * macOS gets its OWN canary leg rather than relying on local dev:
+#     maintainers' Macs run the *pinned* toolchain (rust-toolchain.toml),
+#     NOT the floating nightly, so they don't actually exercise
+#     tomorrow's compiler — which is the whole point of this workflow.
+#
+# Both jobs use the SAME strict flag stack as `pr-fast.yml`'s clippy
+# jobs (`--workspace --all-targets --all-features --locked --no-deps
+# -- -D warnings`) plus a `cargo check`, so a canary failure is
+# directly comparable to what a pin bump would hit.
+
+name: 🐤 Nightly Canary
+
+on:
+  schedule:
+    # Monday 02:00 UTC — ahead of tier-2 (06:00) and release-cache-warm
+    # (05:00) so a fresh-nightly breakage is visible before the rest of
+    # the weekly cron fleet runs against the pinned toolchain.
+    - cron: '0 2 * * 1'
+  workflow_dispatch:
+
+# Least-privilege: the build/clippy jobs need only read access.  Issue
+# filing on failure is delegated to `ci-failure-notify.yml`, which holds
+# its own `issues: write`.
+permissions:
+  contents: read
+
+# A manual dispatch landing on top of the weekly cron should queue, not
+# cancel — we want the full Linux + Windows probe to complete.  Keyed
+# consistently with the other scheduled workflows in this repo.
+concurrency:
+  group: nightly-canary-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  CARGO_TARGET_DIR: target
+  # sccache is a local-dev wrapper only; GitHub runners don't have it.
+  RUSTC_WRAPPER: ""
+  # Serialise compile/link to stay within runner memory (matches tier-2
+  # rationale: parallel link stages of heavy dependency graphs can get
+  # OOM-killed on the 16 GB ubuntu runners).
+  CARGO_BUILD_JOBS: 1
+
+jobs:
+  canary:
+    name: Canary (${{ matrix.os }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      # Don't let one platform's break hide another's — the whole point
+      # is to see *every* platform's regression in one weekly run.
+      fail-fast: false
+      matrix:
+        include:
+          - os: linux
+            runner: ubuntu-22.04
+          - os: windows
+            runner: windows-latest
+          - os: macos
+            # macos-14 is Apple Silicon (aarch64-apple-darwin), matching
+            # the primary dev/target arch in rust-toolchain.toml.
+            runner: macos-14
+    steps:
+      - name: Free up disk space (Linux only)
+        if: matrix.os == 'linux'
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+          sudo rm -rf /usr/local/share/boost /usr/local/graalvm
+          df -h /
+
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Install LATEST floating nightly (deviates from the pin on purpose)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Override rust-toolchain.toml's pin with the freshest nightly.
+          # `rustup default nightly` makes bare `cargo`/`rustup` use it;
+          # we still pass `+nightly` explicitly below for clarity.
+          rustup toolchain install nightly \
+            --profile minimal \
+            --component clippy \
+            --no-self-update
+          rustup default nightly
+          echo "── Canary toolchain ──"
+          rustc +nightly --version
+          cargo +nightly --version
+          cargo +nightly clippy --version
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          # Per-OS, per-canary cache key.  Distinct from the pinned-
+          # toolchain caches so a floating-nightly artifact set never
+          # poisons the PR-path caches.
+          shared-key: nightly-canary-${{ matrix.os }}
+          cache-on-failure: 'true'
+
+      - name: cargo check (floating nightly, locked deps)
+        shell: bash
+        # `--locked` so the canary tests our EXACT committed dependency
+        # graph against the new compiler — isolating compiler/std
+        # regressions from dependency-version drift.
+        run: cargo +nightly check --workspace --all-targets --all-features --locked
+
+      - name: cargo clippy (floating nightly, strict — same flags as PR gate)
+        shell: bash
+        run: cargo +nightly clippy --workspace --all-targets --all-features --locked --no-deps -- -D warnings

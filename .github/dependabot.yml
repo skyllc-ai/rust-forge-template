@@ -1,0 +1,75 @@
+# SPDX-License-Identifier: MPL-2.0
+# Copyright (c) 2025-2026 Acmex Placeholder LLC.
+#
+# Dependabot — automated dependency update PRs.
+# See: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates
+
+version: 2
+
+updates:
+  # Rust / Cargo dependencies
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "acmex-owner"
+    labels:
+      - "dependencies"
+      - "rust"
+    # Use `chore` so the generated PR title (`chore(deps): bump foo …`)
+    # passes `.github/workflows/commitlint.yml`'s Conventional Commits
+    # allowlist (`feat|fix|perf|refactor|docs|test|build|ci|chore|style|
+    # revert`).  `deps` would be rejected — the previous setting was the
+    # root cause of the 2026-05 Dependabot pipeline stall (see PR #125).
+    # `chore(deps): …` is also the default Dependabot upstream uses and
+    # the most common convention in OSS Rust crates.
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    # Group minor/patch updates to reduce PR noise
+    groups:
+      serde:
+        patterns:
+          - "serde*"
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+        exclude-patterns:
+          - "serde*"
+
+  # GitHub Actions — pinned to SHA, Dependabot proposes SHA bumps
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "acmex-owner"
+    # NOTE: only `dependencies` here. The `ci` *label* was removed because
+    # it does not exist in the repo, so Dependabot emitted a "label could
+    # not be found: ci" warning on every github-actions PR. The CI nature
+    # is already conveyed by the `ci(deps):` commit-message prefix below;
+    # the missing label added no value. (Re-add it here only if you first
+    # create the label via `gh label create ci`.)
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    # Group ALL github-actions bumps into a single PR. Multi-step actions
+    # (notably github/codeql-action's `init` + `analyze`, which MUST share
+    # the same version or CodeQL fails "Not all steps use the same version"
+    # and the SARIF upload errors out) were previously split into separate
+    # per-step PRs that each carried a version mismatch and could never go
+    # green. Grouping everything keeps such steps in lockstep. Actions are
+    # SHA-pinned and gated by the Dependabot Actions Review check, so a
+    # single combined PR is safe to review as one unit.
+    groups:
+      github-actions:
+        patterns:
+          - "*"

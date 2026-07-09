@@ -1,0 +1,357 @@
+# SPDX-FileCopyright (c) 2025-2026 Acmex Placeholder LLC.
+# SPDX-License-Identifier: MPL-2.0
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Auto-rerun transient CI failures
+#
+# Catches a class of failure that no per-step retry can fix: the
+# `Set up job` phase that runs BEFORE any user-controllable step.
+# When `codeload.github.com` rate-limits an action-tarball download
+# with a 429, the runner already exhausts its 3 built-in retries
+# (with exponential backoff) before our YAML gets a chance to run.
+# After that, the job is dead — the only way to recover is to
+# trigger a fresh run from outside.
+#
+# This workflow listens for `workflow_run` completion events on the
+# main CI workflows and, if it detects a failed job whose logs match
+# a transient-failure signature (429 / ECONNRESET / EAI_AGAIN /
+# context deadline exceeded / runner has lost contact / etc.), calls
+# the `rerun-failed-jobs` REST API to re-execute only the failed
+# jobs.  `run_attempt < 2` bounds this to exactly one retry per run
+# so a persistently-failing job cannot loop forever.
+#
+# Design notes:
+#
+#   * `workflow_run` is the only `on:` trigger that fires AFTER a
+#     workflow concludes and has the necessary permissions to
+#     rerun it.  It runs in the BASE repo's context (`secrets.
+#     GITHUB_TOKEN` has `actions: write`), so forks cannot abuse
+#     this — fork PRs that fail get inspected but the rerun call
+#     is rejected with 404 (the fork's run isn't in our repo's
+#     actions namespace), which we handle gracefully.
+#
+#   * `if: github.event.workflow_run.run_attempt < 2` is the loop-
+#     prevention guard.  Attempts are 1-indexed: the initial run is
+#     `run_attempt = 1`, the first rerun produces `run_attempt = 2`.
+#     We never fire on `run_attempt >= 2`, so each `workflow_run.id`
+#     gets at most one auto-rerun.  A persistent failure (e.g. real
+#     compile error) thus surfaces normally on the second attempt.
+#
+#   * We deliberately do NOT filter on `conclusion == 'failure'` —
+#     `codeql.yml` uses `continue-on-error: true` (informational
+#     job), so its 429-class failures produce `workflow_run.
+#     conclusion = success` even though the underlying job failed.
+#     Inspecting `jobs[*].conclusion == failure` catches both
+#     cases.
+#
+#   * Transient signatures are matched against the failed job's log
+#     via a single grep -E regex.  Patterns are conservative — only
+#     well-known infra-layer error strings (HTTP 429, TCP / DNS
+#     errors, runner crashes, disk-full).  Genuine compile or test
+#     failures don't match these strings and don't trigger a rerun.
+#
+#   * `gh api .../jobs/<id>/logs` returns a 302 to a signed S3 URL;
+#     `gh` follows the redirect transparently and prints the log
+#     text to stdout.  The job logs are deleted from the GH backend
+#     after 90 days, but we always rerun within seconds of failure,
+#     so the URL is always valid at this point.
+#
+# Permissions:
+#
+#   * `actions: write` — required to call POST
+#     /repos/.../actions/runs/<id>/rerun-failed-jobs.
+#   * `contents: read` — implicit (no repo content fetched).
+#
+# Cost / volume:
+#
+#   * Job runtime: ~10-30 s per failed run.  Only runs on failed
+#     runs of the three watched workflows.  Worst case: every PR
+#     gets one transient failure → +30 s overhead.  Typical case:
+#     near-zero overhead (transient failures are rare).
+
+name: 🔁 Auto-rerun transient CI failures
+
+on:
+  workflow_run:
+    workflows:
+      - "PR Fast CI"
+      - "🔍 CodeQL (Rust SAST)"
+      - "🌙 ACMEX Tier 2 Nightly CI"
+    types: [completed]
+
+# Default to ZERO permissions; the single job below grants only what
+# it needs.  Matches the least-privilege pattern used in every other
+# ACMEX workflow.
+permissions: {}
+
+# Serialise auto-rerun decisions per watched run so two near-
+# simultaneous workflow_run events (e.g. a rapid push series) don't
+# race on inspecting / rerunning the same run.  Keyed on the
+# triggering run's id, NOT this workflow's ref, so concurrent
+# auto-reruns of DIFFERENT failed runs proceed in parallel.
+concurrency:
+  group: auto-rerun-${{ github.event.workflow_run.id }}
+  cancel-in-progress: false
+
+jobs:
+  rerun:
+    name: Inspect and rerun failed jobs if transient
+    runs-on: ubuntu-22.04
+    # Skip on forks (their workflow_runs land in the base repo but
+    # don't carry a `pull_requests[]` we can authorise) and skip on
+    # already-retried runs.  The fork check is a belt-and-suspenders
+    # measure — `rerun-failed-jobs` would 404 anyway, but failing
+    # silently is cheaper than logging the rejection.
+    #
+    # We also gate on `conclusion == 'failure'` so this job is a
+    # strict no-op on the second `workflow_run` event the rerun
+    # itself fires (which has `conclusion = success` when the retry
+    # works).  That second event is consumed by `cleanup-stale-
+    # notification` below.
+    if: >-
+      github.repository_owner == 'acmex-org' &&
+      github.event.workflow_run.run_attempt < 2 &&
+      github.event.workflow_run.conclusion == 'failure'
+    permissions:
+      actions: write
+      contents: read
+    timeout-minutes: 5
+
+    steps:
+      - name: Inspect failed-job logs and rerun if transient
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          # Transient-failure signatures.  Extend conservatively —
+          # every pattern here will cause the failed job to retry,
+          # so over-matching wastes CI minutes.  Each token is a
+          # well-known infra-layer error string from one of:
+          #
+          #   - HTTP rate limiting / GH Actions runner setup:
+          #       `Too Many Requests`, `\b429\b`, `failed to
+          #       download`, `Failed to download archive`.
+          #   - TCP / DNS:
+          #       `ECONNRESET`, `Connection reset by peer`,
+          #       `EAI_AGAIN`, `unable to resolve host`,
+          #       `Network is unreachable`.
+          #   - Runner / step engine:
+          #       `runner has lost contact`, `The runner was
+          #       forced to stop`, `context deadline exceeded`.
+          #   - Disk / resource:
+          #       `No space left on device`.
+          #
+          # Genuine code failures (compile errors, test failures,
+          # clippy violations) do NOT match these — they produce
+          # distinct error strings (`error[E0`, `assertion failed`,
+          # `error: ...`, etc.) that we deliberately don't list.
+          TRANSIENT_PATTERN: 'Too Many Requests|\b429\b|failed to download|Failed to download archive|ECONNRESET|Connection reset by peer|EAI_AGAIN|unable to resolve host|Network is unreachable|runner has lost contact|The runner was forced to stop|context deadline exceeded|No space left on device'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          printf '🔍 Inspecting run %s (attempt %s) — workflow: %s\n' \
+            "${RUN_ID}" "${RUN_ATTEMPT}" "${WORKFLOW_NAME}"
+
+          # Fetch failed jobs in the latest attempt.  `filter=latest`
+          # restricts to the most-recent attempt's jobs (defensive —
+          # we already know run_attempt == 1, but explicit is safer).
+          mapfile -t failed_jobs < <(
+            gh api \
+              "/repos/${GH_REPO}/actions/runs/${RUN_ID}/jobs?filter=latest&per_page=100" \
+              --jq '.jobs[] | select(.conclusion == "failure") | "\(.id) \(.name)"'
+          )
+
+          if [[ "${#failed_jobs[@]}" -eq 0 ]]; then
+            printf '✅ No failed jobs in run %s; nothing to do.\n' "${RUN_ID}"
+            exit 0
+          fi
+
+          printf '   %d failed job(s) to inspect:\n' "${#failed_jobs[@]}"
+          for entry in "${failed_jobs[@]}"; do
+            printf '     · %s\n' "${entry}"
+          done
+
+          # For each failed job, fetch its log and grep for the
+          # transient pattern.  We accept the FIRST match — if ANY
+          # failed job in the run looks transient, rerun the whole
+          # set (the API only supports per-run rerun, not per-job).
+          # That's the right behaviour: re-executing already-passing
+          # jobs is wasteful, but rerun-failed-jobs only re-runs
+          # the ones that failed, so we get exactly-once retry of
+          # the actual transient failure.
+          found_transient=0
+          matched_job=""
+          matched_signature=""
+
+          for entry in "${failed_jobs[@]}"; do
+            job_id="${entry%% *}"
+            job_name="${entry#* }"
+
+            # `gh api .../logs` follows the 302 redirect and prints
+            # the log body.  If the log is gone (>90 days old, which
+            # can't happen here since we always run within seconds
+            # of failure), the API returns 410 and gh exits non-
+            # zero; the `|| true` keeps us going so a single missing
+            # log doesn't kill the whole inspection.
+            log_text="$(gh api "/repos/${GH_REPO}/actions/jobs/${job_id}/logs" 2>/dev/null || true)"
+
+            if [[ -z "${log_text}" ]]; then
+              printf '     ⚠️  could not fetch log for job %s (%s); skipping.\n' \
+                "${job_id}" "${job_name}"
+              continue
+            fi
+
+            # Grep the log for any transient pattern; first match
+            # wins.  -m1 stops after the first match per job for
+            # speed.  We pull the matched line so the workflow log
+            # records WHICH pattern fired (useful for debugging
+            # pattern coverage over time).
+            if matched_signature="$(printf '%s\n' "${log_text}" | grep -E -m1 "${TRANSIENT_PATTERN}" || true)" \
+               && [[ -n "${matched_signature}" ]]; then
+              printf '     🎯 transient signature in job %s (%s):\n' \
+                "${job_id}" "${job_name}"
+              printf '        %s\n' "$(printf '%s' "${matched_signature}" | head -c 200)"
+              matched_job="${job_name}"
+              found_transient=1
+              break
+            else
+              printf '     · no transient signature in job %s (%s).\n' \
+                "${job_id}" "${job_name}"
+            fi
+          done
+
+          if [[ "${found_transient}" != "1" ]]; then
+            printf '🚫 No transient signatures found in any failed-job log; not rerunning.\n'
+            printf '   This is the right outcome for genuine failures — they should\n'
+            printf '   stay red so a human can investigate.\n'
+            exit 0
+          fi
+
+          printf '\n🔁 Rerunning failed jobs in run %s (triggered by %s).\n' \
+            "${RUN_ID}" "${matched_job}"
+
+          # POST /repos/.../actions/runs/<id>/rerun-failed-jobs.
+          # Only the failed jobs re-execute; previously-passing jobs
+          # are left alone (their artifacts and conclusions are
+          # preserved).  The new attempt gets `run_attempt = 2`,
+          # which our `if:` guard above will reject — so even if the
+          # rerun also fails with a transient signature, we will not
+          # auto-rerun a second time.
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${GH_REPO}/actions/runs/${RUN_ID}/rerun-failed-jobs"
+
+          printf '✅ Rerun dispatched.  See the workflow run page for the new attempt.\n'
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # cleanup-stale-notification — close auto-filed CI-failure issues whose
+  # underlying workflow run flipped back to green after a successful rerun.
+  #
+  # Why this exists:
+  #   The watched workflows (PR Fast CI, Tier 2 Nightly) embed their own
+  #   `notify-failure` job which fires inside the workflow run as soon as
+  #   any gate job fails — well before this `auto-rerun-transient`
+  #   workflow even sees the `workflow_run [completed]` event.  Property 3
+  #   of `acmex-gen-workflow/src/validate.rs` requires every gate to list
+  #   `notify-failure.needs:`, so we cannot simply delete those in-workflow
+  #   notifiers without restructuring the gates manifest.
+  #
+  #   Net effect: a transient failure briefly produces an open `ci-failure-*`
+  #   issue.  When the rerun (dispatched by the `rerun` job above) succeeds
+  #   and flips the run's conclusion to `success`, GitHub fires a second
+  #   `workflow_run [completed]` event with `run_attempt >= 2` and
+  #   `conclusion == 'success'`.  This job consumes that event and closes
+  #   the now-stale issue with a comment pointing at the green rerun.
+  #
+  #   The match key is the short SHA in the auto-filed issue's title
+  #   (`🔴 CI Failure: ... — <short_sha>`) compared against the
+  #   workflow_run's `head_sha`.  Per-workflow labels (`ci-failure-pr-fast`,
+  #   `ci-failure-tier-2`) make this O(1) issue-list scan.
+  #
+  # Genuine (non-transient) failures stay open because the `rerun` job
+  # finds no transient signature and never dispatches a retry, so the
+  # second `workflow_run` event with `conclusion == 'success'` never fires.
+  cleanup-stale-notification:
+    name: Close stale ci-failure issue after successful rerun
+    runs-on: ubuntu-22.04
+    if: >-
+      github.repository_owner == 'acmex-org' &&
+      github.event.workflow_run.run_attempt >= 2 &&
+      github.event.workflow_run.conclusion == 'success'
+    permissions:
+      issues: write
+      contents: read
+    timeout-minutes: 3
+
+    steps:
+      - name: Close auto-filed issue if title matches this commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          SERVER_URL: ${{ github.server_url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          short_sha="${HEAD_SHA:0:7}"
+
+          # Map watched-workflow name → per-workflow ci-failure label.
+          # The mapping mirrors the labels emitted by each workflow's
+          # `notify-failure` job (see `pr-fast.yml`, `tier-2.yml`).
+          # CodeQL is intentionally absent — its workflow has no
+          # `notify-failure` job (advisory / `continue-on-error`).
+          case "${WORKFLOW_NAME}" in
+            "PR Fast CI")
+              label="ci-failure-pr-fast"
+              ;;
+            "🌙 ACMEX Tier 2 Nightly CI")
+              label="ci-failure-tier-2"
+              ;;
+            *)
+              printf 'ℹ️  No notification-cleanup policy for workflow: %s\n' "${WORKFLOW_NAME}"
+              exit 0
+              ;;
+          esac
+
+          # Backslash-escape the backticks so the literal ` chars appear
+          # in the output instead of triggering command substitution
+          # in the double-quoted echo string.  (Avoiding `printf '...'`
+          # with backticks-inside-single-quotes silences SC2016.)
+          echo "🧹 Looking for stale \`${label}\` issues whose title ends in \`— ${short_sha}\` ..."
+
+          # List open issues with the right label.  We filter client-side
+          # by title-suffix match against the short SHA — the search API's
+          # `in:title` qualifier matches anywhere in the title, but the
+          # short SHA is the title's literal suffix in every auto-filed
+          # notification, so an exact suffix match is more precise.
+          mapfile -t issue_nums < <(
+            gh issue list --repo "${GH_REPO}" \
+              --label "${label}" \
+              --state open \
+              --json number,title \
+              --jq ".[] | select(.title | endswith(\"— ${short_sha}\")) | .number"
+          )
+
+          if [[ "${#issue_nums[@]}" -eq 0 ]]; then
+            echo "✅ No stale \`${label}\` issues found for commit ${short_sha}."
+            exit 0
+          fi
+
+          rerun_url="${SERVER_URL}/${GH_REPO}/actions/runs/${RUN_ID}"
+
+          for n in "${issue_nums[@]}"; do
+            printf '   • closing issue #%s\n' "${n}"
+            gh issue close "${n}" \
+              --repo "${GH_REPO}" \
+              --comment "Auto-closed: the originally-failed CI run for commit \`${short_sha}\` was retried by the auto-rerun-transient workflow and **succeeded** — the failure was transient (HTTP 429 / network / runner setup). See the green [rerun](${rerun_url}). No code regression."
+          done
+
+          # `${#arr[@]}` already stringifies as an integer; no %d needed.
+          echo "✅ Closed ${#issue_nums[@]} stale \`${label}\` issue(s) for commit ${short_sha}."

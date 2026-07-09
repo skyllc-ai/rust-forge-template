@@ -1,0 +1,111 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# ACMEX — Clippy Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+# SPDX-License-Identifier: MPL-2.0
+# Copyright (c) 2025-2026 Acmex Placeholder LLC.
+# This file configures Clippy behavior that cannot be set via [workspace.lints]
+# in Cargo.toml.  It is picked up automatically by all crates in the workspace.
+#
+# Philosophy:
+#   - Production code: strictest possible — no panics, no unwraps, no dbg!
+#   - Test code: fail fast and loud — unwrap, expect, panic, dbg!, print are
+#     all welcome because a test that doesn't crash on failure is useless.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── MSRV awareness — INTENTIONALLY UNSET (refs issue #267) ──────────────────
+# The workspace has no `[workspace.package].rust-version` claim because
+# `acmex-polars` enables `polars/nightly` unconditionally, which transitively
+# requires nightly Rust (see issue #267 + the `Cargo.toml` rationale block).
+# With no MSRV claim there is no contract for Clippy's MSRV-aware lints to
+# enforce, so `msrv = ...` and `check-incompatible-msrv-in-tests = ...` are
+# deliberately omitted.  `rust-toolchain.toml` is the single source of truth
+# for the required toolchain.
+#
+# If a publishable-leaf subset (`acmex-time`, `acmex-text`, `acmex-broker-
+# protocol`) ever needs MSRV verification independent of the polars-bound
+# graph, set MSRV per-crate via `[package.rust-version]` rather than
+# resurrecting the workspace-wide claim.
+
+# ── Test code relaxations ────────────────────────────────────────────────────
+# These allow restriction lints to fire only in production code while letting
+# test code use idiomatic Rust test patterns (unwrap, expect, panic, dbg!).
+#
+# The panic-family lints (`unwrap_used`, `expect_used`, `panic`) stay at
+# `deny` for prod code; see `docs/architecture/code-quality/panic_policy.md`
+# for the five-category taxonomy (A-E) and the per-site #[expect(...)]
+# annotation contract.
+#
+# The clone- and allocation-family lints (`redundant_clone`,
+# `clone_on_ref_ptr`, `cloned_instead_of_copied`, `inefficient_to_string`,
+# `unnecessary_to_owned`, `assigning_clones`, `rc_buffer`, `rc_mutex`, …)
+# likewise stay at `deny` for prod code; see
+# `docs/architecture/code-quality/allocation_policy.md` for the
+# five-category taxonomy (α-ε) and the per-site justification contract.
+# Audit script: `scripts/dev/clone_alloc_audit.sh`.
+#
+# The trait / generic / dispatch lints (`type_complexity`,
+# `too_many_arguments`, `trait_duplication_in_bounds`,
+# `wrong_self_convention`, `multiple_bound_locations`) likewise stay at
+# `deny` / `warn` for prod code; see
+# `docs/architecture/code-quality/trait_policy.md` for the four-criterion
+# trait justification taxonomy (J1-J4), the generic-function categories
+# (G1-LOCAL / G2-USEFUL / G3-SPREAD / G4-CASCADING / G5-CLOSURE), the
+# dispatch matrix (D1-D4 + S1-S3), and the seal/open decision tree.
+# Audit script: `scripts/dev/trait_generic_audit.sh`.
+#
+# For the broader lint posture see
+# `docs/architecture/code-quality/lint-posture.md`.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true
+allow-dbg-in-tests = true
+allow-print-in-tests = true
+
+# ── API evolution ────────────────────────────────────────────────────────────
+# We are NOT a published library — internal refactoring should not be blocked
+# by "this would break downstream crates" false positives.
+avoid-breaking-exported-api = false
+
+# ── Identifier length ────────────────────────────────────────────────────────
+# Default (1) kept — threshold 2 was tested and only flagged idiomatic Rust
+# names (ch, cp, io, fs) with zero real wins.  Removed as pure noise.
+
+# ── Thresholds ──────────────────────────────────────────────────────────────
+# All thresholds at Clippy defaults.  Violations are handled with targeted
+# #[expect(lint, reason = "...")] on individual items — never blanket raises.
+# cognitive-complexity-threshold = 25   (default)
+# too-many-lines-threshold = 100        (default)
+# type-complexity-threshold = 250       (default)
+# enum-variant-size-threshold = 200     (default)
+
+# ── Documentation strictness ──────────────────────────────────────────────────
+# check-private-items = true would run missing_errors_doc / missing_panics_doc /
+# missing_safety_doc on private items.  Disabled because it triggers 70+ false
+# positives on private helpers where the error condition is self-evident from
+# the return type and context.  Public API is already fully documented.
+check-private-items = false
+
+# ── Const context relaxation ──────────────────────────────────────────────────
+# Suppress restriction lints like `indexing_slicing` in const contexts.  Panics
+# in const evaluation are compile-time errors, not runtime risks.
+suppress-restriction-lint-in-const = true
+
+# ── Struct field initializer order ────────────────────────────────────────────
+# Catches struct initializers where fields are in a different order than the
+# struct definition.  Clippy's own repo enables this.
+check-inconsistent-struct-field-initializers = true
+
+# ── Bundled-asset size cap ────────────────────────────────────────────────────
+# Companion to `large_include_file = "deny"` in Cargo.toml.  The only legitimate
+# in-binary asset today is the 128 KB `$UpCase` table in
+# `acmex-text/src/case_fold.rs`; 200 000 bytes (≈ 195 KiB) gives that file
+# generous headroom while still catching accidental megabyte-sized assets.
+max-include-file-size = 200_000
+
+# ── Lint-suppressing comment positions ───────────────────────────────────────
+# Let a `// allow: <reason>` comment above a statement or above an attribute
+# silence `uninlined_format_args` and similar style nits without forcing a
+# scoped `#[expect]` for one-line cases.  Removes a small but constant noise
+# floor without weakening the real signal.
+accept-comment-above-statement = true
+accept-comment-above-attributes = true
