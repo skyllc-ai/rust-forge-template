@@ -13,6 +13,48 @@ inside a fully armed pipeline instead of assembling one.
 Extracted from a production Rust workspace; the design rationale lives in the
 donor's `docs/research/project-template-extraction.md`.
 
+## Is this template for you?
+
+Thirty seconds of honesty before you invest an hour.
+
+**Skip it — use `cargo new` instead** — if you are:
+
+- working through a tutorial, book chapter, or exercise (Rustlings, Advent of
+  Code, katas): the strict lints will fight you while you are still fighting
+  the borrow checker, and that fight teaches nothing
+- writing a throwaway script, a one-evening experiment, or a quick prototype
+  whose whole point is speed over rigor
+- allergic to process: this repo rejects commits, rejects pushes, and argues
+  back — by design
+
+**Use it if you are starting something meant to live** — a tool, service, or
+library that others (including future-you) will depend on:
+
+- you want **excellent Rust posture forced, not aspired to**: ~200 deny-level
+  lints (no `unwrap`, no `panic!`, no `todo!`, everything documented, every
+  exception carries a written reason), so quality is machine-enforced from
+  commit one instead of debated in review
+- you want the **delivery machine pre-built**: commit/push gates in seconds,
+  PR CI, weekly deep checks (miri, mutation testing), supply-chain vetting,
+  license compliance, and release/publishing lanes that already exist and
+  switch on with a variable when you are ready
+- you know **strictness is only affordable on day one**: the donor project
+  measured what retrofitting costs — a single lint had ~1,766 violations by
+  the time it was considered, and 341 supply-chain exemptions had to be
+  grandfathered; starting strict costs nothing
+- you code **with an AI assistant** and want guardrails that make generated
+  code prove itself: the gates hold everything (and everyone) to the same
+  standard, and bypassing them is mechanically blocked
+
+**The price, stated plainly:** a pinned nightly toolchain (10-minute stable
+downgrade documented), ~10 dev tools installed by `just setup`, a few seconds
+per commit and under a minute per push for the gates, and lints that WILL
+reject code that would compile fine. That price is the product.
+
+Rule of thumb: **if the project deserves a README, tests, and a version
+number, it deserves this template. If it is a sketch, `cargo new` is the
+right tool** — come back when the sketch becomes a plan.
+
 ## What you get on day one
 
 | Layer | Contents |
