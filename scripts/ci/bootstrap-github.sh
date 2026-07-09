@@ -90,9 +90,11 @@ JSON
 )
 if gh api "repos/${REPO}/rulesets" --jq '.[].name' 2>/dev/null | grep -qx "main-protection"; then
   echo "   ↷ ruleset main-protection already exists — skipping (edit in Settings → Rules)"
-else
-  echo "${RULESET_JSON}" | gh api -X POST "repos/${REPO}/rulesets" --input - >/dev/null
+elif echo "${RULESET_JSON}" | gh api -X POST "repos/${REPO}/rulesets" --input - >/dev/null 2>&1; then
   echo "   ✅ created"
+else
+  echo "   ⚠  could not create ruleset (private repos need GitHub Pro/Team or a public repo)"
+  echo "      → re-run this script after making the repo public or upgrading the plan"
 fi
 
 # ── 5. Tag protection for v* ─────────────────────────────────────────
@@ -112,9 +114,10 @@ JSON
 )
 if gh api "repos/${REPO}/rulesets" --jq '.[].name' 2>/dev/null | grep -qx "tag-protection-v-prefix"; then
   echo "   ↷ already exists — skipping"
-else
-  echo "${TAG_RULESET_JSON}" | gh api -X POST "repos/${REPO}/rulesets" --input - >/dev/null
+elif echo "${TAG_RULESET_JSON}" | gh api -X POST "repos/${REPO}/rulesets" --input - >/dev/null 2>&1; then
   echo "   ✅ created"
+else
+  echo "   ⚠  could not create ruleset (private repos need GitHub Pro/Team or a public repo)"
 fi
 
 # ── 6. Manual steps gh cannot do ─────────────────────────────────────
