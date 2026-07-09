@@ -291,10 +291,27 @@ fn reset_version() -> Result<(), String> {
 /// Replaces the inherited CHANGELOG (the template's release history) with a
 /// fresh Keep-a-Changelog skeleton for the new project.
 fn reset_changelog(id: &Identity) -> Result<(), String> {
-    let skeleton = format!(
-        "<!--\nSPDX-License-Identifier: MIT OR Apache-2.0\nCopyright (c) 2026 {}\n-->\n\n         # Changelog\n\n         All notable changes to this project will be documented in this file.\n\n         The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),\n         and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).\n\n         ## [Unreleased]\n",
-        id.entity
-    );
+    // REUSE-IgnoreStart -- the SPDX line below is CONTENT for the generated
+    // CHANGELOG, not this file's own license metadata.
+    let lines = [
+        "<!--".to_string(),
+        "SPDX-License-Identifier: MIT OR Apache-2.0".to_string(),
+        format!("Copyright (c) 2026 {}", id.entity),
+        "-->".to_string(),
+        String::new(),
+        "# Changelog".to_string(),
+        String::new(),
+        "All notable changes to this project will be documented in this file.".to_string(),
+        String::new(),
+        "The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),".to_string(),
+        "and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)."
+            .to_string(),
+        String::new(),
+        "## [Unreleased]".to_string(),
+        String::new(),
+    ];
+    // REUSE-IgnoreEnd
+    let skeleton = lines.join("\n");
     std::fs::write("CHANGELOG.md", skeleton).map_err(|error| error.to_string())?;
     println!("📄 CHANGELOG reset to a fresh skeleton");
     Ok(())
