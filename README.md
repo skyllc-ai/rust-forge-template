@@ -10,8 +10,9 @@ workspace under the placeholder identity `acmex`, carrying a complete quality
 machine from day one. Create a copy, run the init ceremony, and start working
 inside a fully armed pipeline instead of assembling one.
 
-Extracted from a production Rust workspace; the design rationale lives in the
-donor's `docs/research/project-template-extraction.md`.
+Extracted from the production workspace of **[UFFS — Ultra Fast File
+Search](https://uffs.io)**, and battle-tested there first. Built and
+maintained by [Robert S.A. Nio](https://www.linkedin.com/in/robert-nio-46029a/).
 
 ## Is this template for you?
 
@@ -123,6 +124,16 @@ right tool** — come back when the sketch becomes a plan.
 > 🤖 **AI agents:** read **[AGENTS.md](AGENTS.md)** before touching anything —
 > state detection, hard prohibitions, and the exact fix for every gate.
 > (Claude Code is routed there automatically via CLAUDE.md.)
+>
+> Working with a chat assistant instead? Paste this one line into it:
+>
+> ```text
+> Read and follow: https://raw.githubusercontent.com/acmex-org/acmex/main/AGENTS.md
+> ```
+>
+> That URL is this repository's own copy — `just init` rewrites it to your
+> project's address. (On the template itself, substitute
+> `skyllc-ai/rust-forge-template`.)
 
 **Guided (recommended)** — one script drives the whole journey with a
 consent prompt at every step: docs gate → tools → GitHub auth → create/clone
