@@ -102,7 +102,7 @@ the repo → init ceremony → gate tools + hooks → commit signing → first g
 validation run:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/<owner>/rust-forge-template/main/bootstrap.sh | bash
+curl -fsSL https://raw.githubusercontent.com/skyllc-ai/rust-forge-template/main/bootstrap.sh | bash
 ```
 
 For unattended machines (fleet/CI) there is a separate `--yes` lane that
@@ -114,7 +114,7 @@ to see every move (this is also exactly what the script runs):
 
 ```bash
 # 1. Create your repo from this template (fresh history, no coupling)
-gh repo create my-org/myproj --template <owner>/rust-forge-template --private --clone
+gh repo create my-org/myproj --template skyllc-ai/rust-forge-template --private --clone
 cd myproj
 
 # 2. Init ceremony (renames acmex → your identity, resets earned state)
@@ -182,7 +182,7 @@ Projects that prefer stable:
 Derived projects can pull scaffolding improvements without merging histories:
 
 ```bash
-git remote add template https://github.com/<owner>/rust-forge-template
+git remote add template https://github.com/skyllc-ai/rust-forge-template
 git fetch template
 git diff template/main -- justfile just/ scripts/ .github/ Cargo.toml
 ```

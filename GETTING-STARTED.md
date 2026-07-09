@@ -53,7 +53,7 @@ for a private repo, download `bootstrap.sh` via the GitHub web UI and run
 that instead):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/<owner>/<repo>/main/bootstrap.sh | bash
+curl -fsSL https://raw.githubusercontent.com/skyllc-ai/rust-forge-template/main/bootstrap.sh | bash
 ```
 
 If you already have the repo cloned:
@@ -123,7 +123,7 @@ rescue a branch that accumulated unsigned commits.
 relationship) and clone it in one command:
 
 ```bash
-gh repo create my-org/myproj --template <owner>/rust-forge-template --private --clone
+gh repo create my-org/myproj --template skyllc-ai/rust-forge-template --private --clone
 cd myproj
 ```
 
@@ -299,7 +299,7 @@ has an unattended lane:
 
 ```bash
 export GH_TOKEN=<fine-grained PAT>        # gh honors it automatically
-curl -fsSL https://raw.githubusercontent.com/<owner>/<repo>/main/bootstrap.sh   | bash -s -- --yes --join my-org/myproj --dir ~/work
+curl -fsSL https://raw.githubusercontent.com/skyllc-ai/rust-forge-template/main/bootstrap.sh   | bash -s -- --yes --join my-org/myproj --dir ~/work
 ```
 
 What `--yes` does: auto-approves every step, installs missing tools (skips
