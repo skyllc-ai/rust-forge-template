@@ -16,20 +16,38 @@ maintained by [Robert S.A. Nio](https://www.linkedin.com/in/robert-nio-46029a/).
 
 ## Is this template for you?
 
-Thirty seconds of honesty before you invest an hour.
+> **Vibe-code a serious Rust project without it turning into slop — the
+> guardrails catch what you and the AI miss.**
 
-**Skip it — use `cargo new` instead** — if you are:
+Thirty seconds of honesty before you invest an hour. The axis is **intent,
+not experience** — you do not need to be a veteran.
 
-- working through a tutorial, book chapter, or exercise (Rustlings, Advent of
-  Code, katas): the strict lints will fight you while you are still fighting
-  the borrow checker, and that fight teaches nothing
-- writing a throwaway script, a one-evening experiment, or a quick prototype
-  whose whole point is speed over rigor
-- allergic to process: this repo rejects commits, rejects pushes, and argues
-  back — by design
+**Skip it — use `cargo new` instead** — if:
 
-**Use it if you are starting something meant to live** — a tool, service, or
-library that others (including future-you) will depend on:
+- *learning the language itself* is the goal right now (a tutorial, book
+  chapter, Rustlings, Advent of Code): the machinery enforces engineering
+  discipline, which is a distraction from learning syntax and the borrow
+  checker
+- you are writing a throwaway script, a one-evening experiment, or a quick
+  prototype whose whole point is speed over rigor
+- you are allergic to process: this repo rejects commits, rejects pushes,
+  and argues back — by design
+
+**Use it if you are building something meant to live** — a tool, service, or
+library that others (including future-you) will depend on — at any level:
+
+- **Newer to Rust but serious?** This is a safety net that lets you build
+  above your raw skill level: the guardrails plus your AI assistant carry
+  the rigor you could not yet set up or enforce yourself. Fair warning,
+  stated plainly: the guardrails are a two-way street — they WILL reject
+  your (and your AI's) first draft, and satisfying them is exactly how the
+  leveling-up happens. This is not zero-effort "vibe and ship"; it is
+  vibe-coding with a spotter.
+- **Veteran?** You are skipping roughly two days of wiring lints, hooks,
+  CI, supply-chain checks, and release plumbing — arriving at the posture
+  you would have built anyway.
+
+Either profile, the same reasons apply:
 
 - you want **excellent Rust posture forced, not aspired to**: ~200 deny-level
   lints (no `unwrap`, no `panic!`, no `todo!`, everything documented, every
