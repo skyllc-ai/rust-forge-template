@@ -125,15 +125,20 @@ right tool** — come back when the sketch becomes a plan.
 > state detection, hard prohibitions, and the exact fix for every gate.
 > (Claude Code is routed there automatically via CLAUDE.md.)
 >
-> Working with a chat assistant instead? Paste this one line into it:
+> **Day zero — no project yet?** Paste this into your AI and let it drive:
+>
+> ```text
+> Read https://raw.githubusercontent.com/skyllc-ai/rust-forge-template/main/AGENTS.md and guide me from nothing to a green pipeline: help me create my own project from this template.
+> ```
+>
+> **Already inside a project built from this template?** Paste this instead:
 >
 > ```text
 > Read and follow: https://raw.githubusercontent.com/acmex-org/acmex/main/AGENTS.md
 > ```
 >
-> That URL is this repository's own copy — `just init` rewrites it to your
-> project's address. (On the template itself, substitute
-> `skyllc-ai/rust-forge-template`.)
+> (That second URL is this repository's own copy — `just init` rewrites it
+> to your project's address.)
 
 **Guided (recommended)** — one script drives the whole journey with a
 consent prompt at every step: docs gate → tools → GitHub auth → create/clone
