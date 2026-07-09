@@ -113,14 +113,16 @@ The repo arrives under the placeholder identity `acmex`. One command rewrites
 it to yours — file contents, file names, manifests, workflows, licenses:
 
 ```bash
-just init name=myproj org=my-org entity="My Org LLC" author="Me <me@example.com>"
+just init myproj my-org "My Org LLC" "Me <me@example.com>"
 ```
 
 It finishes by asserting that **zero** placeholder references survive, then
 deletes itself. If `rg -i acmex` prints nothing, the ceremony worked.
 
 The project starts dual-licensed **MIT OR Apache-2.0**. To use a different
-license, pass `license="<SPDX expression>"` — the ceremony rewrites every
+license, pass it as the sixth positional argument
+(`just init myproj my-org "My Org LLC" "Me <m@e.x>" "" "BSD-3-Clause"`) —
+the ceremony rewrites every
 SPDX header and manifest, then the `reuse` gate stays red until you put the
 matching text(s) into `LICENSES/` (it prints the exact steps).
 
