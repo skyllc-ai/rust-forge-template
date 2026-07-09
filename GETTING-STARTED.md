@@ -57,6 +57,34 @@ gh auth login
 You do **not** need to pick a Rust version — the repo pins its own toolchain
 in `rust-toolchain.toml`, and rustup installs it automatically on first build.
 
+## Step 0.5 — Set up commit signing (required, not optional)
+
+The pre-push gate verifies that **every commit is signed** — it is a hard
+gate, so do this before your first push, not after it rejects you. The
+low-friction path is SSH signing (no GPG install needed):
+
+```bash
+# 1. An SSH key (skip if ~/.ssh/id_ed25519 exists)
+ssh-keygen -t ed25519 -C "you@example.com"
+
+# 2. Tell git to sign with it
+git config --global gpg.format ssh
+git config --global user.signingkey ~/.ssh/id_ed25519.pub
+git config --global commit.gpgsign true
+git config --global tag.gpgsign true
+
+# 3. Register it on GitHub as a SIGNING key (this is separate from the
+#    authentication key — same file is fine, different registration)
+gh ssh-key add ~/.ssh/id_ed25519.pub --type signing --title "$(hostname) signing"
+
+# 4. Prove it
+just doctor-signing
+```
+
+Classic GPG works too (`user.signingkey <KEYID>` without `gpg.format`);
+`just doctor-signing` diagnoses either setup, and `just sign-branch` can
+rescue a branch that accumulated unsigned commits.
+
 ---
 
 ## Step 1 — Create your project from the template
