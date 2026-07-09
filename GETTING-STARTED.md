@@ -36,37 +36,25 @@ Claude Code guard blocks it outright).
 
 ---
 
-## Step 0 — Install the base tools (once per machine)
+## Step 0 — Get the tooling (one script, once per machine)
 
-macOS:
-
-```bash
-# Compiler toolchain prerequisites
-xcode-select --install
-
-# Homebrew (if you don't have it): https://brew.sh
-brew install just gh jq pipx
-pipx install reuse          # license-compliance gate
-
-# Rust itself (rustup manages every toolchain)
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-```
-
-Linux (Debian/Ubuntu):
+Everything the machinery needs on a bare Mac or Linux box — compiler
+prerequisites, Homebrew (macOS), git, `just`, `gh`, `jq`, `pipx`+`reuse`,
+rustup, and GitHub authentication — installs through one idempotent script:
 
 ```bash
-sudo apt install build-essential curl git jq pipx
-pipx install reuse
-# just:  https://github.com/casey/just#packages   (or: cargo install just)
-# gh:    https://cli.github.com
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+# If you already have the repo (see Step 1):
+bash bootstrap.sh
+
+# On a completely bare machine, before you have any repo (public repos):
+curl -fsSL https://raw.githubusercontent.com/<owner>/<repo>/main/bootstrap.sh | bash
+# (private repo? download bootstrap.sh via the GitHub web UI and run it)
 ```
 
-Then authenticate GitHub CLI:
-
-```bash
-gh auth login
-```
+It checks before installing (safe to re-run), uses each tool's official
+installer, walks you through `gh auth login` interactively, and ends by
+printing your exact next command. Prefer doing it by hand? The script is
+~140 readable lines — it IS the manual instructions, executable.
 
 You do **not** need to pick a Rust version — the repo pins its own toolchain
 in `rust-toolchain.toml`, and rustup installs it automatically on first build.
@@ -97,15 +85,27 @@ rescue a branch that accumulated unsigned commits.
 
 ---
 
-## Step 1 — Create your project from the template
+## Step 1 — Get the code onto your machine
+
+**Starting a NEW project** — create your own repo from the template
+(GitHub copies the files with a fresh history; no coupling, no fork
+relationship) and clone it in one command:
 
 ```bash
 gh repo create my-org/myproj --template <owner>/rust-forge-template --private --clone
 cd myproj
 ```
 
-This copies the files with a **fresh history** (no coupling to the template,
-no fork relationship).
+**Joining an EXISTING project** that was built from this template — just
+clone it (either form works; `gh` picks the right protocol for you):
+
+```bash
+gh repo clone my-org/myproj        # or: git clone git@github.com:my-org/myproj.git
+cd myproj
+```
+
+Joiners skip Step 2 (the project is already initialized) and go straight to
+Step 3.
 
 ## Step 2 — Run the init ceremony (once, ever)
 
