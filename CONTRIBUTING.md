@@ -126,9 +126,9 @@ Use them for work-in-progress commits on a feature branch. CI will still enforce
 
 ### Keeping hook output fast
 
-The hooks are tuned for an sccache-warm workspace. If you notice cold-cache slowness, verify:
+The hook budgets assume a warm `./target`. An optional user-level sccache setup (see GETTING-STARTED.md § "Performance tuning") speeds cold rebuilds further; if you use one, verify:
 
-- `cargo install sccache` is installed and `.cargo/config.toml` has `rustc-wrapper = "sccache"` (default).
+- `rustc-wrapper = "sccache"` is set in your own `~/.cargo/config.toml` (the repo config deliberately sets no wrapper).
 - `sccache --show-stats` shows a healthy cache-hit rate after a few rebuilds.
 - The shared `target/` directory is not being wiped by unrelated tools.
 

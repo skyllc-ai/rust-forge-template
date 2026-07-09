@@ -87,10 +87,17 @@ matching text(s) into `LICENSES/` (it prints the exact steps).
 just setup
 ```
 
-This installs the pinned toolchain, the build cache (`sccache` — builds fail
-without it), every tool the gates call (`cargo-nextest`, `cargo-deny`,
-`cargo-vet`, `cargo-machete`, `typos`, `taplo`, ...), wires the git hooks, and
-smoke-checks the workspace. Idempotent — re-run it any time.
+This installs the pinned toolchain, every tool the gates call
+(`cargo-nextest`, `cargo-deny`, `cargo-vet`, `cargo-machete`, `typos`,
+`taplo`, ...), wires the git hooks, and smoke-checks the workspace.
+Idempotent — re-run it any time.
+
+Plain `cargo` builds use **stock settings** — no wrapper, no custom flags,
+default `./target` directory. (The `just go` / `just ship` pipeline is the
+one exception: it auto-detects an installed `sccache` and uses it for its
+own lanes; opt out with `--no-sccache`.) Making ALL your builds faster is an
+opt-in, user-level choice: see "Performance tuning (optional)" at the end of
+this guide.
 
 ## Step 4 — Prove the machine
 
@@ -195,7 +202,6 @@ the same machine you do.
 
 | Symptom | Cause / fix |
 | --- | --- |
-| Build error mentioning `sccache` | `just setup` (installs it), or `cargo install sccache` |
 | `cargo nextest: command not found` | `just setup` |
 | First build downloads a whole toolchain | Expected — `rust-toolchain.toml` pins a specific nightly; rustup fetches it once |
 | Commit succeeded without any hook output | Hooks not wired: `just install-hooks` |
@@ -207,3 +213,35 @@ the same machine you do.
 
 Still stuck? `just` (no arguments) lists every available command with a
 one-line description.
+
+---
+
+## Performance tuning (optional)
+
+The repo deliberately ships **stock Cargo behavior**; speed-ups are personal,
+machine-level choices in `~/.cargo/config.toml` (never committed):
+
+```toml
+# ~/.cargo/config.toml — YOUR machine, your call
+
+[build]
+# Compiler cache across all your workspaces (~2-10x on warm rebuilds):
+#   cargo install sccache        (then:)
+# rustc-wrapper = "sccache"
+# incremental = false            # sccache requires incremental off
+
+# Optimize for your exact CPU — LOCAL builds only. Never put this in a
+# repo: it bakes the build machine's CPU into shipped binaries and breaks
+# cross-compilation.
+# [target.aarch64-apple-darwin]
+# rustflags = ["-C", "target-cpu=native"]
+```
+
+Helpers: `just setup-sccache` (install + cache stats), `just sccache-stats`.
+
+A warning from experience: redirecting `target-dir` to a shared location
+(e.g. `/tmp/rust-target`) makes `cargo clean` and repo deletion stop
+reclaiming space — the shared cache silently grows by hundreds of GB across
+workspaces until the volume fills and everything on the machine starts
+failing with "no space left on device". If you must redirect, put it on a
+volume you monitor.

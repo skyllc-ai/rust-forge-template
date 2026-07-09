@@ -31,15 +31,14 @@ export CLICOLOR_FORCE := "1"
 export TERM := "xterm-256color"
 export COLORTERM := "truecolor"
 export CARGO_TERM_COLOR := "always"
-# CARGO_INCREMENTAL is deliberately NOT exported here.  `.cargo/config.toml`
-# owns the cache policy: `build.rustc-wrapper = "sccache"` + `build.incremental
-# = false`.  Env var overrides config, so exporting `CARGO_INCREMENTAL=1`
-# from just would defeat sccache (incremental artifacts are non-cacheable)
-# and recreate v0.5.71's Bug B.  See docs/architecture/dev-flow-implementation-plan.md § 2.1.
+# Build caching is deliberately NOT configured here or in .cargo/config.toml:
+# the template ships stock Cargo behavior. Developers who want sccache (or a
+# different wrapper) enable it in their own ~/.cargo/config.toml — recipes
+# and hooks inherit whatever the user configured. See GETTING-STARTED.md
+# § "Performance tuning (optional)".
 export CARGO_NET_RETRY := "3"
 export CARGO_HTTP_TIMEOUT := "30"
 export CARGO_HTTP_MULTIPLEXING := "true"
-export RUSTC_WRAPPER := ""
 
 # Clippy flags — supplement workspace.lints (belt-and-suspenders for CI).
 # Workspace Cargo.toml [workspace.lints] is the source of truth; these ensure
