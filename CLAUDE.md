@@ -39,8 +39,8 @@ just lint-tests
 # Security audit
 just audit
 
-# One-time setup: wire the git hooks
-just install-hooks
+# One-time setup: toolchain + gate tools + git hooks + smoke check
+just setup
 ```
 
 ## Architecture
