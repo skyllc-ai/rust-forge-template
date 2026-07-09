@@ -14,6 +14,13 @@ Git hooks and CI reject bad commits and pushes. You cannot bypass them.
 Your job: make changes that pass the checks, and tell the user the truth
 about what passed and what failed.
 
+**How to read this file:** sections 2-9 are the literal, always-binding
+floor — follow them exactly, whatever your capability. If you are a
+capable model that reasons about systems, ALSO read section 10: it points
+you at the design-level documentation so you can work at architecture
+level instead of rule level. Sophistication buys you the *why* and the
+license to propose better designs — never an exemption from the rules.
+
 ## 2. Determine the state FIRST
 
 Run these checks in order. Pick the first match.
@@ -164,7 +171,28 @@ gate name it prints, fix per section 6, retry the same command.
 | `.config/nextest.toml` | Test-runner profiles |
 | `docs/policies/` | The reasoning behind the lint rules |
 
-## 9. What to tell the user, when
+## 9. Escalation path for capable agents
+
+Everything above is the safety floor. If you can hold a design in your
+head, this is where the repo actually lives:
+
+| Read this | To operate at this level |
+| --- | --- |
+| `docs/policies/*.md` (panic, allocation, concurrency, trait, dependency, build-codegen, lint-posture) | The reasoning behind every rule in sections 3-6. A change that touches policy territory should engage the policy doc, not just satisfy the lint. When you disagree with a rule, argue against the documented rationale — with the user, in the PR — never around it. |
+| `scripts/ci/gates.toml` | The machine-readable source of truth for every gate: tiers, budgets, change-classification regexes. Gate changes are made HERE, then `just acmex-gen-hooks` regenerates the hooks and the drift gates verify the workflow side. This is how you legitimately evolve the enforcement itself. |
+| `scripts/ci-pipeline/src/` | The `just go` / `just ship` engine: a resumable state machine with tree-hash invalidation, a clean-decision engine, and the release choreography (bump → changelog roll → signed release PR → auto-merge → binary build). Read before debugging pipeline behavior. |
+| `COMPONENTS.md` | The growth architecture: dormant capability *lanes* (data switches, never file changes) vs additive *components* (recipes ending in `just go`). Consult before proposing any new machinery — it may already exist, switched off. |
+| `.github/workflows/pr-fast.yml` + `tier-2.yml` | The CI mirror of gates.toml (tier 1) and the weekly deep suite (miri, cargo-careful, mutation testing). `acmex-gen-workflow --check` enforces the mirror. |
+| `GETTING-STARTED.md` | The human runbook — read it when you are *guiding a person*, so your instructions match what they see. |
+
+What capable agents are invited to do that section 4 does not cover:
+design multi-crate architecture within the manifest-inheritance rules,
+propose gate/policy amendments as reviewable PRs (manifest + regeneration
++ rationale), tune nextest profiles and CI budgets with measurements, and
+use `just ship` end-to-end. The two things that never change with
+capability: the prohibitions in section 3, and reporting honestly.
+
+## 10. What to tell the user, when
 
 - Before their first push: "run `just setup-signing` once" (signed commits
   are required; you cannot do this for them — it needs their passphrase).
