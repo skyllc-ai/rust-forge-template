@@ -28,6 +28,10 @@ donor's `docs/research/project-template-extraction.md`.
 
 ## Quickstart
 
+> New to Rust, `just`, or any of this? **[GETTING-STARTED.md](GETTING-STARTED.md)**
+> is the zero-knowledge runbook — from empty machine to green pipeline,
+> including the daily loop and a fix-it table for every gate.
+
 ```bash
 # 1. Create your repo from this template (fresh history, no coupling)
 gh repo create my-org/myproj --template <owner>/rust-forge-template --private --clone
@@ -36,12 +40,12 @@ cd myproj
 # 2. Run the init ceremony (renames acmex → your identity, resets earned state)
 just init name=myproj org=my-org entity="My Org LLC" author="Me <me@example.com>"
 
-# 3. Wire the git hooks and prove the machine
-just install-hooks
+# 3. Install every gate tool + wire the hooks (idempotent), then prove the machine
+just setup
 just go
 
 # 4. Create the GitHub-side state a template cannot carry
-#    (rulesets, merge queue, required checks, labels, lane variables)
+#    (rulesets + merge queue, required checks, labels, lane variables)
 bash scripts/ci/bootstrap-github.sh
 ```
 

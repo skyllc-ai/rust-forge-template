@@ -118,6 +118,13 @@ jobs:
     #
     # Reference: 2026-05-12 PR F (this PR) — auto-rerun-transient
     # workflow + this continue-on-error flag, landed together.
+    #
+    # Plan gate: uploading code-scanning results requires a PUBLIC repo
+    # or GitHub Advanced Security. On a private free-plan repo the
+    # analysis would succeed but the upload hard-fails ("Advanced
+    # Security must be enabled"), so the job only runs when the repo is
+    # public — or when LANE_CODEQL is set after purchasing GHAS.
+    if: ${{ !github.event.repository.private || vars.LANE_CODEQL == 'true' }}
     continue-on-error: true
     strategy:
       fail-fast: false

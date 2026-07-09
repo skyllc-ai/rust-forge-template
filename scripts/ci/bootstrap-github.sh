@@ -8,8 +8,12 @@
 # server-side state the machinery expects:
 #   * labels used by ci-failure-notify / auto-rerun
 #   * the dormant-lane repo variables (all "false" — flip via COMPONENTS.md)
-#   * branch ruleset for main (required PR + required status checks;
-#     signature requirement included in EVALUATE mode — activate consciously)
+#   * branch ruleset for main (required PR + required status checks +
+#     MERGE QUEUE — pr-fast.yml already subscribes to merge_group)
+#
+# NOTE: rulesets (and therefore the merge queue) require a PUBLIC repo or
+# GitHub Pro/Team. On a private free-plan repo this section degrades to a
+# warning — re-run this script once the repo goes public.
 #   * squash-merge + auto-merge repo settings
 #
 # Requires: gh CLI authenticated with admin on the repo.
@@ -34,7 +38,7 @@ done
 
 # ── 2. Dormant-lane repo variables (all off; see COMPONENTS.md) ──────
 echo "── lane variables (all false — activation is a conscious flip)"
-for lane in LANE_RELEASE LANE_RELEASE_PLZ LANE_CRATES LANE_WINGET LANE_CODECOV LANE_SLSA; do
+for lane in LANE_RELEASE LANE_RELEASE_PLZ LANE_CRATES LANE_WINGET LANE_CODECOV LANE_CODEQL LANE_SLSA; do
   gh variable set "${lane}" --body "false"
   echo "   ✅ ${lane}=false"
 done
@@ -83,6 +87,18 @@ RULESET_JSON=$(cat <<'JSON'
           { "context": "required" }
         ]
       }
+    },
+    {
+      "type": "merge_queue",
+      "parameters": {
+        "merge_method": "SQUASH",
+        "grouping_strategy": "ALLGREEN",
+        "max_entries_to_build": 5,
+        "min_entries_to_merge": 1,
+        "max_entries_to_merge": 5,
+        "min_entries_to_merge_wait_minutes": 5,
+        "check_response_timeout_minutes": 60
+      }
     }
   ]
 }
@@ -124,17 +140,14 @@ fi
 cat <<'EOF'
 
 📋 Manual follow-ups (GitHub UI / conscious decisions):
-   1. Merge queue: Settings → Rules → main-protection → add "merge queue"
-      rule if you want queued merges (pr-fast.yml already subscribes to
-      merge_group).
-   2. Signed commits: add a "required signatures" rule to main-protection
+   1. Signed commits: add a "required signatures" rule to main-protection
       once every committer has a signing key (`just doctor-signing`).
-   3. Secrets (only when the matching lane goes live):
+   2. Secrets (only when the matching lane goes live):
       CODECOV_TOKEN (lane:codecov), CARGO_REGISTRY_TOKEN (lane:crates-publish),
       WINGET_TOKEN (lane:winget).
-   4. Dependabot: Settings → Code security — enable Dependabot alerts +
+   3. Dependabot: Settings → Code security — enable Dependabot alerts +
       security updates (dependabot.yml in-repo handles version updates).
-   5. Mark the TEMPLATE repo (not this one) as "Template repository" if you
+   4. Mark the TEMPLATE repo (not this one) as "Template repository" if you
       have not already.
 EOF
 

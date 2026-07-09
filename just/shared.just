@@ -587,16 +587,23 @@ toolchain-sync:
     exit 1
 
 # First-time development environment setup (install-if-missing only).
+# The complete onboarding one-shot: pinned toolchain, build wrapper,
+# every gate tool, git hooks, smoke check. Idempotent — re-run any time.
 # For updates, use `just update-tools`.
 setup:
     #!/usr/bin/env bash
+    set -euo pipefail
     printf "\033[0;34m🔧 Development Environment Setup\033[0m\n"
     printf "\033[0;34m   Nightly toolchain + essential Rust development tools\033[0m\n"
     echo "========================================================"
+    # Pinned toolchain first (reads rust-toolchain.toml; never changes the pin)
+    just toolchain-ensure
     just _install-if-missing cargo-binstall cargo-binstall
     just _install-if-missing cargo-nextest cargo-nextest
     just _install-if-missing cargo-llvm-cov cargo-llvm-cov
     just _install-if-missing cargo-deny cargo-deny
+    just _install-if-missing cargo-vet cargo-vet
+    just _install-if-missing cargo-set-version cargo-edit
     just _install-if-missing cargo-xwin cargo-xwin
     just _install-if-missing cargo-machete cargo-machete
     just _install-if-missing cargo-outdated cargo-outdated
@@ -611,6 +618,17 @@ setup:
     just _install-if-missing samply samply
     just _install-component llvm-tools
     just _install-component miri
+    # Gate tools not on crates.io under their command name
+    just install-dev-tools
+    # Non-cargo helpers (hints only — package-manager territory)
+    command -v jq >/dev/null 2>&1 || printf "\033[1;33m⚠  jq missing — install with: brew install jq (or apt install jq)\033[0m\n"
+    command -v gh >/dev/null 2>&1 || printf "\033[1;33m⚠  gh missing — install from cli.github.com (needed for PRs / just merge)\033[0m\n"
+    command -v reuse >/dev/null 2>&1 || printf "\033[1;33m⚠  reuse missing (license gate soft-skips) — install with: pipx install reuse\033[0m\n"
+    # Wire the git hooks (the local quality gates)
+    just install-hooks
+    # Smoke check
+    printf "\033[0;34m🔎 Smoke check (cargo check --workspace)...\033[0m\n"
+    cargo check --workspace
     printf "\033[0;32m✅ Development environment setup complete!\033[0m\n"
     printf "\033[0;34mToolchain: $(rustc --version)\033[0m\n"
     printf "\033[0;34mNext steps:\033[0m\n"

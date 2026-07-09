@@ -78,6 +78,16 @@ growth is a recipe. Never delete scaffolding to "simplify".**
 - **secrets/vars:** `CODECOV_TOKEN`; `LANE_CODECOV=true`
 - **verify:** next tier-2 run shows the upload; codecov dashboard populates.
 
+## lane:codeql — code scanning uploads
+
+- **what:** `codeql.yml` (weekly + PR SAST). The analysis is free everywhere,
+  but *uploading results* requires a public repo or GitHub Advanced Security,
+  so the job auto-enables on public repos and stays dormant on private ones.
+- **secrets/vars:** nothing for public repos; `LANE_CODEQL=true` to force-on
+  after purchasing GHAS for a private repo.
+- **verify:** the next push shows "Analyze (rust)" running; findings appear
+  under Security → Code scanning.
+
 ## lane:slsa — build provenance attestation
 
 - **what:** `actions/attest-build-provenance` on release artifacts (Sigstore

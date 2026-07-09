@@ -23,3 +23,4 @@ init name org entity="" author="" domain="":
     [ -n "{{ author }}" ] && ARGS+=(--author "{{ author }}")
     [ -n "{{ domain }}" ] && ARGS+=(--domain "{{ domain }}")
     cargo run --release --manifest-path tools/init/Cargo.toml -- "${ARGS[@]}"
+
