@@ -33,6 +33,8 @@
 #   --join OWNER/REPO     clone an existing project built from the template
 #   --template OWNER/REPO which template --new instantiates
 #                         (default: acmex-org/acmex — override after forking)
+#   --dir PATH            parent directory the project lands in (interactive
+#                         runs ask; default: the current directory)
 #   --public              make --new repos public (default: private)
 #   --help                this text
 #
@@ -50,13 +52,14 @@ warn() { printf "  ${C_YELLOW}⚠  %s${C_OFF}\n" "$1"; }
 die()  { printf "  ${C_YELLOW}✋ %s${C_OFF}\n" "$1"; exit 1; }
 
 # ── Flags ────────────────────────────────────────────────────────────
-YES=0; NEW=""; JOIN=""; TEMPLATE="acmex-org/acmex"; VISIBILITY="--private"
+YES=0; NEW=""; JOIN=""; TEMPLATE="acmex-org/acmex"; VISIBILITY="--private"; DEST=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --yes) YES=1 ;;
         --new) NEW="${2:?--new needs OWNER/NAME}"; shift ;;
         --join) JOIN="${2:?--join needs OWNER/REPO}"; shift ;;
         --template) TEMPLATE="${2:?--template needs OWNER/REPO}"; shift ;;
+        --dir) DEST="${2:?--dir needs a path}"; shift ;;
         --public) VISIBILITY="--public" ;;
         --help) grep -E '^#( |$)' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) die "unknown flag: $1 (see --help)" ;;
@@ -241,6 +244,15 @@ say "6/7 The repository"
 if [[ $IN_REPO -eq 1 ]]; then
     ok "already inside a repo checkout — skipping acquisition"
 else
+    # Where should the project live? (your code layout is yours — e.g.
+    # ~/private/github — so the script asks instead of assuming $PWD)
+    if [[ -z "$DEST" ]]; then
+        DEST=$(ask "Parent directory for the project" "$PWD")
+    fi
+    DEST="${DEST/#\~/$HOME}"
+    mkdir -p "$DEST" && cd "$DEST"
+    ok "projects land in: $(pwd)"
+
     mode=""
     if [[ -n "$NEW" ]]; then mode="new"
     elif [[ -n "$JOIN" ]]; then mode="join"
