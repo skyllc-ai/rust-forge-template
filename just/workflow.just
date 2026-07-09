@@ -166,6 +166,23 @@ setup-signing:
     set -euo pipefail
     KEYFILE="$HOME/.ssh/id_ed25519"
     printf "\033[0;34m🔏 Commit-signing setup (SSH format)\033[0m\n"
+    # 0. NEVER clobber an existing setup. Working signing (any format):
+    #    nothing to do. Configured-but-broken GPG: that is the user's
+    #    setup to repair (or consciously replace) — refuse to silently
+    #    rewrite their global git config to SSH.
+    if just doctor-signing >/dev/null 2>&1; then
+        printf "  \033[0;32m✅ commit signing already configured and working — nothing to change\033[0m\n"
+        exit 0
+    fi
+    existing_format=$(git config --get gpg.format || echo openpgp)
+    existing_key=$(git config --get user.signingkey || true)
+    if [[ -n "$existing_key" && "$existing_format" != "ssh" ]]; then
+        printf "  \033[1;33m⚠  an existing GPG signing setup is configured (key %s) but not working.\033[0m\n" "$existing_key"
+        printf "  \033[1;33m   This recipe will NOT overwrite it. Either repair GPG ('just doctor-signing'\033[0m\n"
+        printf "  \033[1;33m   shows what is broken), or switch to SSH signing deliberately:\033[0m\n"
+        printf "  \033[1;33m     git config --global --unset user.signingkey && just setup-signing\033[0m\n"
+        exit 1
+    fi
     # 1. Key material (interactive: you pick the passphrase)
     if [[ -f "$KEYFILE" ]]; then
         printf "  \033[0;32m✅ SSH key exists: %s\033[0m\n" "$KEYFILE"

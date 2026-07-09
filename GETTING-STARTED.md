@@ -54,10 +54,15 @@ curl -fsSL https://raw.githubusercontent.com/<owner>/<repo>/main/bootstrap.sh | 
 bash bootstrap.sh
 ```
 
-Everything is idempotent and check-before-act — safe to re-run any time; a
-tool you already have is detected (with an optional update offer), never
-reinstalled behind your back. Unattended machines: see
-"Unattended / fleet provisioning" near the end of this guide.
+**Already-configured machines are respected — the script never erases your
+setup.** Every step is check-before-act: tools you have are detected (at most
+you get an optional update offer), your existing GitHub login is reused, a
+working commit-signing configuration — GPG or SSH — is left completely
+untouched (a configured-but-broken GPG setup is reported, never overwritten),
+and your projects directory is remembered (`git config --global
+forge.projectsDir`) so next time the right default is already there.
+Unattended machines: see "Unattended / fleet provisioning" near the end of
+this guide.
 
 **Steps 0-4 below are the same journey as individual commands** — read them
 to understand what the script does, or run them yourself if you prefer
@@ -286,7 +291,7 @@ has an unattended lane:
 
 ```bash
 export GH_TOKEN=<fine-grained PAT>        # gh honors it automatically
-curl -fsSL https://raw.githubusercontent.com/<owner>/<repo>/main/bootstrap.sh   | bash -s -- --yes --join my-org/myproj
+curl -fsSL https://raw.githubusercontent.com/<owner>/<repo>/main/bootstrap.sh   | bash -s -- --yes --join my-org/myproj --dir ~/work
 ```
 
 What `--yes` does: auto-approves every step, installs missing tools (skips

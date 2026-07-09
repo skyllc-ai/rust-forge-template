@@ -244,14 +244,21 @@ say "6/7 The repository"
 if [[ $IN_REPO -eq 1 ]]; then
     ok "already inside a repo checkout — skipping acquisition"
 else
-    # Where should the project live? (your code layout is yours — e.g.
-    # ~/private/github — so the script asks instead of assuming $PWD)
+    # Where should the project live? Your layout is yours (e.g.
+    # ~/private/github) — discovery order: --dir flag, the remembered
+    # `forge.projectsDir` git setting, then ask (default $PWD).
+    REMEMBERED=$(git config --global --get forge.projectsDir 2>/dev/null || true)
     if [[ -z "$DEST" ]]; then
-        DEST=$(ask "Parent directory for the project" "$PWD")
+        DEST=$(ask "Parent directory for the project" "${REMEMBERED:-$PWD}")
     fi
     DEST="${DEST/#\~/$HOME}"
     mkdir -p "$DEST" && cd "$DEST"
     ok "projects land in: $(pwd)"
+    if [[ "$(pwd)" != "$REMEMBERED" && $YES -eq 0 ]] \
+        && confirm "Remember $(pwd) as your projects directory for next time?" N; then
+        git config --global forge.projectsDir "$(pwd)"
+        ok "saved (git config --global forge.projectsDir)"
+    fi
 
     mode=""
     if [[ -n "$NEW" ]]; then mode="new"
@@ -307,7 +314,10 @@ else
     ok "project already initialized"
 fi
 if confirm "Install all gate tools + wire the git hooks (just setup)?"; then just setup; fi
-if [[ $YES -eq 1 ]]; then
+# Signing: never touch a working setup (GPG or SSH) — check first.
+if just doctor-signing >/dev/null 2>&1; then
+    ok "commit signing already configured and working — untouched"
+elif [[ $YES -eq 1 ]]; then
     # Unattended: wire up a pre-provisioned key; never mint one.
     if [[ -f "$HOME/.ssh/id_ed25519" ]]; then
         just setup-signing || warn "signing setup incomplete — run 'just setup-signing' later"
