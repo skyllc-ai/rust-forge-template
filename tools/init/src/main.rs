@@ -13,7 +13,7 @@
 //! Usage (via the `just init` recipe):
 //!
 //! ```text
-//! just init name=myproj org=my-org entity="My Org LLC" author="Me <me@example.com>"
+//! just init myproj my-org "My Org LLC" "Me <me@example.com>"
 //! ```
 
 use std::collections::BTreeMap;

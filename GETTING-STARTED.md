@@ -36,25 +36,43 @@ Claude Code guard blocks it outright).
 
 ---
 
-## Step 0 — Get the tooling (one script, once per machine)
+## The fast lane — one guided command does Steps 0-4
 
-Everything the machinery needs on a bare Mac or Linux box — compiler
-prerequisites, Homebrew (macOS), git, `just`, `gh`, `jq`, `pipx`+`reuse`,
-rustup, and GitHub authentication — installs through one idempotent script:
+`bootstrap.sh` drives the entire journey below, asking your consent at every
+step: a docs gate (offers to open the fit check first), compiler
+prerequisites, Homebrew (macOS), git/`just`/`gh`/`jq`/`pipx`+`reuse`, rustup,
+GitHub login (an existing login is detected and reused), creating your repo
+from the template **or** cloning an existing one, the init ceremony, gate
+tools + hooks, commit signing, and the first green `just go`:
 
 ```bash
-# If you already have the repo (see Step 1):
-bash bootstrap.sh
-
 # On a completely bare machine, before you have any repo (public repos):
 curl -fsSL https://raw.githubusercontent.com/<owner>/<repo>/main/bootstrap.sh | bash
 # (private repo? download bootstrap.sh via the GitHub web UI and run it)
+
+# If you already have the repo cloned:
+bash bootstrap.sh
 ```
 
-It checks before installing (safe to re-run), uses each tool's official
-installer, walks you through `gh auth login` interactively, and ends by
-printing your exact next command. Prefer doing it by hand? The script is
-~140 readable lines — it IS the manual instructions, executable.
+Everything is idempotent and check-before-act — safe to re-run any time; a
+tool you already have is detected (with an optional update offer), never
+reinstalled behind your back. Unattended machines: see
+"Unattended / fleet provisioning" near the end of this guide.
+
+**Steps 0-4 below are the same journey as individual commands** — read them
+to understand what the script does, or run them yourself if you prefer
+manual control.
+
+## Step 0 — Install the base tools (once per machine)
+
+Compiler prerequisites, package manager, and the CLI tools, by hand:
+
+macOS: `xcode-select --install`, then [Homebrew](https://brew.sh), then
+`brew install just gh jq pipx && pipx install reuse`.
+Linux (Debian/Ubuntu): `sudo apt install build-essential curl git jq pipx`,
+`pipx install reuse`, plus [`just`](https://github.com/casey/just#packages)
+and [`gh`](https://cli.github.com). Both: install Rust via
+[rustup](https://rustup.rs), then authenticate with `gh auth login`.
 
 You do **not** need to pick a Rust version — the repo pins its own toolchain
 in `rust-toolchain.toml`, and rustup installs it automatically on first build.
