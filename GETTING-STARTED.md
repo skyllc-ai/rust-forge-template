@@ -259,6 +259,28 @@ one-line description.
 
 ---
 
+## Unattended / fleet provisioning (`--yes`)
+
+Provisioning many workstations (MDM, Ansible, CI runners)? `bootstrap.sh`
+has an unattended lane:
+
+```bash
+export GH_TOKEN=<fine-grained PAT>        # gh honors it automatically
+curl -fsSL https://raw.githubusercontent.com/<owner>/<repo>/main/bootstrap.sh   | bash -s -- --yes --join my-org/myproj
+```
+
+What `--yes` does: auto-approves every step, installs missing tools (skips
+optional updates for reproducibility), clones the repo, runs `just setup`.
+What it deliberately does **not** do: generate signing keys. Key issuance is
+an identity decision — pre-provision `~/.ssh/id_ed25519` through your fleet
+tooling (then the signing step wires it up non-interactively), or leave it
+to each developer's first `just setup-signing`. The script reports loudly
+either way, so an unsigned machine cannot silently look "done".
+
+At real fleet scale, consider baking the environment instead of scripting
+it — a devcontainer/Nix image is the natural next step (a future
+`COMPONENTS.md` recipe).
+
 ## Performance tuning (optional)
 
 The repo deliberately ships **stock Cargo behavior**; speed-ups are personal,
