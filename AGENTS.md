@@ -18,6 +18,24 @@ about what passed and what failed.
 
 Run these checks in order. Pick the first match.
 
+0. **Is there NO `justfile` in the current directory (or no repository at
+   all)?** → Genesis mode: the user has nothing yet. Guide them through
+   these steps IN ORDER, one at a time, waiting for each to succeed:
+   1. Tools: have them run
+      ```
+      curl -fsSL https://raw.githubusercontent.com/skyllc-ai/rust-forge-template/main/bootstrap.sh | bash
+      ```
+      This is interactive and can do everything below by itself — if the
+      user completes it fully, you are done: jump to their new project
+      directory and re-run these state checks. If they prefer manual
+      steps, continue:
+   2. GitHub login: `gh auth login` (needs their browser; you cannot do it).
+   3. Create the project (ask the user for OWNER/NAME first):
+      ```
+      gh repo create OWNER/NAME --template skyllc-ai/rust-forge-template --private --clone
+      cd NAME
+      ```
+   4. Now `tools/init/` exists → apply check 1 below, then sections 3-9.
 1. **Does `tools/init/` exist?** → This copy is NOT initialized.
    Tell the user to run (replace the four values):
    ```
