@@ -41,9 +41,12 @@ Claude Code guard blocks it outright).
 `bootstrap.sh` drives the entire journey below, asking your consent at every
 step: a docs gate (offers to open the fit check first), compiler
 prerequisites, Homebrew (macOS), git/`just`/`gh`/`jq`/`pipx`+`reuse`, rustup,
-GitHub login (an existing login is detected and reused), creating your repo
-from the template **or** cloning an existing one, the init ceremony, gate
-tools + hooks, commit signing, and the first green `just go`:
+GitHub login (an existing login is detected and reused), where the project
+should live (smart default: your remembered `forge.projectsDir`, then
+`ghq.root`, then existing conventional dirs like `~/Developer`; or pass
+`--dir`), creating your repo from the template **or** cloning an existing
+one, the init ceremony, gate tools + hooks, commit signing, and the first
+green `just go`:
 
 ```bash
 # On a completely bare machine, before you have any repo (public repos):
