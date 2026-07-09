@@ -100,6 +100,34 @@ ask() {
     printf '%s' "${ans:-$def}"
 }
 
+# Prompt-default principle: every ask() ships a meaningful default —
+# PRECEDENCE first (remembered settings, existing config, choices made
+# earlier in this run), CONVENTION second (platform-blessed locations,
+# ecosystem norms). Nobody should have to invent an answer to proceed.
+
+# Best-practice default for "where do projects live":
+#   1. remembered forge.projectsDir   (precedence: you told us before)
+#   2. ghq.root                       (precedence: ghq users configured it)
+#   3. first existing conventional dir (~/Developer, ~/Projects, ...)
+#   4. $PWD, unless it is $HOME       (running curl from $HOME must not
+#                                      dump repos into the home root)
+#   5. platform convention, created on use (~/Developer on macOS — the
+#      Apple-recognized dev folder — else ~/projects)
+default_projects_dir() {
+    local d
+    d=$(git config --global --get forge.projectsDir 2>/dev/null || true)
+    [[ -n "$d" ]] && { printf '%s' "$d"; return; }
+    d=$(git config --global --get ghq.root 2>/dev/null || true)
+    [[ -n "$d" ]] && { printf '%s' "${d/#\~/$HOME}"; return; }
+    for d in "$HOME/Developer" "$HOME/Projects" "$HOME/projects" "$HOME/dev" \
+             "$HOME/src" "$HOME/code" "$HOME/github" "$HOME/workspace"; do
+        [[ -d "$d" ]] && { printf '%s' "$d"; return; }
+    done
+    if [[ "$PWD" != "$HOME" ]]; then printf '%s' "$PWD"; return; fi
+    if [[ "$(uname -s)" == "Darwin" ]]; then printf '%s' "$HOME/Developer"
+    else printf '%s' "$HOME/projects"; fi
+}
+
 open_url() { # best-effort browser open
     if command -v open >/dev/null 2>&1; then open "$1" 2>/dev/null || true
     elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$1" 2>/dev/null || true
@@ -249,7 +277,7 @@ else
     # `forge.projectsDir` git setting, then ask (default $PWD).
     REMEMBERED=$(git config --global --get forge.projectsDir 2>/dev/null || true)
     if [[ -z "$DEST" ]]; then
-        DEST=$(ask "Parent directory for the project" "${REMEMBERED:-$PWD}")
+        DEST=$(ask "Parent directory for the project" "$(default_projects_dir)")
     fi
     DEST="${DEST/#\~/$HOME}"
     mkdir -p "$DEST" && cd "$DEST"
@@ -271,6 +299,7 @@ else
         choice=$(ask "Choose 1 or 2" "1")
         [[ "$choice" == "2" ]] && mode="join" || mode="new"
     fi
+    ACQUIRED=""
     if [[ "$mode" == "new" ]]; then
         tpl=$(ask "Template to instantiate (OWNER/REPO)" "$TEMPLATE")
         slug="${NEW:-$(ask "Your new repo (OWNER/NAME)" "$(gh api user -q .login 2>/dev/null)/myproj")}"
@@ -284,6 +313,7 @@ else
         gh repo clone "$slug"
         cd "$(basename "$slug")"
     fi
+    ACQUIRED="$slug"
     ok "repo ready: $(pwd)"
 fi
 
@@ -297,12 +327,17 @@ if [[ "$IS_TEMPLATE_SELF" == "true" ]]; then
 elif [[ -d tools/init ]]; then
     note "This copy still carries the template's placeholder identity."
     if confirm "Run the init ceremony now (renames it to YOUR project)?"; then
-        if [[ -n "$NEW" ]]; then
-            iname="${NEW##*/}"; iorg="${NEW%%/*}"
+        # Precedence for defaults: the OWNER/NAME chosen at acquisition
+        # (this run), else the checkout's own name + your gh login.
+        acq="${NEW:-${ACQUIRED:-}}"
+        if [[ -n "$acq" && "$acq" == */* ]]; then
+            def_name="${acq##*/}"; def_org="${acq%%/*}"
         else
-            iname=$(ask "Project slug (lowercase, [a-z0-9-])" "$(basename "$(pwd)")")
-            iorg=$(ask "GitHub org/user" "$(gh api user -q .login 2>/dev/null)")
+            def_name="$(basename "$(pwd)")"
+            def_org="$(gh api user -q .login 2>/dev/null)"
         fi
+        iname=$(ask "Project slug (lowercase, [a-z0-9-])" "$def_name")
+        iorg=$(ask "GitHub org/user" "$def_org")
         ientity=$(ask "Legal entity for copyright lines" "${iorg} contributors")
         def_author="$(git config user.name 2>/dev/null || echo "$iorg") <$(git config user.email 2>/dev/null || echo "dev@${iorg}.example")>"
         iauthor=$(ask "Author (Name <email>)" "$def_author")
