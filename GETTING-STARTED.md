@@ -10,6 +10,11 @@ top to bottom and you end up with your own project running inside a
 production-grade quality machine — strict lints, generated git hooks, tiered
 CI, supply-chain checks — without assembling any of it yourself.
 
+> **First, a fit check.** This machinery is overkill for tutorials, katas,
+> and throwaway experiments — and gold for a project meant to live. Read
+> "Is this template for you?" in the [README](README.md) (30 seconds) before
+> proceeding.
+
 **The one rule of this template:** the gates are the law. When a commit or
 push is rejected, the machine is telling you exactly what to fix. Fix the
 cause; never bypass (`--no-verify` is treated as an incident, and the bundled
