@@ -23,6 +23,11 @@ use std::process::{Command, ExitCode};
 /// Directories never touched by the ceremony.
 const SKIP_DIRS: &[&str] = &[".git", "target", "tools"];
 
+/// Every project born from the template starts at the Cargo convention.
+/// The TEMPLATE's own version keeps moving (it ships its own releases);
+/// yours begins fresh here.
+const NEW_PROJECT_VERSION: &str = "0.1.0";
+
 /// The ceremony's parsed inputs.
 struct Identity {
     /// Crate/binary prefix and repo slug, e.g. `myproj`. Lowercase.
@@ -259,6 +264,59 @@ fn assert_clean(table_slug: &str) -> Result<(), String> {
     }
 }
 
+/// Rewrites the workspace version (and the matching internal-dependency
+/// pins) from whatever the template shipped at to [`NEW_PROJECT_VERSION`].
+fn reset_version() -> Result<(), String> {
+    let manifest_path = Path::new("Cargo.toml");
+    let manifest = std::fs::read_to_string(manifest_path).map_err(|error| error.to_string())?;
+    let current = manifest
+        .lines()
+        .find_map(|line| line.trim().strip_prefix("version = \""))
+        .and_then(|rest| rest.split('"').next())
+        .ok_or("could not find `version = \"...\"` in Cargo.toml")?
+        .to_string();
+    if current == NEW_PROJECT_VERSION {
+        println!("🔢 version already {NEW_PROJECT_VERSION}");
+        return Ok(());
+    }
+    let updated = manifest.replace(
+        &format!("version = \"{current}\""),
+        &format!("version = \"{NEW_PROJECT_VERSION}\""),
+    );
+    std::fs::write(manifest_path, updated).map_err(|error| error.to_string())?;
+    println!("🔢 version reset: {current} -> {NEW_PROJECT_VERSION}");
+    Ok(())
+}
+
+/// Replaces the inherited CHANGELOG (the template's release history) with a
+/// fresh Keep-a-Changelog skeleton for the new project.
+fn reset_changelog(id: &Identity) -> Result<(), String> {
+    // REUSE-IgnoreStart -- the SPDX line below is CONTENT for the generated
+    // CHANGELOG, not this file's own license metadata.
+    let lines = [
+        "<!--".to_string(),
+        "SPDX-License-Identifier: MIT OR Apache-2.0".to_string(),
+        format!("Copyright (c) 2026 {}", id.entity),
+        "-->".to_string(),
+        String::new(),
+        "# Changelog".to_string(),
+        String::new(),
+        "All notable changes to this project will be documented in this file.".to_string(),
+        String::new(),
+        "The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),".to_string(),
+        "and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)."
+            .to_string(),
+        String::new(),
+        "## [Unreleased]".to_string(),
+        String::new(),
+    ];
+    // REUSE-IgnoreEnd
+    let skeleton = lines.join("\n");
+    std::fs::write("CHANGELOG.md", skeleton).map_err(|error| error.to_string())?;
+    println!("📄 CHANGELOG reset to a fresh skeleton");
+    Ok(())
+}
+
 fn ceremony() -> Result<(), String> {
     let id = parse_args()?;
     println!("🔧 init ceremony: acmex -> {}", id.slug);
@@ -283,6 +341,13 @@ fn ceremony() -> Result<(), String> {
     // 2. Path renames.
     let renamed = rename_paths(&id.slug).map_err(|error| error.to_string())?;
     println!("📁 renamed {renamed} paths");
+
+    // 2b. Version reset: the template's own release version must not leak
+    //     into new projects — every project starts at 0.1.0.
+    reset_version()?;
+
+    // 2c. Changelog reset: the template's release history is not yours.
+    reset_changelog(&id)?;
 
     // 3. Refresh the lockfile for the renamed internal packages.
     run("cargo", &["update", "--workspace"])?;
