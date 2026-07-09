@@ -1,0 +1,196 @@
+# SPDX-FileCopyright (c) 2025-2026 Acmex Placeholder LLC.
+# SPDX-License-Identifier: MPL-2.0
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Dependabot Supply-Chain Review
+#
+# Lightweight guardrail for Dependabot-authored PRs that touch the
+# workspace's dependency manifest.  Triggers only on PRs authored by
+# `dependabot[bot]` so it never slows down a human's feature PR.
+#
+# Current check:
+#
+#   • Cargo.lock crate-count delta.  Flags any Dependabot PR whose merge
+#     would add more than a handful of crates to the resolved dependency
+#     graph.  The legitimate case (a transitive fan-out from a legit
+#     version bump) is easy to sanity-check; the suspicious case
+#     (a minor bump that quietly pulls in 5+ new crates, one of which
+#     is typo-squatted / malicious) surfaces as a PR annotation for
+#     the reviewer to investigate before merge.
+#
+# Rationale — why a dedicated workflow and not a step in `pr-fast.yml`:
+#
+#   Security policy is strongest when it's legible in one file.  A
+#   separate workflow lets a future maintainer find every
+#   Dependabot-specific guard in one place without sifting through the
+#   full PR-blocking pipeline.  Zero runtime cost on human PRs (guard
+#   short-circuits via the `actor` filter), and the output surfaces as
+#   a PR-level annotation / check, not buried in a pr-fast log.
+#
+# What this does NOT do:
+#
+#   • Block merge.  Emits a `::warning::` annotation only.  The goal is
+#     to surface something for the reviewer to look at, not to
+#     short-circuit Dependabot's automation.
+#
+#   • Audit the content of new crates.  That's the job of `cargo-vet`
+#     (tracked separately in the supply-chain hardening backlog).
+#
+# Threat model it addresses:
+#
+#   • Attacker compromises a maintainer's account on crates.io, pushes
+#     a minor-version update that secretly pulls in a new dep tree
+#     containing typo-squatted / malicious crates.  Dependabot opens a
+#     PR to bump the legit crate; the dep-tree fan-out is unexpected.
+#     Without this guard, the PR looks like "just a patch bump" and a
+#     tired reviewer might rubber-stamp it.
+
+name: "🔍 Dependabot Review"
+
+on:
+  pull_request:
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "crates/**/Cargo.toml"
+
+# Read-only: we never need to write anything from this workflow.
+# The PR-level annotations it emits use the check-run machinery that's
+# implicit in any workflow, which requires `contents: read` and `checks:
+# write` (the latter is granted automatically for PRs in the same repo).
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: dependabot-review-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dep-tree-growth:
+    name: "Cargo.lock crate-count delta"
+    # Short-circuit on non-Dependabot PRs so we don't spend CI minutes
+    # on every human contributor's feature PR.  The `actor` check is
+    # the canonical way to gate Dependabot-specific workflows.
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Checkout PR with one commit of history
+        # `fetch-depth: 2` gives us HEAD and HEAD~1 so we can diff the
+        # resolved dependency graph between the pre-bump state and the
+        # post-bump state.  Dependabot PRs are single-commit by
+        # default, so HEAD~1 is always main's tip at branch-open time.
+        #
+        # §2.8: pin `ref:` to the PR head SHA (Dependabot's actual
+        # bump commit) instead of the synthetic merge commit that
+        # `actions/checkout` defaults to for `pull_request` events.
+        # That way `HEAD~1:Cargo.lock` is deterministically the
+        # pre-bump lockfile, not a merge-specific artifact.
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 2
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Count Cargo.lock crate-count delta
+        shell: bash
+        env:
+          # Threshold above which we annotate the PR for human review.
+          # 3 is a pragmatic default: a typical minor version bump pulls
+          # in 0-2 new transitive crates; anything larger is worth a
+          # second look (either a legit fan-out that's safe once
+          # confirmed, or the red flag this workflow exists to catch).
+          # Override in the env block here — not via repo-level
+          # settings — so the policy lives in-repo under review.
+          GROWTH_THRESHOLD: 3
+        run: |
+          set -euo pipefail
+
+          # Cargo.lock serialises each resolved crate as a TOML table
+          # whose first key is `name = "…"`.  Counting those lines is
+          # the cheapest reliable way to get the resolved crate count
+          # without installing any tooling.  (`cargo tree` would need
+          # the full build graph and the nightly toolchain to be
+          # installed first.)
+          N_BEFORE=$(git show HEAD~1:Cargo.lock 2>/dev/null | grep -c '^name = ' || echo 0)
+          N_AFTER=$(grep -c '^name = ' Cargo.lock)
+          DIFF=$((N_AFTER - N_BEFORE))
+
+          # Surface the raw numbers regardless — useful for a
+          # retroactive audit even when the delta is within bounds.
+          # Single grouped redirect into $GITHUB_STEP_SUMMARY (SC2129).
+          {
+            echo "## 📊 Dependency graph delta"
+            echo ""
+            echo "| Metric | Value |"
+            echo "| --- | ---: |"
+            echo "| Crates on main (HEAD~1) | \`$N_BEFORE\` |"
+            echo "| Crates on PR (HEAD)     | \`$N_AFTER\` |"
+            echo "| Net change              | \`$DIFF\` |"
+            echo "| Alert threshold         | \`> $GROWTH_THRESHOLD\` |"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if (( DIFF > GROWTH_THRESHOLD )); then
+            # `::warning::` emits a PR-level annotation that shows up
+            # both in the check summary and next to the diff in the
+            # Files Changed view.  We deliberately do not fail the
+            # check (no `exit 1`) — the goal is to prompt a reviewer,
+            # not to block Dependabot's automation pipeline.
+            echo "::warning file=Cargo.lock::Dependabot PR adds $DIFF new crates (threshold: $GROWTH_THRESHOLD). Review the Cargo.lock diff carefully for unexpected transitive additions — a typical minor bump adds 0-2 crates; a large fan-out may indicate an upstream maintainer account compromise or a typo-squatting attack."
+            echo "⚠️  **Threshold exceeded** — PR annotation emitted." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "✅ **Within bounds** — no annotation emitted." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          # Also echo to the job log for quick scanning.
+          echo ""
+          echo "Before: $N_BEFORE crates"
+          echo "After:  $N_AFTER crates"
+          echo "Delta:  $DIFF (threshold: $GROWTH_THRESHOLD)"
+
+      - name: Highlight NEW crate names (informational)
+        # Purely diagnostic: when the delta trips the threshold, list
+        # the specific crates that got added.  Helps the reviewer
+        # decide at a glance whether the new names look like
+        # legitimate transitive deps (`serde_json_something`) vs
+        # suspicious (`http2-utils-2`, typo-squats, weird forks).
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BEFORE_FILE=$(mktemp)
+          AFTER_FILE=$(mktemp)
+          trap 'rm -f "$BEFORE_FILE" "$AFTER_FILE"' EXIT
+
+          git show HEAD~1:Cargo.lock 2>/dev/null \
+            | awk -F'"' '/^name = /{print $2}' \
+            | sort -u > "$BEFORE_FILE" || true
+          awk -F'"' '/^name = /{print $2}' Cargo.lock \
+            | sort -u > "$AFTER_FILE"
+
+          # Names present in AFTER but not in BEFORE are the additions.
+          # Drop the header if empty — no point cluttering the summary.
+          ADDED=$(comm -13 "$BEFORE_FILE" "$AFTER_FILE")
+          if [[ -n "$ADDED" ]]; then
+            # Single grouped redirect into $GITHUB_STEP_SUMMARY (SC2129).
+            {
+              echo "### 🆕 Newly-resolved crate names"
+              echo ""
+              echo '```'
+              echo "$ADDED"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          REMOVED=$(comm -23 "$BEFORE_FILE" "$AFTER_FILE")
+          if [[ -n "$REMOVED" ]]; then
+            # Single grouped redirect into $GITHUB_STEP_SUMMARY (SC2129).
+            {
+              echo "### ♻️  Dropped crate names"
+              echo ""
+              echo '```'
+              echo "$REMOVED"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi

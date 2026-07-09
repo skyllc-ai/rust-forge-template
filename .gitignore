@@ -1,0 +1,170 @@
+# SPDX-License-Identifier: MPL-2.0
+# Copyright (c) 2025-2026 Acmex Placeholder LLC.
+
+# =============================================================================
+# Rust / Cargo
+# =============================================================================
+debug/
+target/
+# Cargo.lock IS committed for this workspace (binary crates: acmex-cli,
+# acmex-daemon, acmex-mcp, etc.).  Committing it is required for:
+#   * Reproducible builds (every dev + CI + release resolves the same graph)
+#   * Supply-chain integrity (pairs with cargo-vet + cargo-deny pinning)
+#   * SLSA attestation integrity (release provenance references a specific
+#     dep graph; without Cargo.lock that graph would drift every run)
+#   * cargo-vet stability (exemptions are keyed on specific crate-versions
+#     — a floating Cargo.lock would break cargo vet check on every
+#     unrelated upstream patch release)
+# To deliberately update deps, use `cargo update` or a Dependabot PR.
+**/*.rs.bk
+*.pdb
+# macOS sed -i backup files
+*.toml-e
+*.yml-e
+*.rs-e
+
+# =============================================================================
+# Trash / quarantine (local rollback staging)
+# =============================================================================
+/_trash/*
+!/_trash/.gitignore
+/_trash/**/.gitkeep
+/_trash/**/.keep
+
+# =============================================================================
+# Build artifacts & generated binaries
+# =============================================================================
+# Build artifacts directory — all generated files stay out of git.
+build/
+*.rlib
+*.bin
+# `*.bin` is meant to keep transient generated blobs out of git.  When the
+# project gains INTENTIONAL committed binary assets (embedded tables via
+# `include_bytes!`, integration-test fixtures), carve them back in here
+# explicitly — a file that is both committed AND gitignored makes
+# release-plz abort with "the working directory has uncommitted changes".
+# Fixture carve-out (documented per fixture in tests/fixtures/README.md):
+!tests/fixtures/**/*.bin
+/test_scf
+
+# =============================================================================
+# Logs, vendor, misc
+# =============================================================================
+/Shell/
+# /LOG/ is strictly local-only.  Every file under it — runtime logs
+# (defender ETLs, mental_health, `ship_run*.log` captures), per-session
+# notes, healing logs, assessment scratchpads, anything — stays on the
+# developer's machine and NEVER reaches git.  The project-level
+# `CHANGELOG.md` at the repo root is the only changelog that ships.
+/LOG/
+/vendor/
+/missing_paths.txt
+/_trash/
+/reference/
+# Binaries are distributed via GitHub Releases, not committed to the repo
+dist/
+# Transient pipeline / debug logs captured at the workspace root via `tee`.
+# Kept around between healing iterations but never committed.
+/.ship_run*.log
+/.clippy_run*.log
+/.git_status.txt
+/.git_show.txt
+/.git_lsfiles.txt
+
+# =============================================================================
+# IDE / Editor / AI
+# =============================================================================
+.idea/
+.vscode/
+.ai/
+# Claude Code: local state stays ignored, but the project hook config that
+# blocks gate-bypass flags is tracked and shared (scripts/hooks/claude_no_bypass.sh).
+.claude/*
+!.claude/settings.json
+.qodo/
+.reuse/
+.windsurf/
+*.iws
+*.iml
+
+# =============================================================================
+# OS artifacts
+# =============================================================================
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+# Linux
+*~
+
+# =============================================================================
+# Environment and secrets
+# =============================================================================
+.env
+*.env
+
+# =============================================================================
+# Cargo metadata & local-only cargo config
+# =============================================================================
+metadata.json
+.cargo/macos.toml
+.cargo/windows.toml
+.cargo/.zshrc
+
+# =============================================================================
+# Internal dev docs (plans, audits, investigations — local only)
+# =============================================================================
+/docs/dev/
+/docs/research/
+/docs/refactor/
+
+# =============================================================================
+# Explicit public-docs guard
+# =============================================================================
+# /docs/benchmarks/ is the public-facing competitive-benchmark hub — dated
+# canonical reports, archive, hub README, reproduction scripts. This
+# directory MUST stay tracked. The negation below is defensive: if a future
+# gitignore rule ever matches /docs/benchmarks/* (e.g. someone adds
+# /docs/*/ or a broader pattern), this keeps the hub checked in.
+!/docs/benchmarks/
+!/docs/benchmarks/**
+
+# =============================================================================
+# Local benchmark artifacts (never commit run output)
+# =============================================================================
+# Bench artifacts are consolidated under $ACMEX_BENCH_DIR (default: a temp dir);
+# these root-anchored rules are a defensive guard against stray in-repo writes
+# from older bench runs / scripts.  Root-anchored (leading `/`) so they never
+# touch the tracked `/docs/benchmarks/` hub above.
+/benchmarks/
+/out/bench/
+/acmex_bench_out.csv
+/bench_acmex_*.csv
+/bench_cpp_*.csv
+/bench_es_*.csv
+
+# =============================================================================
+# Local-only spec/prompt files
+# =============================================================================
+/prompts/
+INTENT_PROMPT.md
+INTENT_PROMPT_V2.md
+INTENT_SPEC_FAANG_CORE_INFRA.md
+
+# Stray cargo/script `console` artifacts (a 2025 append lost its newline and
+# merged this pattern into the .md line above, so it never matched; restored)
+console
+crates/acmex-cli/console
+
+# =============================================================================
+# Demo video cuts (scripts/dev/demo/*-video.tape outputs) are upload
+# artifacts for YouTube/LinkedIn/X — never committed.  GIF variants in
+# assets/demo/ remain the only tracked demo media.
+# =============================================================================
+acmex-cli-video.mp4
+acmex-tui-video.mp4
+acmex-mcp-claude-video.mp4

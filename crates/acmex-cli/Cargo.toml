@@ -1,0 +1,46 @@
+# ============================================================================
+# acmex-cli: skeleton CLI binary (template placeholder)
+# ============================================================================
+# Ships the `acmex` binary. Demonstrates the canonical binary-crate shape:
+# workspace-inherited metadata, workspace-inherited dependencies, the shared
+# `--version` machinery (acmex-version + build.rs stamping), the full lint
+# posture, and an assert_cmd integration test.
+# Replace the greeting flow with real CLI logic; keep the shape.
+# ============================================================================
+
+[package]
+name = "acmex-cli"
+description = "acmex command-line interface — template placeholder skeleton"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
+documentation.workspace = true
+# Internal crate — inherits the workspace `publish = false` default.
+publish.workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[[bin]]
+name = "acmex"
+path = "src/main.rs"
+
+[dependencies]
+acmex-core.workspace = true
+acmex-version.workspace = true
+clap.workspace = true
+
+[build-dependencies]
+acmex-version = { workspace = true, features = ["build"] }
+
+[dev-dependencies]
+assert_cmd.workspace = true
+
+[lints]
+workspace = true

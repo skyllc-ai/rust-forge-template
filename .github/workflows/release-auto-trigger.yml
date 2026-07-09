@@ -1,0 +1,74 @@
+# SPDX-License-Identifier: MPL-2.0
+# Copyright (c) 2025-2026 Acmex Placeholder LLC.
+#
+# ─── Release auto-trigger — closes the Path B gap (2026-06-12) ──────────
+#
+# Path B (release-automation-plan §8, 2026-06-10) made binary releases
+# two manual steps: `just ship` opens an auto-merging `release/vX.Y.Z`
+# PR, then the operator runs `just release-tag` after the merge.  In
+# practice the second step was forgotten — v0.5.121 merged and no
+# binaries were built — and the ship pipeline's completion banner has
+# always promised "GitHub Actions will produce binaries" on merge.
+#
+# This workflow restores the intended end-to-end behavior: when (and
+# ONLY when) a `release/v*` PR merges into `main`, dispatch release.yml
+# for that version.  The Path B guarantee is preserved — a normal merge
+# to `main` still triggers NO release, because the predicate keys on
+# the release branch name that only `just ship` / `just release-pr`
+# creates.
+#
+# `just release-tag` remains the manual fallback (signed tag push, also
+# triggers release.yml) for re-cuts or if this dispatch ever fails.
+
+name: 🏷️ Release Auto-Trigger
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+# Default to ZERO permissions; the single job below grants only what it
+# needs.  Matches the least-privilege pattern used in every other ACMEX
+# workflow.
+permissions: {}
+
+# One dispatch per release branch; never cancel a dispatch in flight.
+concurrency:
+  group: release-auto-trigger-${{ github.event.pull_request.head.ref }}
+  cancel-in-progress: false
+
+jobs:
+  dispatch-release:
+    name: 🚀 Dispatch release pipeline
+    # Dormancy guard (LANE_RELEASE) + fire only for MERGED PRs whose
+    # head is a ship-created release branch; closed-without-merge PRs
+    # are ignored.
+    if: >
+      vars.LANE_RELEASE == 'true' &&
+      github.event.pull_request.merged == true &&
+      startsWith(github.event.pull_request.head.ref, 'release/v')
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    permissions:
+      # workflow_dispatch of release.yml via the API.  Dispatch events
+      # raised with GITHUB_TOKEN do create runs (unlike push events),
+      # so no PAT is needed.
+      actions: write
+    steps:
+      - name: Dispatch release.yml for the merged release PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          version="${HEAD_REF#release/}"
+          if ! [[ "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "❌ '$HEAD_REF' is not release/vX.Y.Z — refusing to dispatch"
+            exit 1
+          fi
+          echo "🚀 Release PR #${PR_NUMBER} merged — dispatching release.yml for ${version}"
+          gh workflow run release.yml \
+            --repo "${GITHUB_REPOSITORY}" \
+            -f version="${version}" \
+            -f triggered_by="release-pr-merge-#${PR_NUMBER}"

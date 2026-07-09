@@ -1,0 +1,294 @@
+# SPDX-FileCopyright (c) 2025-2026 Acmex Placeholder LLC.
+# SPDX-License-Identifier: MPL-2.0
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ci-failure-notify — file a tracking issue when a watched workflow
+# concludes in failure AFTER `auto-rerun-transient.yml` has had its
+# chance to retry transient flakes.
+#
+# Why this lives outside `pr-fast.yml` / `tier-2.yml`:
+#
+#   The previous in-workflow `notify-failure` jobs fired synchronously
+#   as soon as any gate job failed — BEFORE the cross-workflow
+#   `auto-rerun-transient` listener could observe the failure and
+#   dispatch a retry.  Transient failures (HTTP 429, network blips,
+#   runner-setup faults) thus generated false-positive `ci-failure-*`
+#   issues that stayed open while the underlying CI run flipped back
+#   to green via the auto-rerun.  Recurrence pattern was ~1 false-
+#   positive issue every 1-2 days; see #209 for the full design
+#   rationale (Design C).
+#
+# How this design eliminates the race:
+#
+#   * Trigger is `workflow_run [completed]`, which fires AFTER the
+#     parent workflow has fully concluded.
+#   * The job sleeps 60s to allow `auto-rerun-transient.yml` to
+#     decide whether to dispatch a retry.  Auto-rerun typically
+#     takes ~10-30s to inspect failed-job logs and either dispatch
+#     the rerun or exit silently; 60s gives a comfortable margin.
+#   * Then it re-fetches the run's status via the Actions REST API:
+#     - `status == 'in_progress'` → a retry was dispatched and is
+#        running → SKIP notification (the next `workflow_run
+#        [completed]` event will re-decide).
+#     - `status == 'completed'` + `conclusion == 'success'` →
+#        auto-rerun fixed the transient failure → SKIP notification.
+#     - `status == 'completed'` + `conclusion == 'failure'` →
+#        either a real failure (no transient signature matched) or
+#        the retry also failed → FILE / UPDATE tracking issue.
+#
+# Coverage:
+#
+#   * "PR Fast CI"               → label `ci-failure-pr-fast`
+#   * "🌙 ACMEX Tier 2 Nightly CI" → label `ci-failure-tier-2`
+#   * "🔍 CodeQL (Rust SAST)" is intentionally NOT covered — it uses
+#     `continue-on-error: true` (advisory job) and its transient
+#     failures are absorbed by `auto-rerun-transient.yml` without
+#     ever surfacing as `conclusion == 'failure'`.
+#
+# Release pipeline (`release.yml`) keeps its own in-workflow
+# notify-failure job because:
+#
+#   1. It's not in `auto-rerun-transient.yml`'s watched list (release
+#      failures are not transient-retryable by design — every step
+#      mutates published state).
+#   2. Release failures need immediate human attention; a 60s delay
+#      is unwanted.
+#
+# Permissions:
+#
+#   * `actions: read`  — required to call GET /repos/.../actions/runs/<id>.
+#   * `contents: read` — implicit (issue body links to commits).
+#   * `issues: write`  — required to create / comment on / update issues.
+
+name: 🔔 CI Failure Notify
+
+on:
+  workflow_run:
+    workflows:
+      - "PR Fast CI"
+      - "🌙 ACMEX Tier 2 Nightly CI"
+      - "🐤 Nightly Canary"
+    types: [completed]
+
+# Default to ZERO permissions; the single job below grants only what
+# it needs.  Matches the least-privilege pattern used in every other
+# ACMEX workflow.
+permissions: {}
+
+# Serialise per watched run so two near-simultaneous workflow_run
+# events (e.g. rapid push series or rerun completion racing with
+# initial completion) don't race on inspecting / notifying the same
+# run.  Keyed on the triggering run's id, NOT this workflow's ref,
+# so concurrent decisions for DIFFERENT runs proceed in parallel.
+concurrency:
+  group: ci-failure-notify-${{ github.event.workflow_run.id }}
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    name: Open / update tracking issue for genuine failure
+    runs-on: ubuntu-22.04
+    # Filter on:
+    #   * fork PRs: their `workflow_run` events land in the base
+    #     repo but with `head_repository != repository` and we
+    #     deliberately don't notify on them (the fork author sees
+    #     their own failures in the PR checks UI).
+    #   * pull_request events: PR authors see their own failures
+    #     directly; tracking issues are only for main-branch
+    #     pushes and scheduled runs.
+    #   * conclusion: only failed runs trigger this workflow's
+    #     notify path (success runs already mean no notification
+    #     is needed, even if a transient signature was matched).
+    if: >-
+      github.repository_owner == 'acmex-org' &&
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.event != 'pull_request'
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+    timeout-minutes: 5
+
+    steps:
+      - name: Wait for auto-rerun-transient.yml decision window
+        # auto-rerun-transient takes ~10-30s end-to-end:
+        #   * `gh api .../jobs?filter=latest`         ~1-2s
+        #   * per-job log fetch + grep                ~2-5s per job
+        #   * `POST .../rerun-failed-jobs` (if any)   ~1-2s
+        # 60s gives a comfortable margin and absorbs occasional
+        # GitHub-API latency spikes.
+        run: sleep 60
+
+      - name: Re-check workflow run status after auto-rerun window
+        id: status
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          run_json="$(gh api "/repos/${GH_REPO}/actions/runs/${RUN_ID}")"
+          attempt="$(printf '%s' "$run_json" | jq -r '.run_attempt')"
+          status="$(printf '%s' "$run_json" | jq -r '.status')"
+          conclusion="$(printf '%s' "$run_json" | jq -r '.conclusion // "null"')"
+
+          printf 'Run %s — attempt=%s status=%s conclusion=%s\n' \
+            "${RUN_ID}" "${attempt}" "${status}" "${conclusion}"
+
+          {
+            echo "attempt=${attempt}"
+            echo "status=${status}"
+            echo "conclusion=${conclusion}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Decide whether to notify
+        id: decide
+        env:
+          STATUS: ${{ steps.status.outputs.status }}
+          CONCLUSION: ${{ steps.status.outputs.conclusion }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Case 1: the run is still in_progress.  A retry is running;
+          # the next `workflow_run [completed]` event will re-decide.
+          if [[ "${STATUS}" != "completed" ]]; then
+            printf '⏳ Run is still %s; deferring to the next [completed] event.\n' "${STATUS}"
+            echo "notify=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Case 2: the run completed with success (rerun fixed the
+          # transient failure).  No notification needed.
+          if [[ "${CONCLUSION}" == "success" ]]; then
+            printf '✅ Run flipped to success (auto-rerun fixed it); no notification needed.\n'
+            echo "notify=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Case 3: completed + non-success.  Either a genuine failure
+          # (no transient signature matched, so auto-rerun didn't fire)
+          # or a transient failure whose retry ALSO failed (attempt 2+
+          # is fully consumed).  Either way, this is real and human
+          # triage is appropriate.
+          printf '🔔 Run is completed + %s; will file/update tracking issue.\n' "${CONCLUSION}"
+          echo "notify=true" >> "$GITHUB_OUTPUT"
+
+      - name: File or update tracking issue
+        if: steps.decide.outputs.notify == 'true'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
+          ACTOR: ${{ github.event.workflow_run.actor.login }}
+          ATTEMPT: ${{ steps.status.outputs.attempt }}
+        with:
+          script: |
+            // Map workflow-run name → per-workflow label + title prefix.
+            // The mapping mirrors the labels previously emitted by each
+            // workflow's in-line `notify-failure` job before the move
+            // to this centralised, race-safe workflow.
+            const wf = process.env.WORKFLOW_NAME;
+            const sha = process.env.HEAD_SHA;
+            const shortSha = sha.substring(0, 7);
+            const attempt = process.env.ATTEMPT;
+
+            let label, title, extraBody;
+            if (wf === 'PR Fast CI') {
+              label = 'ci-failure-pr-fast';
+              title = `🔴 CI Failure: PR Fast CI — ${shortSha}`;
+              extraBody = [];
+            } else if (wf === '🌙 ACMEX Tier 2 Nightly CI') {
+              label = 'ci-failure-tier-2';
+              title = `🔴 CI Failure: Tier 2 Nightly CI — ${shortSha}`;
+              extraBody = [
+                '',
+                '📧 Notification sent to: cifail@acmex.example',
+              ];
+            } else if (wf === '🐤 Nightly Canary') {
+              // Early-warning probe against the LATEST floating nightly
+              // (NOT the pinned toolchain).  A failure here means an
+              // upcoming nightly will break the workspace — triage
+              // before the next `just toolchain-sync` pin bump, not
+              // during it.  This is advisory: the canary is never a
+              // required merge check, so this issue tracks future risk,
+              // not a broken main.
+              label = 'ci-failure-nightly-canary';
+              title = `🐤 Nightly Canary: upcoming-toolchain regression — ${shortSha}`;
+              extraBody = [
+                '',
+                '⚠️ This is an **early-warning** signal from the floating-nightly canary, ' +
+                'not a broken pin. `main` still builds on the pinned toolchain. ' +
+                'Investigate before the next pin bump; if it is an upstream/dep ' +
+                'regression, the fix is usually a dependency bump (cf. the ethnum ' +
+                '1.5.2→1.5.3 episode), not a toolchain downgrade.',
+                '',
+                '📧 Notification sent to: cifail@acmex.example',
+              ];
+            } else {
+              core.warning(`Unknown workflow name: ${wf}; not notifying.`);
+              return;
+            }
+
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.RUN_ID}`;
+            const commitUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/commit/${sha}`;
+
+            // Attempt-specific suffix in the body so readers can
+            // immediately see whether this was a first-shot failure
+            // (auto-rerun saw no transient signature) or a retry
+            // that ALSO failed (genuinely persistent flake).
+            const attemptNote = attempt === '1'
+              ? 'auto-rerun-transient saw no transient signature in the failed-job logs → genuine failure on first attempt'
+              : `auto-rerun-transient dispatched a retry but attempt ${attempt} also failed → persistent flake or real regression`;
+
+            const body = [
+              `## ${wf} failed on \`${process.env.HEAD_BRANCH}\``,
+              ``,
+              `| Field | Value |`,
+              `|-------|-------|`,
+              `| **Workflow** | \`${wf}\` |`,
+              `| **Run** | [#${process.env.RUN_NUMBER}](${runUrl}) |`,
+              `| **Attempt** | ${attempt} |`,
+              `| **Branch** | \`${process.env.HEAD_BRANCH}\` |`,
+              `| **Commit** | [\`${shortSha}\`](${commitUrl}) |`,
+              `| **Triggered by** | @${process.env.ACTOR} |`,
+              ``,
+              `_Filed by \`ci-failure-notify.yml\` after the 60-second auto-rerun-transient window: ${attemptNote}._`,
+              ...extraBody,
+            ].join('\n');
+
+            // Reuse an existing open issue with the same label rather
+            // than spamming.  Matches the original semantics of the
+            // in-line `notify-failure` jobs that this workflow replaces.
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: label,
+              per_page: 1,
+            });
+
+            if (existing.data.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.data[0].number,
+                body: body,
+              });
+              core.info(`Updated existing issue #${existing.data[0].number}`);
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: body,
+                labels: [label, 'ci-failure'],
+                assignees: ['acmex-owner'],
+              });
+              core.info('Created new failure issue');
+            }

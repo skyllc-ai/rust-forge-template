@@ -1,0 +1,61 @@
+# Codecov Configuration for ACMEX
+# Copyright (c) 2025-2026 Acmex Placeholder LLC.
+# SPDX-License-Identifier: MPL-2.0
+
+codecov:
+  # Token is provided via GitHub Secrets (${{ secrets.CODECOV_TOKEN }})
+  # Do NOT hardcode tokens in this file.
+  require_ci_to_pass: true
+  notify:
+    after_n_builds: 1
+    wait_for_ci: true
+
+# Coverage targets
+coverage:
+  # Overall project coverage target
+  status:
+    project:
+      default:
+        target: 90%
+        threshold: 1%
+        if_no_uploads: error
+        if_not_found: success
+        if_ci_failed: error
+    
+    # Patch coverage for new code
+    patch:
+      default:
+        target: 95%
+        threshold: 1%
+        if_no_uploads: error
+        if_not_found: success
+        if_ci_failed: error
+
+  # Precision for coverage percentages
+  precision: 1
+  
+  # Round coverage to nearest integer
+  round: down
+  
+  # Coverage range (red to green)
+  range: "70...100"
+
+# Comment settings for PRs
+comment:
+  layout: "reach,diff,flags,tree"
+  behavior: default
+  require_changes: false
+  require_base: no
+  require_head: yes
+
+# Ignore certain files/directories
+ignore:
+  - "tests/**/*"
+  - "benches/**/*"
+  - "examples/**/*"
+  - "scripts/**/*"
+  - "build/**/*"
+  - "target/**/*"
+  - "**/*.md"
+  - "**/Cargo.toml"
+  - "**/Cargo.lock"

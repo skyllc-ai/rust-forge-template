@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: MPL-2.0
+# Copyright (c) 2025-2026 Acmex Placeholder LLC.
+#
+# typos-cli configuration for the ACMEX workspace.
+#
+# Invoked by the pre-commit / pre-push hooks and by `just typos`.  Each
+# `extend-words` entry below is a real English word, technical term, or
+# crate name the default typos dictionary mis-flags; next time we bump
+# typos-cli we should re-audit this list to drop upstream-caught terms.
+#
+# Docs: https://github.com/crate-ci/typos/blob/master/docs/reference.md
+
+[default.extend-words]
+# The template starts with only the words its own scaffolding prose needs;
+# add project jargon, acronyms, and intentional fragments as typos flags them.
+invokable = "invokable"     # scaffolding docs: "locally invokable" gate
+unparseable = "unparseable" # accepted variant spelling in pipeline/gate docs
+mis = "mis"                 # "mis-classifying" hyphenated prefix in gen-workflow docs
+
+[files]
+# Frozen / historical / third-party-metadata locations — not subject
+# to spelling review.
+extend-exclude = [
+  "CHANGELOG.md",    # historical release notes
+  "LOG/",            # timestamped changelogs
+  "supply-chain/",   # cargo-vet metadata keyed by real crate names
+  "tests/fixtures/", # frozen test fixtures
+  "target/",         # build artefacts
+  ".git/",           # git internals
+]

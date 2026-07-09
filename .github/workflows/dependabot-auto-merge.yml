@@ -1,0 +1,172 @@
+# SPDX-License-Identifier: MPL-2.0
+# Copyright (c) 2025-2026 Acmex Placeholder LLC.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# Dependabot auto-merge — narrowly-scoped reviewer-time reclaim
+#
+# Enables GitHub's native "auto-merge" on a Dependabot PR if — and ONLY
+# if — EVERY one of the following is true:
+#
+#   1. The PR author is `dependabot[bot]`.
+#   2. `dependabot/fetch-metadata` reports
+#        update-type = `version-update:semver-patch`
+#      (patch-level bumps only — no minor, no major).
+#   3. The change is NOT a security update that would need human
+#      review for its advisory notes (severity `high` / `critical`).
+#   4. The `Dependabot Review / Cargo.lock crate-count delta` annotation
+#      (emitted by dependabot-review.yml) did not flag unexpected
+#      transitive fan-out.  Enforced implicitly: auto-merge waits on all
+#      required status checks, so if `dependabot-review.yml` annotates a
+#      warning the maintainer sees it BEFORE the merge proceeds, and
+#      branch protection still requires their approval.
+#   5. Every required branch-protection check (`cargo vet check
+#      --locked`, `cargo-deny`, clippy, tests, doc-tests, file-size
+#      policy) passes.  GitHub's auto-merge engine gates this
+#      automatically.
+#
+# What this workflow DOES NOT do:
+#
+#   * It does NOT bypass review.  `main` branch protection still
+#     requires a human approval.  If the repo's "allow Dependabot to
+#     bypass required reviews" setting is off (default), a maintainer
+#     still has to click Approve.  What this saves is the "merge when
+#     green" clickwork — GitHub queues the merge and executes as soon
+#     as checks pass AND reviews are satisfied.
+#
+#   * It does NOT touch minor / major bumps.  Those continue the
+#     existing manual-review flow documented in
+#     `docs/policies/dependency_policy.md`.
+#
+#   * It does NOT bypass `cargo vet check`.  If the bumped version is
+#     not covered by an imported audit or an exemption, CI goes red
+#     and auto-merge is blocked — exactly the same gate as a manual
+#     Dependabot review.
+#
+# Policy rationale:
+#
+#   This change narrows (but does not abolish) the previous policy of
+#   "every Dependabot PR is human-reviewed and human-merged."  Patch-
+#   level bumps covered by the existing audit trail are the lowest-
+#   risk, highest-volume category — they pile up without delivering
+#   any net security signal that the automated gates have not already
+#   checked.  Reclaiming the reviewer time for minor / major bumps is
+#   a net-positive shift; see the supply-chain posture in
+#   `docs/policies/dependency_policy.md`.
+#
+# Failure mode (intentional no-op):
+#
+#   If ANY condition fails, the workflow finishes successfully without
+#   calling `gh pr merge --auto`.  The PR sits open for manual review
+#   exactly like today — zero regression in the default path.
+
+name: "🤖 Dependabot auto-merge (patch-level)"
+
+on:
+  pull_request:
+    # Only events we care about.  `labeled` is included so a
+    # maintainer can trigger a re-evaluation by re-labeling the PR
+    # after a failed auto-merge attempt.
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
+
+# Read PR metadata + enable auto-merge.  No other writes.
+permissions:
+  contents: write
+  pull-requests: write
+
+# One evaluation per PR at a time.  `cancel-in-progress: true` because
+# a superseded Dependabot sync (new commit lands) means the previous
+# evaluation's metadata is stale.
+concurrency:
+  group: dependabot-auto-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  auto-merge:
+    name: Enable auto-merge if eligible
+    # Short-circuit on non-Dependabot PRs so human contributors pay
+    # zero CI minutes when this workflow fires.
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fetch Dependabot metadata
+        id: meta
+        # Extracts `update-type`, `dependency-names`,
+        # `package-ecosystem`, etc. from the Dependabot PR body.
+        # Pinned to a commit SHA like every other action in this repo.
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Evaluate eligibility
+        id: gate
+        shell: bash
+        env:
+          UPDATE_TYPE: ${{ steps.meta.outputs.update-type }}
+          ECOSYSTEM: ${{ steps.meta.outputs.package-ecosystem }}
+          DEP_NAMES: ${{ steps.meta.outputs.dependency-names }}
+          ALERT_STATE: ${{ steps.meta.outputs.alert-state }}
+        run: |
+          set -euo pipefail
+
+          echo "Dependabot metadata:"
+          echo "  update-type        = $UPDATE_TYPE"
+          echo "  package-ecosystem  = $ECOSYSTEM"
+          echo "  dependency-names   = $DEP_NAMES"
+          echo "  alert-state        = $ALERT_STATE"
+
+          eligible=false
+          reason=""
+
+          if [[ "$UPDATE_TYPE" == "version-update:semver-patch" ]]; then
+            # Security-advisory updates get manual review regardless of
+            # semver level, so the reviewer sees the advisory notes.
+            if [[ -z "$ALERT_STATE" || "$ALERT_STATE" == "AUTO_DISMISSED" ]]; then
+              eligible=true
+              reason="patch-level bump, no active security advisory \u2192 auto-merge eligible"
+            else
+              reason="security-advisory bump (alert=$ALERT_STATE) \u2192 manual review"
+            fi
+          else
+            reason="update-type=$UPDATE_TYPE (not patch-level) \u2192 manual review"
+          fi
+
+          echo "eligible=$eligible" >> "$GITHUB_OUTPUT"
+          echo "reason=$reason"     >> "$GITHUB_OUTPUT"
+
+          echo ""
+          echo "Decision: $eligible ($reason)"
+
+          # Surface the decision in the PR check summary so reviewers
+          # can see at a glance whether auto-merge is on.
+          {
+            echo "## 🤖 Dependabot auto-merge evaluation"
+            echo ""
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| update-type | \`$UPDATE_TYPE\` |"
+            echo "| package-ecosystem | \`$ECOSYSTEM\` |"
+            echo "| dependency-names | \`$DEP_NAMES\` |"
+            echo "| alert-state | \`${ALERT_STATE:-none}\` |"
+            echo "| eligible | **$eligible** |"
+            echo "| reason | $reason |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Enable auto-merge via gh CLI
+        # Only call `gh pr merge --auto` when the gate is green.
+        #
+        # NO method flag: `main` uses a merge queue, which OWNS the merge
+        # strategy. Passing `--squash`/`--rebase`/`--merge` here is silently
+        # rejected ("the merge strategy for main is set by the merge queue") and
+        # leaves auto-merge armed but NOT enrolled in the queue, so the PR sits
+        # CLEAN-but-stuck (cf. #494). `--auto` alone lets the queue own the
+        # squash and enrolls correctly. This step also fires on `synchronize`,
+        # so it now re-arms (self-heals enrollment) after an Update-branch.
+        if: steps.gate.outputs.eligible == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          echo "Enabling auto-merge on $PR_URL"
+          gh pr merge --auto "$PR_URL"
+          echo "::notice::Auto-merge enabled \u2014 will merge when all required checks pass and reviews (if any) are satisfied."

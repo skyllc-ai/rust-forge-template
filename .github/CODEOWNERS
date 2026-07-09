@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: MPL-2.0
+# Copyright (c) 2025-2026 Acmex Placeholder LLC.
+#
+# CODEOWNERS — defines code review ownership for pull requests.
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default: Acmex Placeholder Dev owns everything
+*                                   @acmex-owner
+
+# Product crates
+crates/                             @acmex-owner
+
+# CI, security, and release infrastructure
+.github/                            @acmex-owner
+deny.toml                           @acmex-owner
+SECURITY.md                         @acmex-owner
+LICENSE                             @acmex-owner
+Cargo.toml                          @acmex-owner
+Cargo.lock                          @acmex-owner
+justfile                            @acmex-owner
+
+# Supply-chain ledger — cargo-vet audits, exemptions, imports.
+# Layer 3 of the four-layer audit-discipline policy (see
+# docs/architecture/security/supply-chain-posture.md §"Mandating
+# audits over blanket bumps").  Every PR touching this directory
+# requires explicit @acmex-owner review, regardless of which other
+# CODEOWNERS line it matches.
+supply-chain/                       @acmex-owner

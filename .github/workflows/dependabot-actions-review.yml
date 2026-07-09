@@ -1,0 +1,181 @@
+# SPDX-FileCopyright (c) 2025-2026 Acmex Placeholder LLC.
+# SPDX-License-Identifier: MPL-2.0
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Dependabot Actions Supply-Chain Review
+#
+# Sibling to `dependabot-review.yml` (the Cargo-side guard).  That
+# workflow only watches the Cargo dependency graph; it has a `paths:`
+# filter of `Cargo.toml` / `Cargo.lock`, so **github-actions** version
+# bumps slip past it entirely.  This file closes that gap: it is the
+# same "surface, don't block" guardrail, applied to Dependabot PRs that
+# change `.github/workflows/**` or `.github/actions/**`.
+#
+# Why a separate workflow (same reasoning as the Cargo guard):
+#
+#   Security policy is strongest when it's legible in one file.  A
+#   dedicated workflow lets a future maintainer find every
+#   Dependabot-specific Actions guard in one place, costs zero runtime
+#   on human PRs (short-circuits via the `actor` filter), and surfaces
+#   its findings as PR-level annotations rather than buried in a log.
+#
+# Current checks (both annotate, neither blocks):
+#
+#   1. NEW third-party action introduced.  A plain SHA bump of an
+#      already-trusted action (`actions/checkout@<old> → @<new>`) is
+#      routine.  A `uses:` that names an action **not previously present
+#      anywhere in the repo** is a brand-new trust dependency — worth a
+#      human glance to confirm the publisher is who we think it is
+#      (typo-squat / look-alike-org defense).
+#
+#   2. NON-SHA pin.  Our policy is to pin every action to a full 40-char
+#      commit SHA (immutable), with the human-readable tag in a trailing
+#      comment.  A `uses:` pinned to a tag/branch instead of a SHA is a
+#      weaker supply-chain posture (a moved tag can swap the code under
+#      us).  Flag any non-SHA pin a Dependabot PR would introduce.
+#
+# What this does NOT do:
+#
+#   • Block merge.  Emits `::warning::` annotations only — the goal is to
+#     prompt the reviewer, not to short-circuit Dependabot's automation.
+#   • Audit the *contents* of an action.  Pinning + reviewer judgment is
+#     the control; this just makes the two signals above impossible to
+#     miss.
+#
+# Threat model it addresses:
+#
+#   • A bump PR that, beyond advancing a known action's SHA, also
+#     introduces a new/renamed action reference (supply-chain pivot), or
+#     downgrades a pin from an immutable SHA to a mutable tag.  Without
+#     this guard, a tired reviewer sees "just a CI bump" and rubber-
+#     stamps it.
+
+name: "🔍 Dependabot Actions Review"
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/**"
+      - ".github/actions/**"
+
+# Read-only: PR-level annotations use the implicit check-run machinery.
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: dependabot-actions-review-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  actions-supply-chain:
+    name: "Action pin & new-action delta"
+    # Short-circuit on non-Dependabot PRs so human CI-edit PRs pay
+    # nothing.  Matches the actor gate in `dependabot-review.yml`.
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Checkout PR with one commit of history
+        # `fetch-depth: 2` → HEAD and HEAD~1 so we can diff the set of
+        # `uses:` references before/after the bump.  Pin `ref:` to the
+        # PR head SHA (Dependabot's actual bump commit) so HEAD~1 is
+        # deterministically the pre-bump tree, not a synthetic merge
+        # commit (mirrors `dependabot-review.yml` §2.8).
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 2
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Diff action references (new actions + non-SHA pins)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Collect the unique `uses:` references at a given git ref.
+          # Handles both `uses: x` (job-level) and `- uses: x` (step in a
+          # list), strips trailing `# vX.Y.Z` comments, and drops local
+          # composite actions (`./...`) and docker refs (`docker://...`),
+          # neither of which is a remote-tag/SHA supply-chain concern.
+          collect_uses() {
+            local gitref="$1"
+            git ls-tree -r --name-only "$gitref" -- .github/workflows .github/actions 2>/dev/null \
+              | grep -E '\.ya?ml$' \
+              | while IFS= read -r f; do git show "$gitref:$f" 2>/dev/null; done \
+              | grep -oE 'uses:[[:space:]]*[^[:space:]#]+' \
+              | sed -E 's/uses:[[:space:]]*//' \
+              | grep -vE '^(\./|docker://)' \
+              | sort -u
+          }
+
+          BEFORE_FULL=$(collect_uses 'HEAD~1' || true)
+          AFTER_FULL=$(collect_uses 'HEAD')
+
+          # Action *identity* = everything before the `@` (org/repo[/path]).
+          names() { sed -E 's/@[^@]*$//' | sort -u; }
+          BEFORE_NAMES=$(printf '%s\n' "$BEFORE_FULL" | grep -E '.' | names || true)
+          AFTER_NAMES=$(printf '%s\n'  "$AFTER_FULL"  | grep -E '.' | names || true)
+
+          # (1) Actions present after the bump but never before = new trust deps.
+          NEW_ACTIONS=$(comm -13 <(printf '%s\n' "$BEFORE_NAMES") <(printf '%s\n' "$AFTER_NAMES") || true)
+
+          # (2) Non-SHA pins among the post-bump references. The ref after the
+          # final `@` must be a 40-char lowercase hex SHA; anything else
+          # (tag, branch, short SHA) is a weaker pin.
+          UNPINNED=""
+          while IFS= read -r u; do
+            [[ -z "$u" ]] && continue
+            ref="${u##*@}"
+            if [[ ! "$ref" =~ ^[0-9a-f]{40}$ ]]; then
+              UNPINNED+="${u}"$'\n'
+            fi
+          done <<< "$AFTER_FULL"
+          UNPINNED=$(printf '%s' "$UNPINNED" | grep -E '.' || true)
+
+          # ── Step summary (always, for retroactive audit) ──────────────
+          {
+            echo "## 🔗 Dependabot Actions review"
+            echo ""
+            echo "| Metric | Value |"
+            echo "| --- | ---: |"
+            echo "| Distinct actions before (HEAD~1) | \`$(printf '%s\n' "$BEFORE_NAMES" | grep -cE '.' || echo 0)\` |"
+            echo "| Distinct actions after (HEAD)    | \`$(printf '%s\n' "$AFTER_NAMES"  | grep -cE '.' || echo 0)\` |"
+            echo "| New actions introduced           | \`$(printf '%s\n' "$NEW_ACTIONS" | grep -cE '.' || echo 0)\` |"
+            echo "| Non-SHA pins after bump          | \`$(printf '%s\n' "$UNPINNED" | grep -cE '.' || echo 0)\` |"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          STATUS="ok"
+
+          if [[ -n "$NEW_ACTIONS" ]]; then
+            STATUS="warn"
+            ONE_LINE=$(printf '%s' "$NEW_ACTIONS" | paste -sd ',' -)
+            echo "::warning file=.github/workflows::Dependabot PR introduces NEW GitHub Action(s): ${ONE_LINE}. Confirm the publisher/org is the intended one (typo-squat / look-alike defense) before merging."
+            {
+              echo "### 🆕 New action(s) introduced"
+              echo ""
+              echo '```'
+              printf '%s\n' "$NEW_ACTIONS"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [[ -n "$UNPINNED" ]]; then
+            STATUS="warn"
+            echo "::warning file=.github/workflows::One or more actions are NOT pinned to a full 40-char commit SHA. Repo policy is SHA-pinning (immutable) with the tag in a trailing comment. Pin these before merging."
+            {
+              echo "### 📌 Non-SHA-pinned action reference(s)"
+              echo ""
+              echo '```'
+              printf '%s\n' "$UNPINNED"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [[ "$STATUS" == "ok" ]]; then
+            echo "✅ **Within bounds** — SHA-only bump of existing action(s); no annotation emitted." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          # Diagnostic echo to the job log.
+          echo "New actions:"; printf '%s\n' "${NEW_ACTIONS:-<none>}"
+          echo "Non-SHA pins:"; printf '%s\n' "${UNPINNED:-<none>}"

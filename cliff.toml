@@ -1,0 +1,230 @@
+# SPDX-License-Identifier: MPL-2.0
+# Copyright (c) 2025-2026 Acmex Placeholder LLC.
+#
+# git-cliff configuration for ACMEX
+# Phase R2 of `docs/architecture/release-automation-plan.md`.
+#
+# Used by:
+#   * Local devs:  `git cliff --unreleased` to preview the next changelog
+#                  section before pushing a feature branch.
+#   * Phase R3+:   release-plz reads this file natively and uses it to
+#                  populate `## [vX.Y.Z]` sections in `CHANGELOG.md`
+#                  during release-PR generation.
+#
+# Style: Keep-a-Changelog 1.1.0 + SemVer 2.0.0, matching the
+# hand-maintained `CHANGELOG.md` shape that pre-dates this plan.
+#
+# Type → section mapping (kept in sync with both
+# `.github/workflows/commitlint.yml` and `CONTRIBUTING.md` →
+# "Commit message conventions"):
+#
+#   * `feat:`              → ### Added
+#   * `feat!:`             → ### Breaking Changes
+#   * `fix(security):`     → ### Security
+#   * `chore(security):`   → ### Security
+#   * `fix:`               → ### Fixed
+#   * `fix!:`              → ### Breaking Changes
+#   * `perf:`              → ### Performance
+#   * BREAKING CHANGE foot → ### Breaking Changes
+#   * All other types      → suppressed (refactor, docs, test,
+#                            build, ci, chore, style, revert)
+#
+# Adding or removing a type means updating BOTH this file's
+# `commit_parsers` array AND the regex in
+# `.github/workflows/commitlint.yml` AND the table in
+# `CONTRIBUTING.md` in the SAME PR — the three are a tightly-
+# coupled trio.
+
+[changelog]
+# Header preserved from the existing hand-maintained `CHANGELOG.md`
+# so a fresh git-cliff regeneration produces the same opening
+# section as the file already on disk.  Tabs / spacing inside the
+# Tera literal are preserved verbatim by the renderer.
+header = """
+<!--
+SPDX-License-Identifier: MPL-2.0
+Copyright (c) 2025-2026 Acmex Placeholder LLC.
+
+ACMEX - Ultra Fast File Search
+-->
+
+# Changelog
+
+All notable changes to ACMEX will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+"""
+
+# Per-release body template.  Tera syntax — see
+# https://keats.github.io/tera/docs/ for filter / function
+# reference.  Whitespace control via `{%- ... -%}` is fiddly;
+# the layout below has been tuned by iterating against the
+# existing CHANGELOG.md until the rendered output matches the
+# Keep-a-Changelog spacing the project already uses.
+#
+# We deliberately do NOT emit an explicit `[#NN](URL)` markdown
+# link for the PR number.  GitHub-flavored markdown auto-links
+# the trailing `(#NN)` that squash-merge subjects already carry,
+# so adding our own link produces ugly `(#63) ([#63](...))`
+# duplication.  The squash subject is the single source of truth.
+body = """
+{% if version -%}
+## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else -%}
+## [Unreleased]
+{% endif %}
+{% for group, commits in commits | group_by(attribute="group") -%}
+### {{ group | upper_first }}
+
+{% for commit in commits -%}
+- {% if commit.scope %}**{{ commit.scope }}** {% endif %}{{ commit.message | split(pat="\n") | first | upper_first | trim }}
+{% endfor %}
+{% endfor -%}
+"""
+
+# Footer.  Generates the bottom-of-CHANGELOG comparison links that
+# the existing file already maintains by hand.  The `unreleased`
+# anchor compares against the latest tag — same as the existing
+# `[Unreleased]: ...compare/v0.5.71...HEAD` pattern.
+#
+# Why the `default(value="...")` filter on `remote.github.*`:
+#
+#   The `[remote.github]` section at the bottom of this file populates
+#   these variables for STANDALONE `git cliff` invocations.  But when
+#   release-plz embeds git-cliff and renders this template (Phase R3
+#   shadow mode and beyond), it doesn't populate `remote.github` from
+#   our `[remote.github]` section — release-plz expects to derive the
+#   remote from `Cargo.toml`'s `repository` field instead, and only
+#   populates `remote.github` if a GitHub API token is available at
+#   render time.  The default-filter fallback makes the template work
+#   identically in both contexts: standalone iteration uses the literal
+#   values from `[remote.github]`, release-plz uses the same hardcoded
+#   defaults.  If the org or repo ever moves, both this file and
+#   `[remote.github]` below need updating — the duplication is the
+#   price of cross-tool template compatibility.
+footer = """
+
+{% for release in releases -%}
+{% if release.version -%}
+{% if release.previous.version -%}
+[{{ release.version | trim_start_matches(pat="v") }}]: \
+https://github.com/{{ remote.github.owner | default(value="acmex-org") }}/{{ remote.github.repo | default(value="acmex") }}\
+/compare/{{ release.previous.version }}...{{ release.version }}
+{% else -%}
+[{{ release.version | trim_start_matches(pat="v") }}]: \
+https://github.com/{{ remote.github.owner | default(value="acmex-org") }}/{{ remote.github.repo | default(value="acmex") }}\
+/releases/tag/{{ release.version }}
+{% endif -%}
+{% else -%}
+[unreleased]: https://github.com/{{ remote.github.owner | default(value="acmex-org") }}/{{ remote.github.repo | default(value="acmex") }}\
+/compare/{{ release.previous.version }}...HEAD
+{% endif -%}
+{% endfor %}
+"""
+
+# Strip leading/trailing whitespace per release block.  Without
+# this, the empty-line gymnastics in the body template would leak
+# blank lines between sections.
+trim = true
+
+[git]
+# Parse PR-title-as-commit-subject according to Conventional
+# Commits 1.0.0.  This is the source of truth that maps `feat:`,
+# `fix:`, etc. into the `commit.message` / `commit.scope` /
+# `commit.breaking` fields that `commit_parsers` then groups.
+conventional_commits = true
+
+# Drop commits whose subjects don't match Conventional Commits
+# format.  Phase R1a is collecting data on non-conforming titles
+# (see `release-automation-baseline.md` §4); during R1a some
+# non-CC merges may still land and they SHOULD NOT silently
+# appear in the changelog as `## Changed`.  Filtering them out is
+# the conservative choice: a missing entry is a louder signal
+# than a misclassified one, and `commitlint.yml`'s sticky comment
+# is the place that surfaces the issue at PR-time.
+filter_unconventional = true
+
+# Don't split multi-paragraph commits into separate entries.  ACMEX
+# uses squash-merge, so each commit on `main` already represents
+# one logical change.  Splitting would produce duplicate entries
+# from the body's prose paragraphs.
+split_commits = false
+
+# Commit parsers — first-match wins.  Order matters: most-
+# specific patterns (security scope, breaking marker) MUST come
+# before the broad `^feat`, `^fix`, `^perf` matches.
+commit_parsers = [
+  # ── Breaking changes ──────────────────────────────────────────
+  # The `!` suffix is the CC spec's breaking-change marker.  Catch
+  # it on every type prefix so we never miss a breaking change.
+  { message = "^[a-z]+(\\([a-z0-9-]+\\))?!: ", group = "Breaking Changes" },
+  # `BREAKING CHANGE: ...` footer in the commit body.  Less common
+  # than `!:` in this repo but covered for spec-completeness.
+  { body = ".*BREAKING[ -]CHANGE.*", group = "Breaking Changes" },
+
+  # ── Security (scope-based catch) ──────────────────────────────
+  # Map `fix(security):` and `chore(security):` to the dedicated
+  # ### Security section.  Mirrors how the existing CHANGELOG
+  # already groups supply-chain hardening commits, and aligns with
+  # the commit-msg hook + commitlint workflow which only accept the
+  # 11 standard CC types (`security` is NOT a top-level type — see
+  # `CONTRIBUTING.md` → "Commit message conventions").
+  #
+  # The historical carve-out for top-level `security:` / `security(<scope>):`
+  # subjects (PRs #31, #33, #34 — see `release-automation-baseline.md` §4)
+  # was retired in 2026-05-08; those three early commits remain in the
+  # historical CHANGELOG but no future commit can use that prefix because
+  # the local commit-msg hook rejects it.  See
+  # `docs/architecture/release-automation-plan.md` deviation log entry
+  # for the convergence rationale.
+  { message = "^fix\\(security\\)", group = "Security" },
+  { message = "^chore\\(security\\)", group = "Security" },
+
+  # ── Standard CC types → Keep-a-Changelog sections ─────────────
+  { message = "^feat", group = "Added" },
+  { message = "^fix", group = "Fixed" },
+  { message = "^perf", group = "Performance" },
+
+  # ── Suppressed types ──────────────────────────────────────────
+  # These appear in `git log` and in PR-fast CI but are not
+  # release-worthy and don't trigger version bumps either.  Phase
+  # R3+'s release-plz uses the same suppression list to decide
+  # which merges trigger a release-PR refresh.
+  { message = "^refactor", skip = true },
+  { message = "^docs", skip = true },
+  { message = "^test", skip = true },
+  { message = "^build", skip = true },
+  { message = "^ci", skip = true },
+  { message = "^chore", skip = true },
+  { message = "^style", skip = true },
+  { message = "^revert", skip = true },
+]
+
+# Drop commits that no parser matched.  Combined with
+# `filter_unconventional = true` above, this is belt-and-
+# suspenders: anything not parsed AND not matching any explicit
+# parser is silently dropped rather than appearing under a
+# default group.
+filter_commits = true
+
+# Order commits within a release section newest-first to match
+# the hand-maintained CHANGELOG style (latest commits show
+# closest to the section header).
+sort_commits = "newest"
+
+# Tag pattern that maps git tags to release sections.  Must match
+# what `auto-tag-release.yml` emits (`v0.5.71`, `v0.5.72`, …) and
+# what release-plz will emit in Phase R4.  Anchored both ends so
+# stray tags like `v0.5.71-rc1` don't mistakenly anchor a release.
+tag_pattern = "v[0-9]+\\.[0-9]+\\.[0-9]+"
+
+# Topological order would give a "merge-graph"-ordered changelog
+# which is harder to read than chronological for end users.
+# Stays consistent with the existing CHANGELOG.md.
+topo_order = false
+
+[remote.github]
+owner = "acmex-org"
+repo = "acmex"

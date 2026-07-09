@@ -1,0 +1,769 @@
+# SPDX-License-Identifier: MPL-2.0
+# Copyright (c) 2025-2026 Acmex Placeholder LLC.
+#
+# PR Fast CI — the *required* merge-blocking lane.
+#
+# Architecture (dev-flow-implementation-plan.md § 1 / § 2.5):
+#
+#   This workflow is the answer to "is this PR mergeable?", not
+#   "can we produce every deliverable?".  The preview-artifacts.yml
+#   workflow covers the latter opt-in; release.yml covers tag-time
+#   packaging.  Splitting the lanes stops the 15-90 min "is this SHA
+#   worth packaging" question from gating every PR.
+#
+#   A single `classify` job emits file-class outputs
+#   (rust / dep / infra / docs_only / code) consumed by every
+#   downstream job's `if:` condition, and the `required` aggregator
+#   explicitly depends on `classify` (failure/skip of classify ⇒
+#   required fails).  See § 2.5 / § 10.2 in the plan doc for the
+#   correctness argument.
+#
+# Phase 4 cutover completed 2026-04-23:
+#   - Legacy `ci.yml` retired (PR #48, squash `6f99b86aa`).
+#   - Ruleset `main-protection` (ID `11889528`) updated in the same
+#     window to require only `PR Fast CI / required`.
+#   - Historical rollout notes: § 4 / § 10.3 of the plan doc.
+
+name: PR Fast CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, develop]
+  # merge_group: required for GitHub merge queue.  Harmless when queue
+  # is disabled; essential the moment it is enabled (otherwise the
+  # queue stalls because required checks never report on the test-merge
+  # commit).
+  merge_group:
+  workflow_dispatch:
+
+# Least-privilege default.  Individual jobs opt in to write scopes if
+# they need them (none currently do).
+permissions:
+  contents: read
+
+# Cancel superseded PR runs; never cancel main/develop/merge-queue
+# runs (they feed required checks and a stray cancel can deadlock
+# branch protection).
+concurrency:
+  group: pr-fast-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+  # Match local policy (.cargo/config.toml sets `incremental = false`)
+  # so green-locally ↔ green-in-CI.
+  CARGO_INCREMENTAL: 0
+  # sccache is configured for local dev via .cargo/config.toml; the
+  # GitHub-hosted runners don't have it installed, so we explicitly
+  # disable the wrapper here.  An empty RUSTC_WRAPPER defeats the
+  # config value without touching .cargo/config.toml (which would
+  # hurt local dev UX).
+  RUSTC_WRAPPER: ""
+  RUST_BACKTRACE: 1
+  CARGO_TARGET_DIR: target
+  CARGO_BUILD_JOBS: 2
+  # Stable CPU baseline — avoids SIGILL under LLVM mis-detection on
+  # some Azure/KVM runners.  Never `target-cpu=native`: a binary
+  # compiled on today's runner can trap on a runner migrated to a
+  # narrower ISA tomorrow.  Matches the baselines used in release.yml.
+  RUSTFLAGS: "-C target-cpu=x86-64-v3 -C link-arg=-Wl,--gc-sections"
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────
+  # classify — emits file-class outputs consumed by every downstream
+  # job's `if:` condition.  MUST be in `required`'s needs so a classify
+  # failure cannot silently green-light the PR via skipped downstreams.
+  # ─────────────────────────────────────────────────────────────────────
+  classify:
+    name: Classify changes
+    runs-on: ubuntu-22.04
+    timeout-minutes: 3
+    outputs:
+      rust:      ${{ steps.f.outputs.rust }}
+      dep:       ${{ steps.f.outputs.dep }}
+      infra:     ${{ steps.f.outputs.infra }}
+      docs_only: ${{ steps.f.outputs.docs_only }}
+      code:      ${{ steps.f.outputs.code }}
+    steps:
+      - name: Checkout (full history for diff base resolution)
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Compute changed file classes
+        id: f
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          GITHUB_SHA:  ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          # Resolve base..head for the diff:
+          #   * pull_request   → base.sha .. head.sha
+          #   * push           → before   .. sha         (may be 0s on branch creation)
+          #   * merge_group    → head of queue test-merge; use HEAD~1..HEAD
+          #   * workflow_dispatch → HEAD~1..HEAD (manual runs rarely care)
+          ZERO='0000000000000000000000000000000000000000'
+          case "$EVENT_NAME" in
+            pull_request)
+              BASE="${PR_BASE_SHA}"
+              HEAD="${PR_HEAD_SHA}"
+              ;;
+            push)
+              if [[ -z "${PUSH_BEFORE}" || "${PUSH_BEFORE}" == "$ZERO" ]]; then
+                # New branch — no predecessor on origin.  Diff against
+                # main to classify changes vs mainline.
+                BASE=$(git merge-base "${GITHUB_SHA}" origin/main 2>/dev/null \
+                    || git rev-list --max-parents=0 "${GITHUB_SHA}" | tail -n1)
+              else
+                BASE="${PUSH_BEFORE}"
+              fi
+              HEAD="${GITHUB_SHA}"
+              ;;
+            merge_group|workflow_dispatch|*)
+              BASE="HEAD~1"
+              HEAD="HEAD"
+              ;;
+          esac
+
+          echo "::notice::classify: BASE=${BASE} HEAD=${HEAD} event=${EVENT_NAME}"
+
+          # Fetch base if missing (common on shallow clones — but we
+          # already fetched depth 0 so this should be a no-op).
+          git cat-file -e "${BASE}" 2>/dev/null || git fetch --depth=1 origin "${BASE}" 2>/dev/null || true
+
+          CHANGED=$(git diff --name-only "${BASE}" "${HEAD}" 2>/dev/null || echo "__UNKNOWN__")
+          if [[ -z "${CHANGED// /}" ]]; then
+            # Empty diff → treat as docs-only (nothing actually touched).
+            CHANGED=""
+          fi
+          echo "::group::Changed files (${BASE}..${HEAD})"
+          echo "$CHANGED"
+          echo "::endgroup::"
+
+          match() {
+            [[ "$CHANGED" == "__UNKNOWN__" ]] && { echo true; return; }
+            if printf '%s\n' "$CHANGED" | grep -E "$1" >/dev/null 2>&1; then
+              echo true
+            else
+              echo false
+            fi
+          }
+
+          RUST=$(match '\.rs$')
+          DEP=$(match '^(Cargo\.toml$|.*/Cargo\.toml$|Cargo\.lock$|supply-chain/)')
+          INFRA=$(match '^(\.github/|scripts/|\.cargo/|\.config/|just/|rust-toolchain|clippy\.toml$|rustfmt\.toml$|deny\.toml$|REUSE\.toml$|codecov\.yml$)')
+
+          CODE=false
+          if [[ "$RUST" == "true" || "$DEP" == "true" || "$INFRA" == "true" ]]; then
+            CODE=true
+          fi
+          DOCS_ONLY=true
+          if [[ "$CODE" == "true" ]]; then
+            DOCS_ONLY=false
+          fi
+          # Truly empty change set (nothing matched anything) stays
+          # docs_only=true AND code=false — nothing runs.
+
+          {
+            echo "rust=$RUST"
+            echo "dep=$DEP"
+            echo "infra=$INFRA"
+            echo "code=$CODE"
+            echo "docs_only=$DOCS_ONLY"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "::notice::classify: rust=$RUST dep=$DEP infra=$INFRA code=$CODE docs_only=$DOCS_ONLY"
+
+  # ─────────────────────────────────────────────────────────────────────
+  # file-size — always runs (cheap).  No needs:, no if:.
+  # ─────────────────────────────────────────────────────────────────────
+  file-size:
+    name: File size policy
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - run: bash scripts/ci/check_file_size_policy.sh
+
+  # ─────────────────────────────────────────────────────────────────────
+  # gates-drift — Phase 1 of `docs/architecture/gates-manifest-plan.md`.
+  # Verifies `scripts/ci/gates.toml` stays in lockstep with the gate
+  # set actually defined in `_lint_fast.sh`, `_lint_pre_push.sh`, and
+  # this file.  Always-on; sub-second; no classify gating (a manifest
+  # / consumer mismatch is meaningful regardless of which files
+  # changed in the PR).  Bypass not supported in CI — drift on `main`
+  # is a deliberate "fix-me-now" signal.
+  # ─────────────────────────────────────────────────────────────────────
+  gates-drift:
+    name: Gates manifest drift
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - run: bash scripts/ci/check_gates_drift.sh
+
+  # ─────────────────────────────────────────────────────────────────────
+  # hooks-drift — Phase 2 of `docs/architecture/gates-manifest-plan.md`.
+  # Verifies the on-disk `scripts/hooks/_lint_pre_push.sh` is
+  # byte-for-byte equal to what `acmex-gen-hooks` would emit from the
+  # canonical `scripts/ci/gates.toml`.  Always-on; bypass not
+  # supported in CI.  Cache key is shared with `sanity` so the
+  # acmex-gen-hooks binary build piggybacks on the existing rust-cache.
+  # ─────────────────────────────────────────────────────────────────────
+  hooks-drift:
+    name: Hook codegen drift
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - run: rustup show
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          shared-key: pr-fast-sanity
+          save-if: 'false'
+      - run: cargo run -q --release -p acmex-gen-hooks -- --check
+
+  # ─────────────────────────────────────────────────────────────────────
+  # workflow-drift — Phase 3 of `docs/architecture/gates-manifest-plan.md`.
+  # Validates four structural properties of THIS workflow file against
+  # the canonical `scripts/ci/gates.toml`: per-gate job presence,
+  # `if:` predicate alignment, aggregator coverage (`required.needs:` +
+  # `declare -A R=(...)` table + `notify-failure.needs:`), and the
+  # branch-protection guard string `PR Fast CI / required`.  Read-only
+  # — never mutates the workflow file; risk profile matches Phase 1's
+  # `gates-drift`.  Cache key shared with `sanity` so the acmex-gen-workflow
+  # binary build piggybacks on the existing rust-cache.
+  # ─────────────────────────────────────────────────────────────────────
+  workflow-drift:
+    name: Workflow structural drift
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - run: rustup show
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          shared-key: pr-fast-sanity
+          save-if: 'false'
+      - run: cargo run -q --release -p acmex-gen-workflow -- --check
+
+  # ─────────────────────────────────────────────────────────────────────
+  # fast-drift — Phase 3a of `docs/architecture/gates-manifest-plan.md`.
+  # Verifies the on-disk `scripts/hooks/_lint_fast.sh` is byte-for-byte
+  # equal to what `acmex-gen-hooks --target pre-commit` would emit from the
+  # canonical `scripts/ci/gates.toml`.  Sibling of `hooks-drift` for
+  # the pre-commit tier — same binary, different `--target`.  Cache
+  # key shared with `sanity` so the acmex-gen-hooks binary build piggybacks
+  # on the existing rust-cache.
+  # ─────────────────────────────────────────────────────────────────────
+  fast-drift:
+    name: Pre-commit hook codegen drift
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - run: rustup show
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          shared-key: pr-fast-sanity
+          save-if: 'false'
+      - run: cargo run -q --release -p acmex-gen-hooks -- --target pre-commit --check
+
+  # ─────────────────────────────────────────────────────────────────────
+  # manifest-drift — Phase 1 follow-up from
+  # `docs/dev/architecture/code_clean/phase_1_manifest_implementation_plan.md`
+  # (local-only) — issue #211.  Encodes the 15 Phase-1 manifest
+  # invariants as machine-checkable assertions and runs them against
+  # every member `Cargo.toml`.  Catches the drift class the manual
+  # Phase-1 audit can only detect on the annual cadence (a new crate
+  # landing without `[lints] workspace = true`, an `edition = "..."`
+  # override, a `[profile.*]` block in a member, etc).  Gated on
+  # `dep_changed` so docs-only PRs skip the audit.  Cache key shared
+  # with `sanity` per the sibling drift-detector pattern.
+  # ─────────────────────────────────────────────────────────────────────
+  manifest-drift:
+    name: Manifest inheritance drift
+    runs-on: ubuntu-22.04
+    needs: classify
+    if: needs.classify.outputs.dep == 'true'
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - run: rustup show
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          shared-key: pr-fast-sanity
+          save-if: 'false'
+      - run: cargo run -q --release -p acmex-manifest-audit -- --check
+
+  # ─────────────────────────────────────────────────────────────────────
+  # fmt — rustfmt check.  Gates on rust_changed (pure TOML / config /
+  # docs edits don't need rustfmt).
+  # ─────────────────────────────────────────────────────────────────────
+  fmt:
+    name: Format check
+    runs-on: ubuntu-22.04
+    needs: classify
+    if: needs.classify.outputs.rust == 'true'
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - run: rustup show
+      - run: cargo fmt --all -- --check
+
+  # ─────────────────────────────────────────────────────────────────────
+  # sanity — `cargo check` + `cargo-vet`.  The fastest compile gate;
+  # downstream heavy jobs `needs: sanity` so a type error aborts before
+  # paying for clippy / tests / Windows.
+  #
+  # Heavy jobs (sanity / clippy{,-no-default} / docs / test-build / tests /
+  # security / windows-lint) carry `&& github.event_name != 'pull_request'`
+  # so they run ONLY on `merge_group` (the merge queue) and `push` (main),
+  # not on the PR itself.  Rationale: the merge queue revalidates every PR
+  # against current `main` before merging, so a `pull_request` run is a
+  # redundant second pass — the contributor's local `lint-pre-push` gate
+  # already ran the same full suite before the push.  Running heavy CI once,
+  # in the queue, halves Rust-PR CI without losing safety.  The `required`
+  # aggregator below treats these jobs' `skipped` (on PRs) as a pass, so a
+  # PR still goes green and can enter the queue; on `merge_group` they run
+  # for real and gate the merge.  Cheap checks (fmt / file-size / drift /
+  # classify) stay on `pull_request` for fast author feedback.
+  # ─────────────────────────────────────────────────────────────────────
+  sanity:
+    name: Sanity (cargo check + vet)
+    runs-on: ubuntu-22.04
+    needs: classify
+    if: needs.classify.outputs.code == 'true' && github.event_name != 'pull_request'
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+          sudo rm -rf /usr/local/share/boost /usr/local/graalvm
+          df -h /
+
+      - run: rustup show
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          shared-key: pr-fast-sanity
+          cache-on-failure: 'true'
+
+      - name: cargo fetch --locked
+        run: cargo fetch --locked
+
+      - name: cargo check --workspace --all-targets --all-features --locked
+        run: cargo check --workspace --all-targets --all-features --locked
+
+      - name: Install cargo-vet
+        if: needs.classify.outputs.dep == 'true'
+        uses: taiki-e/install-action@dfc84ffb7254b048a0a843316ff5a2714dcdc7bd # v2
+        with:
+          tool: cargo-vet
+
+      - name: cargo vet check --locked
+        if: needs.classify.outputs.dep == 'true'
+        run: cargo vet check --locked
+
+  # ─────────────────────────────────────────────────────────────────────
+  # clippy — CI-mirror baseline (`--all-targets --all-features -D warnings`).
+  # ─────────────────────────────────────────────────────────────────────
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-22.04
+    needs: [classify, sanity]
+    if: needs.classify.outputs.code == 'true' && github.event_name != 'pull_request'
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+          sudo rm -rf /usr/local/share/boost /usr/local/graalvm
+          df -h /
+
+      - run: rustup show
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          shared-key: pr-fast-sanity
+          save-if: 'false'
+      - run: cargo clippy --workspace --all-targets --all-features --locked --no-deps -- -D warnings
+
+  # ─────────────────────────────────────────────────────────────────────
+  # clippy-no-default — Phase 8e regression guard (issue #295).  Same
+  # strict clippy flag stack as `clippy` above but with
+  # `--no-default-features` instead of `--all-features`, catching items
+  # reachable only when a feature is enabled but not themselves
+  # `#[cfg(feature = "…")]`-gated.  Cache key is distinct from `clippy`
+  # because the feature configuration produces a different artifact set.
+  # ─────────────────────────────────────────────────────────────────────
+  clippy-no-default:
+    name: Clippy (--no-default-features)
+    runs-on: ubuntu-22.04
+    needs: [classify, sanity]
+    if: needs.classify.outputs.code == 'true' && github.event_name != 'pull_request'
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+          sudo rm -rf /usr/local/share/boost /usr/local/graalvm
+          df -h /
+
+      - run: rustup show
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          shared-key: pr-fast-clippy-no-default
+          save-if: 'false'
+      - run: cargo clippy --workspace --all-targets --no-default-features --locked --no-deps -- -D warnings
+
+  # ─────────────────────────────────────────────────────────────────────
+  # docs — rustdoc with `-Dwarnings` PLUS doctest execution.  Catches
+  # the exact class of bug Phase 1 / Phase 2 locally catch too — keeping
+  # the gate at CI gives belt-and-suspenders if a contributor bypasses
+  # the local hook with `--no-verify`.
+  # ─────────────────────────────────────────────────────────────────────
+  docs:
+    name: Rustdoc + doctests
+    runs-on: ubuntu-22.04
+    needs: [classify, sanity]
+    if: needs.classify.outputs.code == 'true' && github.event_name != 'pull_request'
+    timeout-minutes: 30
+    env:
+      RUSTDOCFLAGS: "-Dwarnings"
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+          sudo rm -rf /usr/local/share/boost /usr/local/graalvm
+          df -h /
+
+      - run: rustup show
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          shared-key: pr-fast-sanity
+          save-if: 'false'
+
+      - run: cargo doc  --workspace --all-features --no-deps --locked --document-private-items
+      - run: cargo test --doc --workspace --all-features --locked
+
+  # ─────────────────────────────────────────────────────────────────────
+  # test-build — compile test binaries once; `tests` consumes the
+  # shared cache to run them.  Splitting keeps the expensive link step
+  # out of the retry loop.
+  # ─────────────────────────────────────────────────────────────────────
+  test-build:
+    name: Test build
+    runs-on: ubuntu-22.04
+    needs: [classify, sanity]
+    if: needs.classify.outputs.code == 'true' && github.event_name != 'pull_request'
+    timeout-minutes: 30
+    env:
+      # `debuginfo=1` for useful backtraces without paying the full
+      # debuginfo=2 cost.  `tests` job env below MUST match this
+      # string exactly so the cargo fingerprint lines up and the
+      # test binaries built here are reused rather than rebuilt.
+      RUSTFLAGS: "-C debuginfo=1 -C target-cpu=x86-64-v3 -C link-arg=-Wl,--gc-sections"
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+          sudo rm -rf /usr/local/share/boost /usr/local/graalvm
+          df -h /
+
+      - run: rustup show
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          shared-key: pr-fast-test-build
+          cache-on-failure: 'true'
+
+      - name: Build test binaries
+        run: cargo test --workspace --all-features --lib --tests --no-run --locked
+
+      - name: Report target size
+        if: always()
+        run: du -sh target/ || true
+
+  # ─────────────────────────────────────────────────────────────────────
+  # tests — run the pre-built binaries via nextest's `ci` profile.
+  # ─────────────────────────────────────────────────────────────────────
+  tests:
+    name: Tests
+    runs-on: ubuntu-22.04
+    needs: [classify, test-build]
+    if: needs.classify.outputs.code == 'true' && github.event_name != 'pull_request'
+    timeout-minutes: 30
+    env:
+      # Must match test-build exactly so the cargo fingerprint lines up
+      # and cached test binaries are reused rather than rebuilt.
+      RUSTFLAGS: "-C debuginfo=1 -C target-cpu=x86-64-v3 -C link-arg=-Wl,--gc-sections"
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+          sudo rm -rf /usr/local/share/boost /usr/local/graalvm
+          df -h /
+
+      - run: rustup show
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          shared-key: pr-fast-test-build
+          save-if: 'false'
+      - uses: taiki-e/install-action@dfc84ffb7254b048a0a843316ff5a2714dcdc7bd # v2
+        with:
+          tool: nextest
+
+      - run: cargo nextest run --workspace --all-features --lib --tests --profile ci --locked
+
+  # ─────────────────────────────────────────────────────────────────────
+  # security — cargo-deny + cargo-vet + cargo-vet audit-discipline +
+  # cargo-machete.  Bundles every supply-chain-hygiene check into a
+  # single Linux job.  Re-runs `vet` here (also runs in `sanity` when
+  # dep changed) because external observers (branch protection
+  # history, search tooling, audit trails) expect a distinct "Security"
+  # check in the check-runs list.  Display name kept stable as
+  # "Security (deny + vet)" to preserve historical check-run identity
+  # across additions to the job (audit-discipline landed in PR #172,
+  # cargo-machete in this PR — both bundled without renaming).
+  # Cheap on warm cache (~10 s wall).
+  # ─────────────────────────────────────────────────────────────────────
+  security:
+    name: Security (deny + vet)
+    runs-on: ubuntu-22.04
+    needs: classify
+    if: needs.classify.outputs.code == 'true' && github.event_name != 'pull_request'
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          # The audit-discipline step below needs the merge-base with
+          # the PR target branch to compute the diff range; the
+          # default shallow checkout (depth=1) drops that history.
+          # Full history is cheap on ACMEX (~5 MB) and future-proofs
+          # other security-adjacent work (CodeQL, supply-chain
+          # forensics) that needs commit ancestry.
+          fetch-depth: 0
+
+      - run: rustup show
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          shared-key: pr-fast-security
+
+      - uses: taiki-e/install-action@dfc84ffb7254b048a0a843316ff5a2714dcdc7bd # v2
+        with:
+          tool: cargo-deny,cargo-vet,cargo-machete
+
+      - name: cargo deny check
+        # cargo-deny does not accept --locked; it reads Cargo.lock directly.
+        run: cargo deny check
+
+      - name: cargo vet check --locked
+        run: cargo vet check --locked
+
+      - name: cargo-vet audit-discipline (no lazy exemption bumps)
+        # Layer 1 + Layer 4 of the four-layer audit-discipline policy
+        # documented in `docs/architecture/security/supply-chain-posture.md`
+        # §"Mandating audits over blanket bumps".  Hard-fails any PR
+        # whose diff bumps a `[[exemptions.<crate>]]` version without
+        # both (A) a matching delta audit in `supply-chain/audits.toml`
+        # AND (B) a `Vet-Reviewed-Diff:` commit trailer in the same
+        # range.  Cheap (~1 s, pure-bash parser).  No `--locked`-style
+        # bypass: CI is hard on `main`.
+        if: needs.classify.outputs.dep == 'true'
+        run: bash scripts/ci/check_vet_audit_discipline.sh ci
+
+      - name: cargo-machete unused-dep check
+        # Fast (~1 s) AST-based unused-dependency detector.  Complements
+        # `cargo-udeps` in Tier 2 weekly (which actually compiles to
+        # detect, more accurate but multi-minute, nightly-only).
+        # cargo-machete catches the common case — a `[dependencies]`
+        # entry whose crate is no longer `use`d anywhere — at PR time
+        # instead of a week later.  `--skip-target-dir` mirrors the
+        # local `just/analysis_ci.just::machete` recipe so identical
+        # output is reproducible on both surfaces.  pr-fast bundles
+        # into this `security` job (same `code_changed` predicate as
+        # the deny + vet pair) to keep the job graph narrow.
+        #
+        # Invocation form: `cargo-machete` (direct binary) rather
+        # than `cargo machete` (cargo subcommand dispatch).  cargo
+        # 1.97-nightly + cargo-machete v0.9.1 interact badly when
+        # invoked via the cargo subcommand wrapper — cargo passes
+        # the subcommand name `machete` as argv[1], and cargo-
+        # machete's gumdrop CLI parser treats it as a positional
+        # path and stops parsing flags (so `--skip-target-dir` lands
+        # as a second path).  See `scripts/ci/gates.toml::machete`
+        # for the full reproduction notes.
+        run: cargo-machete --skip-target-dir
+
+  # ─────────────────────────────────────────────────────────────────────
+  # windows-lint — native Windows clippy gate on `windows-latest`.
+  # Authoritative cross-target lint gate (local xwin is advisory — see
+  # dev-flow-implementation-plan.md § 1.3.3).  Replaces the weekly
+  # Tier 2 Windows job; Tier 2 drops that job in the same PR as Phase
+  # 4b housekeeping.
+  #
+  # Phase W5.5 of windows-clippy-and-linux-cross-plan.md flipped this
+  # job from `cargo check` → `cargo clippy -- -D warnings`.  The
+  # Windows clippy backlog (W0 baseline: 1346 errors on `--all-targets
+  # -D warnings`) was driven to zero in PR #62 (W2–W5 cleanup) so the
+  # strict flag stack now passes natively on `windows-latest`.
+  # ─────────────────────────────────────────────────────────────────────
+  windows-lint:
+    name: Windows clippy
+    runs-on: windows-latest
+    needs: [classify, sanity]
+    if: needs.classify.outputs.code == 'true' && github.event_name != 'pull_request'
+    timeout-minutes: 25
+    env:
+      # Windows-appropriate target-cpu baseline (same as release.yml's
+      # Windows matrix rows).  DO NOT use target-cpu=native here — it
+      # breaks cross-compilation semantics and can SIGILL on some runner
+      # VMs.
+      RUSTFLAGS: "-C target-cpu=x86-64-v3"
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - run: rustup show
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          shared-key: pr-fast-windows
+
+      # Strict clippy with `-D warnings` matches `just lint-ci-windows`
+      # locally (cargo-xwin variant).  Native Windows runs natively here;
+      # local xwin remains the developer-loop equivalent.
+      - run: cargo clippy --workspace --all-targets --all-features --locked --no-deps -- -D warnings
+
+  # ─────────────────────────────────────────────────────────────────────
+  # required — sole branch-protection target (post-2026-04-23 cutover).
+  # Aggregates the result of every job above.  MUST depend on
+  # `classify` explicitly so that a failed classify (whose downstream
+  # jobs therefore `skipped`) cannot green-light the PR via GitHub
+  # Actions' "skipped counts as success for required checks" quirk.
+  #
+  # Ruleset `main-protection` (ID `11889528`) requires exactly one
+  # status check: `PR Fast CI / required` (the job `name:` below, NOT
+  # the workflow/job UI-concat).  See § 4.3 / § 4.4 of the plan doc
+  # for the cutover history and the context-string gotcha.
+  # ─────────────────────────────────────────────────────────────────────
+  required:
+    name: PR Fast CI / required
+    runs-on: ubuntu-22.04
+    if: always()
+    needs:
+      - classify
+      - file-size
+      - gates-drift
+      - hooks-drift
+      - workflow-drift
+      - fast-drift
+      - manifest-drift
+      - fmt
+      - sanity
+      - clippy
+      - clippy-no-default
+      - docs
+      - test-build
+      - tests
+      - security
+      - windows-lint
+    steps:
+      - name: Gate on classify
+        run: |
+          if [[ "${{ needs.classify.result }}" != "success" ]]; then
+            echo "::error::classify job did not succeed (result=${{ needs.classify.result }})"
+            echo "::error::Refusing to aggregate downstream results when classify is broken."
+            exit 1
+          fi
+      - name: Aggregate downstream results
+        run: |
+          set -u
+          declare -A R=(
+            [file-size]='${{ needs.file-size.result }}'
+            [gates-drift]='${{ needs.gates-drift.result }}'
+            [hooks-drift]='${{ needs.hooks-drift.result }}'
+            [workflow-drift]='${{ needs.workflow-drift.result }}'
+            [fast-drift]='${{ needs.fast-drift.result }}'
+            [manifest-drift]='${{ needs.manifest-drift.result }}'
+            [fmt]='${{ needs.fmt.result }}'
+            [sanity]='${{ needs.sanity.result }}'
+            [clippy]='${{ needs.clippy.result }}'
+            [clippy-no-default]='${{ needs.clippy-no-default.result }}'
+            [docs]='${{ needs.docs.result }}'
+            [test-build]='${{ needs.test-build.result }}'
+            [tests]='${{ needs.tests.result }}'
+            [security]='${{ needs.security.result }}'
+            [windows-lint]='${{ needs.windows-lint.result }}'
+          )
+          fail=0
+          for job in "${!R[@]}"; do
+            r="${R[$job]}"
+            case "$r" in
+              success|skipped)
+                echo "✅ ${job}: $r"
+                ;;
+              *)
+                echo "::error::${job}: $r"
+                fail=1
+                ;;
+            esac
+          done
+          exit "$fail"
+
+  # ─────────────────────────────────────────────────────────────────────
+  # notify-failure was REMOVED in the Design C refactor for #209 — it
+  # is now handled by `.github/workflows/ci-failure-notify.yml`, which
+  # triggers off `workflow_run [completed]` AFTER `auto-rerun-transient.yml`
+  # has had its 60-second window to retry transient flakes.  See the
+  # header of `ci-failure-notify.yml` for the full rationale and the
+  # status-decision matrix.
+  #
+  # Genuine failures still produce a tracking issue (same title /
+  # label / body schema as before); transient failures auto-absorb
+  # without ever opening one.
+  # ─────────────────────────────────────────────────────────────────────

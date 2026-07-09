@@ -1,0 +1,106 @@
+# SPDX-License-Identifier: MPL-2.0
+# Copyright (c) 2025-2026 Acmex Placeholder LLC.
+#
+# ACMEX — nextest repository configuration
+# https://nexte.st/docs/configuration/reference/
+
+# Require nextest ≥ 0.9.130 (flaky-result, fail-fast object, run-extra-args)
+nextest-version = { required = "0.9.130", recommended = "0.9.132" }
+
+# ---------------------------------------------------------------------------
+# Default profile — local development
+# ---------------------------------------------------------------------------
+[profile.default]
+# Auto-detect CPUs; reserve 2 for the OS / IDE / language server.
+test-threads = -2
+retries = 0
+fail-fast = true
+
+slow-timeout = { period = "120s", terminate-after = 2, grace-period = "10s" }
+leak-timeout = "100ms"
+
+failure-output = "immediate-final"
+success-output = "never"
+status-level = "pass"
+final-status-level = "flaky"
+
+# ---------------------------------------------------------------------------
+# CI profile — conservative, deterministic, full diagnostics
+# Usage: cargo nextest run --profile ci
+# ---------------------------------------------------------------------------
+[profile.ci]
+test-threads = 4
+retries = { backoff = "exponential", count = 3, delay = "1s", max-delay = "10s", jitter = true }
+fail-fast = false
+flaky-result = "fail"
+
+slow-timeout = { period = "300s", terminate-after = 3, grace-period = "15s" }
+leak-timeout = "500ms"
+
+failure-output = "immediate-final"
+success-output = "never"
+status-level = "skip"
+final-status-level = "all"
+
+[profile.ci.junit]
+path = "junit.xml"
+report-name = "acmex-ci"
+store-success-output = false
+store-failure-output = true
+
+# ---------------------------------------------------------------------------
+# pre-push-smoke — mandatory fast test subset at git-push time.
+# Budget: 10-20 s warm on a developer laptop.
+# Usage: cargo nextest run --profile pre-push-smoke --locked
+#
+# The template runs the full (tiny) suite.  As the project grows, keep the
+# budget by excluding heavy integration suites here with a denylist in
+# nextest's filterset language, e.g.:
+#   default-filter = """
+#       not test(/^validate/)
+#     & not package(myproj-heavy-integration)
+#   """
+# ---------------------------------------------------------------------------
+[profile.pre-push-smoke]
+test-threads = -2
+retries = 0
+fail-fast = true
+
+slow-timeout = { period = "30s", terminate-after = 1 }
+leak-timeout = "100ms"
+
+failure-output = "immediate-final"
+success-output = "never"
+status-level = "fail"
+final-status-level = "flaky"
+
+# ---------------------------------------------------------------------------
+# Slow / integration profile — for #[ignore] platform- or resource-gated tests
+# Usage: cargo nextest run --profile slow --run-ignored ignored-only
+# ---------------------------------------------------------------------------
+[profile.slow]
+test-threads = 4
+retries = 1
+fail-fast = false
+
+slow-timeout = { period = "600s", terminate-after = 3 }
+leak-timeout = "1s"
+
+failure-output = "immediate-final"
+final-status-level = "all"
+
+# ---------------------------------------------------------------------------
+# Per-test overrides
+# ---------------------------------------------------------------------------
+# The template needs none.  Add overrides as tests earn them, e.g. to give a
+# heavyweight integration suite more time or to serialise tests that share
+# global state:
+#
+#   [[profile.default.overrides]]
+#   filter = 'test(/^validate/)'
+#   threads-required = 2
+#   slow-timeout = { period = "300s", terminate-after = 2 }
+#
+#   [[profile.default.overrides]]
+#   filter = 'package(myproj-client) & test(shmem::)'
+#   threads-required = 'num-cpus'

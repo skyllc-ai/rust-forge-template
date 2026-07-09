@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: 2026 Acmex Placeholder LLC
+# SPDX-License-Identifier: MPL-2.0
+#
+# TEMPLATE citation metadata. Replace title, abstract, authors, version,
+# and repository with your project's values (or delete this file if you
+# don't want a "Cite this repository" button on GitHub).
+cff-version: 1.2.0
+message: >-
+  If you use acmex in research, tooling, or published work, please cite it
+  using the metadata below.
+title: "acmex"
+abstract: >-
+  Placeholder project generated from rust-forge-template; replace this
+  abstract with a one-paragraph description of your project.
+authors:
+  - name: "Acmex Placeholder Dev"
+type: software
+license: MPL-2.0
+version: "0.1.0"
+repository-code: "https://github.com/acmex-org/acmex"

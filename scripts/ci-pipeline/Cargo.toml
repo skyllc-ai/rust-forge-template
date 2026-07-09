@@ -1,0 +1,95 @@
+# =============================================================================
+# scripts/ci-pipeline/Cargo.toml - ACMEX CI Pipeline Driver
+# =============================================================================
+#
+# SPDX-License-Identifier: MPL-2.0
+# Copyright (c) 2025-2026 Acmex Placeholder LLC.
+#
+# Phase 7 promotion of `scripts/ci/ci-pipeline.rs` from a standalone
+# `rust-script` to a proper Cargo workspace binary.  See
+# `docs/architecture/dev-flow-implementation-plan.md` § 7 for the
+# rationale (kill stale rust-script caches, get inline-doc IDE support,
+# inherit workspace-wide tooling like `cargo nextest`/`cargo deny`).
+#
+# NOTE ON LINTS (issue #212): inherits `[lints] workspace = true` (see
+# bottom-of-file `[lints]` block) — matches all 14 product crates.  The
+# previous wholesale opt-out skipped ~60 high-value lints (cast_lossless,
+# redundant_clone, manual_memcpy, …) along with the 4-5 CLI-inappropriate
+# ones it was meant to skip.  Per workspace rule 1 ("targeted allow,
+# keep minimal, scoped, justify in comments"), the CLI-inappropriate
+# lints are suppressed via file-level `#![expect(...)]` blocks in
+# `src/main.rs` (and `src/*.rs`) with `reason = "..."` strings, matching
+# the precedent in `crates/acmex-diag/src/bin/*.rs`.  See
+# `CLIPPY_POSTURE.md` § CLI-tooling for the policy.
+# =============================================================================
+
+[package]
+name = "acmex-ci-pipeline"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "ACMEX internal CI pipeline driver (promoted from rust-script; not published)"
+# Posture: **permanently non-publishable** — internal workspace CI tooling.
+# Distinct from the 8 Polars-blocked deferred-publishable crates: this
+# crate would remain non-publishable even if Polars upstream released,
+# because it is internal CI orchestration, not a reusable library.
+publish.workspace = true
+
+# Phase R6 of `release-automation-plan.md` step 3: docs.rs build configuration.
+# This crate is `publish = false` (internal CI orchestration), so docs.rs will
+# never build it; this block is preserved for workspace-uniform manifest shape
+# (per Phase 1 follow-up F1.15 / issue #214).  Pure Rust CLI tooling — the
+# docs.rs default (Linux x86_64) build is sufficient if it ever runs.
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[[bin]]
+name = "acmex-ci-pipeline"
+path = "src/main.rs"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Dependencies
+# ─────────────────────────────────────────────────────────────────────────────
+# Every dependency is aliased to `[workspace.dependencies]` in the root
+# Cargo.toml so a single Cargo.lock entry serves this tool and every other
+# crate.  If this crate ever needs a crate that the rest of the workspace
+# does not, ADD IT TO THE ROOT Cargo.toml FIRST — we do not tolerate per-
+# crate direct pins because they let different consumers drift onto
+# different major versions of the same crate.
+
+[dependencies]
+acmex-version.workspace = true
+anyhow = { workspace = true }
+chrono = { workspace = true }
+clap = { workspace = true }
+colored = { workspace = true }
+futures = { workspace = true }
+indicatif = { workspace = true }
+num_cpus = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+
+# tokio: workspace baseline is net-free.  This tool needs `process` for
+# `tokio::process::Command`.  Feature addition is additive and does not
+# leak into other crates (each consumer sees the union of features it
+# requests).
+tokio = { workspace = true, features = ["process"] }
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Lints (issue #212)
+# ─────────────────────────────────────────────────────────────────────────────
+# Inherit the full workspace lint stack (matches all 14 product crates +
+# acmex-diag).  CLI-inappropriate lints are suppressed at file scope via
+# `#![expect(...)]` blocks in `src/*.rs`; see the header comment block
+# above for the rationale.
+# Embeds the ACMEX icon + version info + shared app.manifest into
+# `acmex-ci-pipeline.exe` (see build.rs) for branding consistency.
+[build-dependencies]
+acmex-version = { workspace = true, features = ["build"] }
+
+[lints]
+workspace = true

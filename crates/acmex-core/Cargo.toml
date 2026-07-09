@@ -1,0 +1,35 @@
+# ============================================================================
+# acmex-core: skeleton library crate (template placeholder)
+# ============================================================================
+# Layer 0 leaf crate. Zero external dependencies.
+#
+# Demonstrates the canonical crate shape for this workspace: every
+# fingerprint field inherited from `[workspace.package]`, every dependency
+# (when one is added) inherited from `[workspace.dependencies]`, and the
+# full workspace lint posture via `[lints] workspace = true`.
+# Replace the greeting module with real domain logic; keep the shape.
+# ============================================================================
+
+[package]
+name = "acmex-core"
+description = "acmex core library — template placeholder skeleton"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
+documentation.workspace = true
+# Internal crate — inherits the workspace `publish = false` default.
+publish.workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[dependencies]
+
+[lints]
+workspace = true

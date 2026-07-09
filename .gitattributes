@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: MPL-2.0
+# Copyright (c) 2025 Acmex Placeholder LLC.
+
+# Set the default behavior to automatically normalize line endings
+* text=auto
+
+# Explicitly define line endings for specific file types
+*.rs text eol=lf
+*.toml text eol=lf
+*.sh text eol=lf
+*.md text eol=lf
+
+# Binary files should not have their line endings altered
+*.png binary
+*.jpg binary
+*.gif binary
+*.pdf binary
+*.ico binary
+*.svg binary
+
+

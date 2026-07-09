@@ -1,0 +1,291 @@
+# SPDX-FileCopyright (c) 2025-2026 Acmex Placeholder LLC.
+# SPDX-License-Identifier: MPL-2.0
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Commitlint — Conventional Commits REQUIRED check on PR titles
+#
+# Phase R1b of the release-automation rollout (promoted from the R1a
+# advisory gate after a month of observation with 100%-conformant
+# first-parent merges on `main` at promotion time).
+#
+# Why this exists:
+#
+#   ACMEX is migrating to release-plz + git-cliff + Conventional Commits to
+#   automate version bumping and changelog generation (see plan §4 and §5).
+#   Release-plz infers the next version and the changelog category from the
+#   PR title's `type:` prefix.  Non-conforming titles silently produce no
+#   changelog entry — release-plz treats them as if they didn't merge.
+#   That's a footgun: a fix shipped under "Improve search performance" gets
+#   no version bump and no changelog mention.
+#
+#   This workflow surfaces non-conforming titles at PR-open time so the
+#   author can fix them before merge.
+#
+# Why required (now enforcing):
+#
+#   Phase R1a (2026-04-25 → 2026-06-10) was the OBSERVATION period.  At
+#   R1a start adherence was ~100% over the last 3 days (24/24 PRs) but
+#   only 83.3% over the last 30 days (75/90 PRs); the non-conforming PRs
+#   used project-internal prefixes like `security:`, `bench:`, `shmem:`.
+#   Over the observation window the project converged on the 11 standard
+#   Conventional Commits types (the `security:` carve-out was migrated to
+#   `fix(security):` / `chore(security):` — see the R1b CC-type
+#   convergence deviation row).  At promotion the trailing 80 first-parent
+#   merges on `main` were 100% conformant, so the gate is now mandatory
+#   with negligible false-positive risk.
+#
+#   In required mode this workflow exits non-zero on a non-conforming
+#   title AND posts the sticky PR comment, so the author both sees the
+#   guidance and is blocked from merging until the title conforms.
+#
+# Sticky-comment design:
+#
+#   The job re-runs on every `synchronize` event (force-pushes, additional
+#   commits to the PR branch).  Naïvely posting a comment on every run
+#   spams the PR.  Instead, we tag managed comments with a unique HTML
+#   marker `<!-- commitlint-advisory: managed by ... -->` and use the
+#   GitHub REST API to either edit the existing managed comment in-place
+#   or delete it once the title becomes conformant.  Result: at most ONE
+#   advisory comment per PR, auto-pruned when fixed.
+#
+# What this does NOT do:
+#
+#   • Validate individual commit messages on the feature branch.  ACMEX
+#     uses squash-merge exclusively, so the PR title (which becomes the
+#     squash subject) is the only commit message that lands on `main`.
+#   • Validate the PR description / body.  Only the title is parsed for
+#     release-plz's version inference.
+#
+# References:
+#
+#   • CONTRIBUTING.md → "Commit message conventions"
+#     (the user-facing list of allowed types and examples)
+#   • https://www.conventionalcommits.org/en/v1.0.0/
+#     (the spec that defines the type list and breaking-change syntax)
+#   • plan §2.8 (current adherence baseline) and §3 (R1a → R1b transition)
+
+name: "📝 Commitlint (required)"
+
+on:
+  pull_request:
+    # `edited` catches title edits after open.  `synchronize` catches
+    # additional commits / force-pushes (so a stale advisory comment
+    # gets pruned promptly when the author updates the title).
+    # `reopened` covers the reopen-after-close case so a closed-then-
+    # reopened PR re-evaluates fresh.
+    types: [opened, edited, synchronize, reopened]
+  # `merge_group` makes this a queue-compatible REQUIRED check: GitHub's
+  # merge queue requires every required status check to also report on
+  # the `merge_group` event, but that event carries no PR title.  We
+  # recover the PR from the queue ref (`gh-readonly-queue/<base>/pr-<N>-
+  # <sha>`) and re-lint its title (the squash subject that will land).
+  # Without this, a title-required check would deadlock the queue.
+  merge_group:
+
+# Comment posting requires write access to the PR (which is the
+# `pull-requests` scope, not `contents`).  Read on contents is implicit
+# and unused — we never check out code in this workflow.
+permissions:
+  contents: read
+  pull-requests: write
+
+# Cancel any in-flight commitlint run on the same PR when a new event
+# arrives.  Title edits land in bursts (typo → realize → fix); we only
+# care about the latest state.
+concurrency:
+  # Keyed per-PR on `pull_request`, and per-queue-ref on `merge_group`
+  # (each merge-group ref is unique, so queue validations never cancel
+  # one another — only successive title edits on the same PR do).
+  group: commitlint-${{ github.event.pull_request.number || github.event.merge_group.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  pr-title:
+    name: "PR title — Conventional Commits"
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    # Skip on PRs from forks: forked PRs don't have write tokens, so
+    # `gh pr comment` would fail.  Forks are advised separately via the
+    # CONTRIBUTING.md docs; they get a hint from the PR template instead.
+    # `merge_group` always originates from an in-repo PR that already
+    # reached the queue, so it is never a fork — let it through.
+    if: github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - name: Validate PR title against Conventional Commits
+        env:
+          # `pull_request.title` is the canonical squash-merge subject.
+          # We deliberately do NOT inspect commits on the branch — those
+          # get squashed away on merge and are noise for release-plz.
+          # (Empty on `merge_group`; that path derives the title below.)
+          TITLE: ${{ github.event.pull_request.title }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          # Which event fired — drives the title-source branch below.
+          EVENT_NAME: ${{ github.event_name }}
+          # Queue ref on `merge_group`, e.g.
+          # `gh-readonly-queue/main/pr-472-<sha>`; empty on pull_request.
+          MERGE_GROUP_REF: ${{ github.event.merge_group.head_ref }}
+          # `github.token` is the workflow's ephemeral GITHUB_TOKEN.
+          # The `gh` CLI auto-detects this env var.
+          GH_TOKEN: ${{ github.token }}
+          # Marker embedded in the comment body so the same comment can
+          # be located across re-runs.  Changing this string is a one-
+          # time migration: bump the marker AND delete any pre-bump
+          # advisory comments by hand on open PRs.
+          COMMENT_MARKER: "<!-- commitlint-advisory: managed by .github/workflows/commitlint.yml -->"
+        run: |
+          set -euo pipefail
+
+          # ── Allowed Conventional Commits types ─────────────────────
+          # Mirrors CONTRIBUTING.md → "Commit message conventions".
+          # Order matters only for readability; the regex is OR-of-all.
+          # Adding a new type means updating both this regex AND
+          # CONTRIBUTING.md in the same PR (and ideally cliff.toml's
+          # commit_parsers in Phase R2).
+          PATTERN='^(feat|fix|perf|refactor|docs|test|build|ci|chore|style|revert)(\([a-z0-9-]+\))?!?: .{1,}$'
+
+          # ── Merge-queue path (merge_group event) ───────────────────
+          # The merge_group event has no PR payload, so recover the PR
+          # number from the queue ref and re-lint its title (the squash
+          # subject that will land on main).  No sticky comment here —
+          # that already happened at PR-open time on the pull_request
+          # run; the queue only needs a pass/fail gate.  The queue is
+          # configured for single-PR groups (max_entries_to_{build,
+          # merge}=1), so the ref always names exactly one PR.
+          if [ "${EVENT_NAME}" = "merge_group" ]; then
+            PR_NUMBER=$(printf '%s' "${MERGE_GROUP_REF}" \
+              | sed -nE 's#.*/pr-([0-9]+)-[0-9a-fA-F]+$#\1#p')
+            if [ -z "${PR_NUMBER}" ]; then
+              echo "::error::cannot parse a PR number from merge_group ref '${MERGE_GROUP_REF}'"
+              exit 1
+            fi
+            TITLE=$(gh pr view "${PR_NUMBER}" --repo "${GITHUB_REPOSITORY}" --json title --jq .title)
+            {
+              echo "## 📝 Commitlint — queued PR title check"
+              echo ""
+              echo "| Field | Value |"
+              echo "| --- | --- |"
+              echo "| PR | #${PR_NUMBER} |"
+              echo "| Title | \`${TITLE}\` |"
+            } >> "$GITHUB_STEP_SUMMARY"
+            if printf '%s' "${TITLE}" | grep -qE "${PATTERN}"; then
+              echo "::notice::queued PR #${PR_NUMBER} title conforms: ${TITLE}"
+              echo "| Result | ✅ conforms |" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "::error::queued PR #${PR_NUMBER} title does not conform: ${TITLE}"
+            echo "| Result | 🔴 does not conform — blocking the queue |" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          # Group redirects to avoid the SC2129 shellcheck warning
+          # and minimise filesystem churn on the GitHub Actions side.
+          {
+            echo "## 📝 Commitlint — PR title check"
+            echo ""
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Title | \`${TITLE}\` |"
+            echo "| Pattern | \`${PATTERN}\` |"
+            echo "| Mode | **required** (Phase R1b) — blocks merge until the title conforms |"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # ── Locate any existing managed advisory comment ───────────
+          # `gh api` paginates automatically.  We use the raw issues
+          # comments endpoint (PR comments live there) and jq-filter
+          # by marker presence.  `head -1` defends against the
+          # (impossible-but-cheap-to-guard) double-managed-comment case.
+          EXISTING_ID=$(
+            gh api --paginate "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" \
+              --jq ".[] | select(.body | contains(\"${COMMENT_MARKER}\")) | .id" \
+              | head -1 || true
+          )
+
+          if echo "$TITLE" | grep -qE "$PATTERN"; then
+            # ── Conforming title ───────────────────────────────────
+            echo "::notice::PR title matches Conventional Commits: ${TITLE}"
+            echo "✅ **Conforms** to Conventional Commits." >> "$GITHUB_STEP_SUMMARY"
+
+            if [ -n "${EXISTING_ID}" ]; then
+              # Title was previously non-conforming, now fixed —
+              # remove the stale advisory comment so the PR isn't
+              # cluttered with a resolved warning.
+              echo "::notice::Removing stale advisory comment ${EXISTING_ID}"
+              gh api -X DELETE "repos/${GITHUB_REPOSITORY}/issues/comments/${EXISTING_ID}"
+              echo "🧹 Removed stale advisory comment from earlier non-conforming title." >> "$GITHUB_STEP_SUMMARY"
+            fi
+            exit 0
+          fi
+
+          # ── Non-conforming title ───────────────────────────────────
+          echo "::warning::PR title does not match Conventional Commits: ${TITLE}"
+          echo "⚠️  **Does not conform** — advisory comment posted/updated below." >> "$GITHUB_STEP_SUMMARY"
+
+          # Compose the advisory body.  The marker MUST be the first
+          # line for trivially-greppable detection.  Keep the body
+          # informative but not punishing: contributors who hit this
+          # check probably haven't read CONTRIBUTING.md yet.
+          #
+          # NOTE on indentation: YAML's literal block scalar (`run: |`)
+          # strips the least common leading indentation from every
+          # content line.  All heredoc body lines below sit at the
+          # same column as `set -euo pipefail` at the top of this
+          # block, so YAML strips them flush before bash sees them.
+          # No post-hoc `sed` indent-stripping required.
+          BODY=$(cat <<EOF
+          ${COMMENT_MARKER}
+
+          ## ⚠️ PR title is not in Conventional Commits format
+
+          **Your title:** \`${TITLE}\`
+
+          **Expected pattern:** \`type(optional-scope): subject\` where \`type\` is one of:
+
+          \`feat\`, \`fix\`, \`perf\`, \`refactor\`, \`docs\`, \`test\`, \`build\`, \`ci\`, \`chore\`, \`style\`, \`revert\`
+
+          **Examples** (from recent ACMEX merges):
+
+          - \`fix(release): re-codesign macOS binaries after strip — v0.5.73\`
+          - \`refactor(acmex-core): eliminate most shadow_reuse / shadow_unrelated via renames & let-else\`
+          - \`docs(policies): clarify lint-posture tier promotion rules\`
+          - \`feat(cli)!: drop deprecated --q shorthand\` (the trailing \`!\` marks a breaking change)
+
+          See [CONTRIBUTING.md → Commit message conventions](https://github.com/${GITHUB_REPOSITORY}/blob/main/CONTRIBUTING.md#commit-message-conventions) for the full rationale and the table of which types trigger releases.
+
+          ---
+
+          **🔴 This check is REQUIRED (release-automation Phase R1b)** — a non-conforming title **blocks merge**.  Edit the PR title to match the pattern above; this check re-runs on every title edit and turns green (and this comment auto-deletes) once the title conforms.
+
+          *(Workflow: \`.github/workflows/commitlint.yml\` · Conventions: [CONTRIBUTING.md](https://github.com/${GITHUB_REPOSITORY}/blob/main/CONTRIBUTING.md#commit-message-conventions) · release-automation Phase R1b)*
+          EOF
+          )
+
+          if [ -n "${EXISTING_ID}" ]; then
+            # Edit in place — preserves comment threading and avoids
+            # spamming the PR with duplicate advisories on every push.
+            echo "::notice::Updating existing advisory comment ${EXISTING_ID}"
+            gh api -X PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${EXISTING_ID}" \
+              -f body="${BODY}" >/dev/null
+          else
+            # Pass --repo explicitly so `gh` does not try to infer the
+            # repo slug from the working directory's git remote — this
+            # job runs without an `actions/checkout` step, so a remote-
+            # less invocation crashes with `fatal: not a git repository`
+            # and the script's `set -euo pipefail` propagates the
+            # failure, defeating the advisory-mode `exit 0` below.
+            # (Discovered while diagnosing the stalled Dependabot tokio
+            # PR #125 — the workflow was supposed to be advisory but
+            # this single bug turned every non-conforming title into a
+            # red required-check.)
+            echo "::notice::Posting new advisory comment"
+            gh pr comment "${PR_NUMBER}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --body "${BODY}"
+          fi
+
+          # REQUIRED MODE (Phase R1b): exit non-zero on non-conformance
+          # so the check fails and (once added to branch protection's
+          # required-status-checks for `main`) blocks merge until the
+          # author fixes the title.  The sticky comment above tells them
+          # how.  Promoted from the R1a advisory `exit 0` on 2026-06-10.
+          exit 1

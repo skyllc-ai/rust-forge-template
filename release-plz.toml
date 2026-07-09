@@ -1,0 +1,447 @@
+# SPDX-License-Identifier: MPL-2.0
+# Copyright (c) 2025-2026 Acmex Placeholder LLC.
+#
+# release-plz workspace configuration for ACMEX.
+#
+# Phase R4 (active mode) of `docs/architecture/release-automation-plan.md`.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# What this file does
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# release-plz reads this file to learn (a) which crates to consider for
+# release, (b) how to compute version bumps, and (c) how to produce changelog
+# entries.  The git-cliff template that produces those entries lives in
+# `cliff.toml` at the workspace root (Phase R2), pointed at via
+# `changelog_config` below.
+#
+# Phase history:
+#
+#   • R3 (shipped 2026-04-25, PR #67): release-plz wired up in SHADOW mode.
+#     The workflow invoked `release-plz update` (local-only, never pushes /
+#     opens PRs / creates tags) and posted the proposed `git diff` to the
+#     workflow summary.  No production state changes.
+#
+#   • R3.5 + R6 (shipped 2026-05-07, PR #145): added explicit `version =`
+#     to internal path deps so `cargo package` succeeds inside release-plz,
+#     plus `[package.metadata.docs.rs]` blocks on the 12 publishable crates
+#     and a scheduled `cargo publish --dry-run --workspace` advisory CI lane.
+#
+#   • R4 (this commit): flips the workflow from `release-plz update`
+#     (shadow / local-only) to `release-plz release-pr` + `release-plz
+#     release` (active mode — opens release PRs, creates tags + GitHub
+#     Releases on merge of those PRs).  Publishing to crates.io stays
+#     dormant (workspace `publish = false` + missing CARGO_REGISTRY_TOKEN,
+#     unchanged from R3).  Settled-pre-execution decisions for R4:
+#
+#       - WORKSPACE-STYLE TAGS — single `v{{ version }}` tag per release
+#         (override of release-plz's default `{{ package }}-v{{ version }}`).
+#         Honors ACMEX as one product (12 publishable crates moving in
+#         lockstep, sharing `[workspace.package].version`) and keeps the
+#         existing `release.yml` `on: push: tags: [v*]` trigger working
+#         with zero migration.
+#
+#       - WORKSPACE-STYLE CHANGELOG — all 12 publishable crates point at
+#         the workspace-root `CHANGELOG.md` via per-package `changelog_path`
+#         overrides.  Per-crate crates.io detail pages will link back to
+#         this single file.  Same pattern `cargo` and `rustls` use for
+#         their workspaces.
+#
+#       - GIT_ONLY BASELINE — ACMEX is unpublished through R8, so the
+#         crates.io registry has no version data to diff against.  We tell
+#         release-plz to use git tags (`v0.5.x` series) as the baseline
+#         instead.  Flips back to registry mode in R8 once at least one
+#         crate is on crates.io.
+#
+#       - RELEASE_COMMITS FILTER — only `feat:`, `fix:`, `perf:`, and
+#         `security:` commit subjects trigger a release PR.  `chore`,
+#         `ci`, `build`, `docs`, `refactor`, `test`, `style`, `revert`
+#         are silently ignored even when they land on `main`.  Mirrors
+#         the suppression list in `cliff.toml`'s `commit_parsers`.
+
+[workspace]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Versioning baseline (R4 — active mode)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ACMEX is not yet published to crates.io (workspace `publish = false`,
+# Phase R8/R9 territory).  release-plz's default behaviour — query the
+# crates.io registry for the latest published version of each package and
+# diff HEAD against it — produces no useful baseline because the registry
+# has nothing to return.  Symptoms in shadow CI runs (PR #145 commit
+# cccf4f111, run 25528382935):
+#
+#   WARN Package `acmex-polars@*.*.*` not found
+#   WARN Package `acmex-security@*.*.*` not found
+#   ... (12 crates, all "not found")
+#
+# HISTORY — `git_only = true` (R4, 2026-04-25 → 2026-06-10): tag-based
+# baseline mode.  release-plz scanned `git tag` for `v*`, checked out the
+# latest tag's worktree, and used its content as the baseline.  Required
+# while crates.io was empty — but it carried a fatal side effect found in
+# the 2026-06-09 active runs (run #79 + 3 retries): git-only mode
+# hardcodes `cargo package --allow-dirty --workspace` inside that
+# worktree, packaging ALL members regardless of the `release = false`
+# blocks below.  Never-publish crates with versioned internal deps
+# (`acmex-broker` → `acmex-broker-protocol`) can never resolve from the
+# crates.io index, so the step can never succeed — catch-22 confirmed
+# locally (versioned dep → "no matching package found"; versionless →
+# "all dependencies must have a version requirement").
+#
+# CURRENT — `git_only = false` (post-R8, 2026-06-10): registry baseline.
+# The R8 bootstrap published `acmex-time` + `acmex-text` v0.5.120, so
+# release-plz now downloads the published .crate files and diffs local
+# packages against them — exactly the forward-compat flip the R4 note
+# here always planned.  The broken worktree `cargo package --workspace`
+# step is never invoked in this mode (verified locally on 0.3.157:
+# update downloads acmex-text 0.5.120, exits 0, proposes bumps only when
+# the published crates' files change).  The 15 non-published members
+# stay out of scope via their `release = false` blocks below.
+git_only = false
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Tag & GitHub Release naming (R4 — workspace style)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# release-plz's default for multi-package workspaces is
+# `{{ package }}-v{{ version }}` — one tag per crate per release.  For
+# ACMEX that would produce 12 tags per cut (`acmex-cli-v0.5.91`,
+# `acmex-core-v0.5.91`, ...) and break the existing `release.yml` workflow
+# whose `on: push: tags: [v*]` trigger expects exactly one tag per
+# release.
+#
+# Override to a single workspace tag.  Honors:
+#
+#   • ACMEX is one product, not 12 independently-released crates — the
+#     workspace-level `[workspace.package].version` is the single source of
+#     truth, all 12 publishable crates share it (R3.5 fix in PR #145).
+#
+#   • The existing `release.yml` (`auto-tag-release.yml` predecessor)
+#     watches for `v*` tag pushes and uploads platform binaries +
+#     CHECKSUMS + SBOMs.  Switching to per-crate tags would require
+#     updating `release.yml`'s trigger filter AND its asset upload logic
+#     to deduplicate the 12 per-crate tag pushes that all want to upload
+#     the same binaries.
+#
+#   • The existing CHANGELOG.md uses `## [0.5.71]` per-version sections,
+#     not per-crate-per-version.  Single tag matches single CHANGELOG.
+#
+# Same pattern in production: `cargo` (one tag, one CHANGELOG, multi-crate
+# workspace) and `rustls` (same shape).  Diverges from `tokio` (per-crate
+# tags, per-crate CHANGELOG) because ACMEX releases lockstep, tokio doesn't.
+git_tag_name = "v{{ version }}"
+git_release_name = "v{{ version }}"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Release-trigger filter (R4)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Restrict which commit subjects trigger a release-PR refresh.  Without
+# this, every push to `main` (including `chore:`, `docs:`, `ci:`,
+# `build:` housekeeping) would re-open the release PR with a fresh
+# version-bump preview, producing churn and noise in the PR list.
+#
+# The regex below matches the "release-worthy" subset of Conventional
+# Commits — exactly the set that `cliff.toml`'s `commit_parsers` maps
+# to changelog sections (Added / Fixed / Performance / Breaking).  All
+# other types (`chore`, `docs`, `test`, `build`, `ci`, `refactor`,
+# `style`, `revert`) are skipped as both changelog entries (cliff.toml)
+# AND release-trigger commits (here).  Single source of truth for the
+# suppression list.
+#
+# Security work uses the conventional CC encoding rather than a
+# top-level `security:` type:
+#   • `fix(security): foo`   → patch bump, ### Security changelog row
+#   • `chore(security): foo` → no bump, ### Security changelog row
+# `cliff.toml` has dedicated `^fix\(security\)` and `^chore\(security\)`
+# parsers that route both to the Security section, so dropping the
+# top-level `security:` alternation here does not regress changelog
+# coverage.  See `CONTRIBUTING.md` → "Commit message conventions"
+# (security commits paragraph) for the rationale.
+#
+# Format note: release-plz applies this regex per-commit to commits since
+# the last release.  If ANY commit in the window matches, a release is
+# proposed; if NONE match, no PR is opened.  This is a tighter filter
+# than cliff.toml's parsers — those decide if a commit appears in the
+# changelog, this decides if a release PR exists at all.
+#
+# Branch protection note: the regex INTENTIONALLY excludes the
+# `^build(\(release-automation\))?:` infra commits (R0 through R6) so
+# the release-automation refactor itself doesn't trigger phantom
+# release PRs while it's still in flight.  After R4+R5 land, those
+# commits stop being typical anyway.
+release_commits = "^(feat|fix|perf)(\\(.+\\))?:"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Release-PR-gated tag creation (post-R4 deviation fix)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Default release-plz behaviour: `release-plz release` tries to release
+# (create the git tag, optionally publish to crates.io) on EVERY commit
+# that lands on `main`.  This default fits "publish library crates as
+# soon as you commit them" workflows but does NOT fit ACMEX, which:
+#
+#   1. Has a separate workflow (`release.yml`, dispatched by
+#      `auto-tag-release.yml` while the bespoke flow is still active
+#      pre-R5) that already creates the `vX.Y.Z` tag.  Two tag-creators
+#      racing for the same ref is the failure mode that surfaced on the
+#      v0.5.91 bootstrap merge — release-plz computed a synthetic local
+#      "release commit" with a regenerated CHANGELOG and tried to tag
+#      that local SHA, while `release.yml` had already created the tag
+#      at the real merge SHA.  GitHub returned 422; release-plz failed.
+#
+#   2. Gates releases through a release-PR review step regardless of
+#      who creates the PR (release-plz vs. the maintainer's `just ship`
+#      driver).  release-plz's "publish on every commit" default is the
+#      exact opposite of that intent — it would release every push to
+#      main even when no maintainer reviewed a release PR.
+#
+# `release_always = false` flips the gate: `release-plz release` only
+# fires when the latest commit on `main` is the merge of a PR whose
+# branch starts with `pr_branch_prefix` (set above to `release-plz-`).
+# release-plz checks this via the GitHub commits-associated-with-PR
+# API; if the merge isn't from a `release-plz-*` PR, the `release` job
+# exits cleanly without trying to tag.
+#
+# Coexistence semantics during the R4 → R5 transition window:
+#
+#   • Maintainer runs `just ship` → bumps version on a `release/vX.Y.Z`
+#     branch → opens PR → squash-merges to `main`.  The merge commit is
+#     associated with a `release/*` PR, NOT `release-plz-*`.
+#     release-plz `release` job NO-OPS (clean exit).
+#     `auto-tag-release.yml` detects the Cargo.toml version diff and
+#     dispatches `release.yml`, which creates the tag + builds binaries.
+#     Single tag-creator, no race. ✓
+#
+#   • release-plz opens its own release PR (any push to `main` after
+#     this fix lands will trigger `release-plz-pr` to open
+#     `release-plz-vX.Y.Z`) → maintainer reviews + merges → release-plz
+#     `release` fires on that merge (because the PR branch starts with
+#     `release-plz-`) → creates the tag.  Single tag-creator, no race.
+#
+# Steady-state (post-R5) semantics:
+#
+#   `auto-tag-release.yml` + the bespoke `update_all_versions.rs`
+#   driver are deleted in R5.  The `release-plz-*` branch path is the
+#   only path; `release_always = false` continues to gate correctly
+#   without modification.  This setting is permanent — not a
+#   transition-only workaround.
+#
+# Reference: https://release-plz.ieni.dev/docs/config (search for
+# `release_always`).
+release_always = false
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Changelog generation
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Point at the standalone `cliff.toml` established in Phase R2 (PR #66).  This
+# keeps a SINGLE source of truth for the changelog template that both the
+# standalone `git cliff --config cliff.toml` invocation (developer iteration)
+# and the embedded-in-release-plz git-cliff (CI changelog generation) read
+# from.  The alternative — duplicating the ~200-line Tera template into a
+# `[changelog]` section here — was rejected as the inevitable drift footgun
+# it would create.
+#
+# `changelog_config` is marked DEPRECATED in current release-plz docs in
+# favour of an inline `[changelog]` block, but the deprecation is forward-
+# looking only (no removal date announced as of release-plz 0.3.x).  When
+# the deprecation finally lands a removal warning, we'll migrate by either
+# (a) having release-plz auto-detect cliff.toml at workspace root if that
+# becomes a feature, or (b) inlining the template here and pointing
+# git-cliff at this file via `git cliff --config release-plz.toml` for
+# developer iteration.  Either way the migration is mechanical.
+#
+# This pattern is used in production by orhun/git-cliff's own release
+# pipeline (see https://blog.orhun.dev/automated-rust-releases/), so we
+# have direct evidence the deprecated path remains supported.
+changelog_config = "cliff.toml"
+
+# Keep this on (the default).  It is the entire point of the migration:
+# release-plz writes new entries into `CHANGELOG.md` from `cliff.toml`'s
+# template instead of leaving the file unchanged.
+changelog_update = true
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Publishing dormancy (CRITICAL — see plan §6)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# BELT-AND-SUSPENDERS dormancy through Phase R8.  Even with this flipped to
+# `true`, the release-plz workflow in R3 doesn't have CARGO_REGISTRY_TOKEN,
+# so `cargo publish` would still fail.  This config field is the FIRST
+# layer; the workflow's missing-token state is the SECOND.  Both must be
+# changed independently to enable publishing — no single accidental flip
+# can ship a crate to crates.io.
+#
+# Phase R6 will revisit this with per-crate `[[package]]` overrides for
+# the 12 publishable workspace members, but the workspace-level default
+# remains `false` until R8 dress rehearsal.
+publish = false
+
+# Phase R3 leaves these on so when R4 flips active mode, release-plz
+# already knows to create the tag and the GitHub Release.  The existing
+# `release.yml` workflow watches for the tag push and uploads binaries /
+# signs them — no `release.yml` change at the R4 cutover.
+#
+# In SHADOW mode (R3) these are MOOT because we only invoke `release-plz
+# update`, which produces local file edits and never touches git refs or
+# the GitHub API.  Setting them now means R3 → R4 is a single workflow
+# diff, not a config-and-workflow combined diff.
+git_release_enable = true
+git_tag_enable = true
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Behavior toggles
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Don't run `cargo update` automatically as part of release prep.
+# Dependency upgrades are a deliberate separate decision handled by
+# Dependabot + `dependabot-review.yml`.  Conflating them with releases
+# would muddy the changelog and produce noisy version bumps.
+dependencies_update = false
+
+# `cargo-semver-checks` integration disabled until Phase R6.  Enabling
+# it now would (a) require installing the tool in the shadow workflow
+# (cost) and (b) produce false positives on internal crates that
+# haven't yet been audited for public-API status.  R6 adds the tool
+# AND the `publish = true` flips together as a coherent unit.
+semver_check = false
+
+# Default branch prefix for release PRs.  Release-plz auto-detects PRs
+# starting with `release-plz-` as "the release PR" (so merging it
+# triggers the release step in active mode).  Including this field
+# explicitly here so the convention is auditable in one place — the
+# branch-protection ruleset and any future review-bot config can match
+# against it without spelunking through release-plz internals.
+pr_branch_prefix = "release-plz-"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Per-package overrides (Phases R6 + R4 of release-automation-plan.md)
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# ACMEX has 17 workspace members.  The strategic publish set (per
+# 2026-05-14 scrub, see `docs/refactor/crates-io-publishability-deep-
+# dive.md`) is six crates: two ready today, four blocked by the
+# in-workspace polars `git/rev` pin.  The remaining crates are
+# never-publish or reserve-only.
+#
+#   Ready to publish today (2) — `changelog_path` blocks below:
+#     acmex-time, acmex-text
+#
+#   Publishable post-polars-resolution (4) — currently carry
+#   `release = false` below because (a) they transitively depend on
+#   `acmex-polars` which can't yet resolve against crates.io polars
+#   0.53.0, and (b) `cargo package --workspace` (release-plz's hard-
+#   coded baseline step) trips on the same chain.  Flip to
+#   `changelog_path` when polars upstream publishes a compatible
+#   release.
+#     acmex-mft, acmex-client, acmex-cli, acmex-mcp
+#
+#   Reserve-name-only (post-polars decision deferred, 2):
+#     acmex-core, acmex-daemon
+#
+#   Never publish — internal architecture or implementation detail.
+#   Split into two sub-camps depending on whether release-plz needs
+#   an explicit skip directive:
+#
+#     (a) Polars chain (`acmex-polars`, `acmex-format`) — `publish = false`
+#         via workspace inheritance, AND `release = false` block below
+#         because release-plz's hardcoded `cargo package -p` baseline
+#         step trips on the polars chrono mismatch unless every chain
+#         member is excluded from iteration (R6→R8 deviation, 2026-05-08).
+#     (b) Other never-publish crates (`acmex-security`, `acmex-broker`,
+#         `acmex-broker-protocol`, `acmex-diag`, `acmex-bench`) — these ALSO
+#         need an explicit `release = false` block below.  CORRECTION
+#         (2026-06-09, release-plz active run #79): the earlier assumption
+#         that a `publish = false` crate is "auto-skipped by release-plz
+#         following cargo's convention" is WRONG.  `publish = false` only
+#         blocks the crates.io UPLOAD step; release-plz still iterates the
+#         crate for version-bump + changelog + tag, and its baseline
+#         `cargo package` step runs on it.  That step fails for any crate
+#         with a versioned path-dep on an unpublished workspace member
+#         (`acmex-broker` → `acmex-broker-protocol`; `acmex-diag` → `acmex-mft`
+#         + `acmex-polars`) with "no matching package ... found, location
+#         searched: crates.io index".  Only `release = false` removes a
+#         crate from release-plz's iteration.  Rationale per crate:
+#           acmex-security     ACMEX-internals dressed as a generic crate
+#                              — see crate manifest comment
+#           acmex-broker       Windows `[[bin]]` only; standalone install
+#                              is meaningless without the daemon pairing
+#           acmex-broker-protocol  1-RTT wire protocol nobody else speaks
+#           acmex-diag         developer diagnostic tooling
+#           acmex-bench        benchmark-suite orchestrator (internal only)
+#
+#   Internal CI tools (4) — `release = false` below as the surgical
+#   release-plz-specific exclusion (their `publish = false` is the
+#   actual `cargo publish` block, but see the (b) correction above —
+#   it does NOT exclude them from release-plz iteration on its own):
+#     scripts/ci-pipeline      (acmex-ci-pipeline)
+#     scripts/ci/acmex-gen-hooks     (acmex-gen-hooks)
+#     scripts/ci/acmex-gen-workflow  (acmex-gen-workflow)
+#     scripts/ci/acmex-manifest-audit (acmex-manifest-audit)
+#
+#   Out of band (1) — separate cargo workspace, release-plz never
+#   sees it; listed here for completeness:
+#     crates/acmex-mft/fuzz     (acmex-mft-fuzz)
+#
+# `release = false` tells release-plz to ignore the package entirely:
+# no version bump computation, no changelog entry, no tag, no PR.
+# This is the surgical fix per release-automation-plan.md §R6 step 2,
+# preferred over a workspace-level "exclude" that would obscure intent.
+#
+# `changelog_path = "CHANGELOG.md"` (R4) — `changelog_path` cannot be
+# set at workspace level (release-plz docs explicitly forbid it), so
+# each publish-ready crate gets its own `[[package]]` block with the
+# same value pointing at the workspace-root file.  Path is relative
+# to the root Cargo.toml.  When release-plz writes per-crate changelog
+# entries, all of them land in the same file — under the same
+# `## [{{ version }}] - {{ date }}` section since ACMEX releases all
+# crates lockstep at one shared workspace version.
+#
+# `publish = true` per-package overrides are NOT set yet.  The
+# workspace-level `publish = false` above remains the active dormancy
+# layer until Phase R8 dress rehearsal.  When R8 flips a leaf crate
+# (likely `acmex-time`, the foundation crate with zero deps) to
+# `publish = true`, the override goes here as a per-package block —
+# explicit, auditable, reversible.
+
+# ─── Internal CI tools (R6) ─ release-plz skips these entirely ──────
+
+[[package]]
+name = "acmex-ci-pipeline"
+release = false
+
+[[package]]
+name = "acmex-gen-hooks"
+release = false
+
+[[package]]
+name = "acmex-gen-workflow"
+release = false
+
+[[package]]
+name = "acmex-manifest-audit"
+release = false
+
+# ─── Product crates ── dormant crates.io lane ───────────────────────
+#
+# The workspace-level `publish = false` above is the active dormancy
+# layer.  These explicit `release = false` blocks keep release-plz from
+# iterating the product crates at all until the crates-publish lane is
+# enabled (see COMPONENTS.md → lane:crates-publish): flipping a crate
+# live means (1) `publish = true` in its Cargo.toml, (2) replacing its
+# block below with `changelog_path = "CHANGELOG.md"`, (3) setting the
+# LANE_CRATES repo variable.
+
+[[package]]
+name = "acmex-version"
+release = false
+
+[[package]]
+name = "acmex-core"
+release = false
+
+[[package]]
+name = "acmex-cli"
+release = false

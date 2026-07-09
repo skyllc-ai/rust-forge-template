@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: MPL-2.0
+# Copyright (c) 2025 Acmex Placeholder LLC.
+
+# <type>: <description>
+#
+# Types: feat, fix, docs, style, refactor, test, chore
+# Example: feat: add market data streaming support
+#
+# Body (optional):
+# - Explain what and why, not how
+# - Reference issues: Fixes #123
+#
+# Footer (optional):
+# Breaking Change: describe breaking changes

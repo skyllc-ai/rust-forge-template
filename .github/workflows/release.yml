@@ -1,0 +1,1225 @@
+# SPDX-FileCopyright (c) 2025-2026 Acmex Placeholder LLC.
+# SPDX-License-Identifier: MPL-2.0
+
+name: 🚀 ACMEX Release Pipeline
+
+run-name: 🚀 ACMEX Release ${{ inputs.version || github.ref_name }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., v0.1.192)'
+        required: true
+        type: string
+      triggered_by:
+        description: 'Workflow that triggered this release'
+        required: false
+        default: 'manual'
+        type: string
+      commit_sha:
+        description: 'Commit SHA to release'
+        required: false
+        type: string
+  push:
+    tags:
+      - 'v*'
+
+# Serialise release dispatches so two version bumps landing in quick
+# succession (or a tag-push colliding with an auto-tag-release dispatch)
+# queue cleanly.  `cancel-in-progress: false` because a half-finished
+# release must either complete or fail with an attestation — never be
+# killed mid-upload — so the SLSA provenance in the Attestations API
+# can never claim an artifact that was not actually published.
+concurrency:
+  group: release-${{ inputs.version || github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  # `actions: write` (was `read`) so the `submit-winget` job can dispatch
+  # `winget-publish.yml` via `gh workflow run` after the release lands.
+  # Per-job blocks can only NARROW this, so it must be granted here; every
+  # other job re-declares a narrower per-job `permissions:` set and does
+  # not inherit write.
+  actions: write
+  issues: write
+  # SLSA build-provenance attestation flow (P1 hardening):
+  #   - `id-token: write` lets the runner mint an OIDC token
+  #     identifying this workflow run to the Sigstore Fulcio CA.
+  #   - `attestations: write` lets `actions/attest-build-provenance`
+  #     post the resulting attestation to this repository via the
+  #     GitHub Attestations API.
+  # Both scopes are idle unless the attest step actually runs, so
+  # there is no exposure outside the create-github-release job.
+  id-token: write
+  attestations: write
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  # Override `.cargo/config.toml`'s `rustc-wrapper = "sccache"` setting.
+  # sccache is a developer-machine convenience (`cargo install sccache`);
+  # GitHub-hosted runners don't have it pre-installed, so every `cargo`
+  # invocation fails immediately with `could not execute process sccache …`
+  # (see fork test run #24777036796 where all three build targets hit
+  # exit code 101 on this).  An empty `RUSTC_WRAPPER` disables the wrapper
+  # without touching config.toml (which would hurt local dev UX).
+  # `pr-fast.yml` carries the same override for the same reason.
+  RUSTC_WRAPPER: ""
+  # NOTE: no workflow-level RUSTFLAGS here.  Each matrix row carries its own
+  # `rustflags` field so every target gets a stable CPU baseline appropriate
+  # for its ISA — never `target-cpu=native`, because a release binary built
+  # on today's GitHub runner would SIGILL on any end-user CPU missing the
+  # runner's detected feature set (observed previously with `target-cpu=native`
+  # → proc-macro dylib SIGILL on nightly-2026-04-21; same rationale noted
+  # in `pr-fast.yml`'s top-level env block).
+  # Baselines used below:
+  #   x86_64 Linux / Windows   : x86-64-v3 (Haswell+/Zen+, AVX2+BMI2+FMA)
+  #   aarch64-apple-darwin     : apple-m1  (M1+, forward-compatible with M2/M3/M4)
+
+jobs:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Phase 1: Release Preparation & Validation
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  release-preparation:
+    name: 📋 Release Preparation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Dormancy guard: the whole release lane stays present-but-inert
+    # until the repo variable LANE_RELEASE is set to 'true'
+    # (Settings → Secrets and variables → Actions → Variables).
+    if: vars.LANE_RELEASE == 'true'
+    # Explicit per-job scopes so this job does NOT inherit the
+    # workflow-level `actions: write` (granted only for the
+    # `submit-winget` dispatch).  This job needs `contents: write` for
+    # its `gh release create --draft` preflight; `actions` stays read —
+    # the rollback-attack guard below deliberately must NOT run with
+    # `actions: write`.
+    permissions:
+      contents: write
+      actions: read
+    outputs:
+      version: ${{ steps.validate.outputs.version }}
+      tag: ${{ steps.validate.outputs.tag }}
+      release-name: ${{ steps.validate.outputs.release-name }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ inputs.commit_sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Validate release inputs
+        id: validate
+        shell: bash
+        run: |
+          # Handle both workflow_dispatch and tag push
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${{ github.ref_name }}"
+          fi
+
+          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "❌ Invalid version format: $VERSION"
+            echo "Expected format: v0.1.192"
+            exit 1
+          fi
+
+          {
+            echo "version=$VERSION"
+            echo "tag=$VERSION"
+            echo "release-name=ACMEX $VERSION"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "✅ Release validation passed"
+          echo "📦 Version: $VERSION"
+          echo "🏷️ Tag: $VERSION"
+          echo "🚀 Triggered by: ${{ inputs.triggered_by || 'tag-push' }}"
+
+      - name: Pre-flight — verify Actions token can create releases
+        # Belt-and-suspenders guard against a silent repo-level
+        # permissions clamp.
+        #
+        # The workflow's top-level `permissions:` block (and the
+        # `create-github-release` job's per-job override) both declare
+        # `contents: write`, which softprops/action-gh-release needs
+        # in order to POST the v* git tag and release row.  However,
+        # the repository-level toggle at "Settings → Actions →
+        # General → Workflow permissions" can clamp every job's
+        # GITHUB_TOKEN to read-only at runtime regardless of what
+        # the workflow declares.  When that happens, the build
+        # matrix burns ~30 minutes and then `create-github-release`
+        # dies with the cryptic:
+        #
+        #   HTTP 403 — Resource not accessible by integration
+        #
+        # The failure mode is silent until that step is reached.
+        # See release pipeline #98 / v0.5.99 — three platforms built
+        # for 32 min each, then the publish step failed in 1 s with
+        # the 403, and we had to drop the run and re-dispatch after
+        # flipping the setting.
+        #
+        # This step exercises the EXACT REST path that the failing
+        # action uses, but with a throwaway draft release that is
+        # immediately deleted.  A read-only-clamped token fails the
+        # `gh release create --draft` call in ~1 s with the same 403,
+        # at which point we surface a precise actionable error
+        # pointing at the toggle that needs flipping.
+        #
+        # Why a draft release and not a direct `actions/permissions`
+        # API probe: reading `/repos/.../actions/permissions/workflow`
+        # requires the `administration: read` scope, which neither
+        # this workflow nor the repo-default GITHUB_TOKEN carries.
+        # The synthetic create-draft-then-delete probe uses the
+        # `contents: write` scope this job already declares, so it
+        # works without widening the workflow's permission surface.
+        #
+        # Draft releases do not create the underlying git tag (only
+        # published releases do), so cleanup is just the release-row
+        # delete — no orphaned tags can leak even if the cleanup
+        # step itself fails.  The throwaway tag name includes both
+        # `run_id` and `run_attempt` so concurrent / retried
+        # invocations cannot collide.
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          TEST_TAG="preflight-permcheck-run${{ github.run_id }}-attempt${{ github.run_attempt }}"
+          echo "Probing release-create permissions with synthetic draft: $TEST_TAG"
+
+          if ! gh release create "$TEST_TAG" \
+                 --repo "${{ github.repository }}" \
+                 --draft \
+                 --notes "Preflight permissions check; auto-deleted within seconds." \
+                 --title "permcheck (auto-deleted)" 2>/tmp/perm-err.log; then
+              ERR=$(cat /tmp/perm-err.log)
+              echo "::error title=Workflow permissions block release publish::Failed to create a draft release as a preflight permissions probe — see annotation below."
+              cat <<EOF
+          ❌ Pre-flight permissions probe FAILED.
+
+          The probe attempted to create a draft release ($TEST_TAG)
+          and \`gh release create\` returned:
+
+          ${ERR}
+
+          Most common cause: the repository's "Workflow permissions"
+          setting is "Read repository contents and packages
+          permissions", which clamps the per-job GITHUB_TOKEN to
+          read-only at runtime regardless of what the workflow file
+          declares.  softprops/action-gh-release in the
+          create-github-release job would fail with HTTP 403
+          ("Resource not accessible by integration") after the build
+          matrix (~30 min).  Catching it here saves the ~30 min.
+
+          To fix, flip the toggle to "Read and write permissions":
+            https://github.com/${{ github.repository }}/settings/actions
+
+          Or via CLI (requires repo admin):
+            gh api -X PUT /repos/${{ github.repository }}/actions/permissions/workflow \\
+              -f default_workflow_permissions=write
+
+          If the repo-level setting is already "Read and write" but
+          the probe still fails, the organization's default at
+            https://github.com/organizations/<org>/settings/actions
+          may be set to read-only and is cascading down to every repo.
+          Fix it at the org level (or have an org admin do it), then
+          re-dispatch this workflow.
+
+          Regression history: pipeline #98 / v0.5.99.
+          EOF
+              exit 1
+          fi
+
+          # Cleanup: delete the draft release row.  Best-effort — if
+          # delete fails, the draft is orphaned but harmless (drafts
+          # do not create git tags, are not surfaced on the public
+          # /releases page, and the unique tag name per
+          # run_id+attempt prevents cross-run collisions).
+          if ! gh release delete "$TEST_TAG" \
+                 --repo "${{ github.repository }}" --yes; then
+              echo "::warning::Failed to clean up preflight draft release $TEST_TAG; orphan is harmless but visible to repo admins via /releases?per_page=100."
+          fi
+
+          echo "✅ Workflow permissions allow release publish"
+
+      - name: Check if tag or release already exists (workflow_dispatch only)
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.validate.outputs.tag }}
+        run: |
+          # Guard 1 — git tag.  The release workflow creates the tag via
+          # action-gh-release's REST path; a colliding tag would be
+          # silently treated as "already created" and the build would
+          # publish over the existing one.
+          if git tag -l | grep -q "^${TAG}$"; then
+            echo "::error title=Tag ${TAG} already exists::A git tag for ${TAG} already exists.  Bump the version in Cargo.toml + CHANGELOG.md and re-dispatch."
+            exit 1
+          fi
+
+          # Guard 2 — GitHub release row.  Since 2025-Q4 GitHub publishes
+          # releases as immutable by default.  When a release row exists
+          # for $TAG but the git tag has been rolled back (e.g. a previous
+          # release attempt failed AFTER the release was created but
+          # BEFORE artifacts uploaded, then the tag was manually deleted),
+          # action-gh-release tries to UPDATE the existing row's
+          # target_commitish and GitHub rejects with:
+          #
+          #   Validation Failed: target_commitish cannot be changed when
+          #   release is immutable
+          #
+          # The remedy is to bump the version, not to retry.  Surfacing
+          # that here gives a clear error instead of the cryptic one from
+          # action-gh-release.  See issue #150 / run 25549839464.
+          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "::error title=Release ${TAG} already published::A release for ${TAG} already exists on GitHub and is immutable.  GitHub does not allow re-publishing the same version.  Bump the version in Cargo.toml + CHANGELOG.md and re-dispatch."
+            exit 1
+          fi
+
+          echo "✅ Tag and release are both available for ${TAG}"
+
+      - name: Validate commit_sha is ancestor of main (workflow_dispatch only)
+        if: github.event_name == 'workflow_dispatch' && inputs.commit_sha != ''
+        shell: bash
+        run: |
+          # Rollback-attack guard.  An attacker with `actions: write`
+          # (e.g. a compromised bot token) could otherwise invoke this
+          # workflow with a `commit_sha` pointing at an ARBITRARY
+          # commit — including one from an unreviewed feature branch,
+          # or a commit prior to a security fix — and have the
+          # release assets built from that code.  This step rejects
+          # any commit_sha that isn't on main's history.
+          #
+          # `git merge-base --is-ancestor A B` exits 0 iff A is an
+          # ancestor of B (commits equal count as ancestor).
+          git fetch origin main:refs/remotes/origin/main --quiet
+          if ! git merge-base --is-ancestor "${{ inputs.commit_sha }}" origin/main; then
+            echo "::error::commit_sha ${{ inputs.commit_sha }} is not an ancestor of origin/main."
+            echo "  Only commits that have already landed on main can be released."
+            echo "  If this commit is legitimate, merge it to main first."
+            exit 1
+          fi
+          echo "✅ commit_sha ${{ inputs.commit_sha }} is on main's history"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Phase 2: Cross-Platform Binary Builds
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Target matrix
+  #
+  # Three targets, each earning its slot:
+  #   - x86_64-pc-windows-msvc   — Windows x64
+  #   - aarch64-apple-darwin     — macOS Apple Silicon
+  #   - x86_64-unknown-linux-musl — Linux x64 (servers, Docker, CI
+  #                                 harnesses).  STATIC (no glibc floor)
+  #                                 → runs on every Linux incl. old
+  #                                 LTS / WSL / Alpine.
+  #
+  # Dropped vs previous iterations:
+  #   - x86_64-apple-darwin (Intel Mac) — Apple deprecated the platform;
+  #     Apple Silicon ARM64 build runs under Rosetta 2 if absolutely needed.
+  #
+  # Per-target `rustflags` (stable baselines, never `native`):
+  #   - x86_64 Linux/Windows: `target-cpu=x86-64-v3` — Haswell+/Zen+ ISA.
+  #   - aarch64 macOS:         `target-cpu=apple-m1` — M1 baseline forwards-
+  #     compatible with M2/M3/M4 while avoiding config.toml's `native`
+  #     override which would bake in runner-specific chip detection.
+  # ─────────────────────────────────────────────────────────────────────────
+  build-release-binaries:
+    name: 🔨 Build (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    needs: release-preparation
+    # Dormancy guard (see release-preparation).
+    if: vars.LANE_RELEASE == 'true'
+    timeout-minutes: ${{ matrix.timeout }}
+    # Explicit read-only scope so this job does NOT inherit the
+    # workflow-level `actions: write` (granted only for `submit-winget`).
+    # The build only checks out + compiles + uploads artifacts — no
+    # write scope is needed.
+    permissions:
+      contents: read
+    env:
+      RUSTFLAGS: ${{ matrix.rustflags }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Timeouts are sized for a COLD build (empty rust-cache).
+          # LTO=fat + codegen-units=1 + Polars-heavy workspace is slow on
+          # 2-core GitHub-hosted runners — especially ubuntu-22.04.  Warm
+          # subsequent runs are roughly 1/3 of these numbers.
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            artifact-name: acmex-windows-x64
+            binary-suffix: ".exe"
+            rustflags: "-C target-cpu=x86-64-v3"
+            timeout: 75
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            artifact-name: acmex-macos-arm64
+            binary-suffix: ""
+            rustflags: "-C target-cpu=apple-m1 -C link-arg=-Wl,-dead_strip"
+            timeout: 45
+          # musl = fully STATIC binary, zero glibc dependency: a gnu build on
+          # ubuntu-22.04 (glibc 2.35) bakes a glibc floor that breaks Ubuntu
+          # 20.04 / WSL (glibc 2.31: "GLIBC_2.33 not found"). The static musl
+          # binary runs on every Linux (20.04, Alpine, old servers) forever.
+          # Built via cargo-zigbuild (zig supplies the C cross-toolchain +
+          # static link cleanly).
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-22.04
+            artifact-name: acmex-linux-x64
+            binary-suffix: ""
+            rustflags: "-C target-cpu=x86-64-v3 -C link-arg=-Wl,--gc-sections"
+            timeout: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ inputs.commit_sha || github.sha }}
+
+      - name: Free up disk space (Linux only)
+        if: runner.os == 'Linux'
+        run: |
+          # Polars + ring + LTO=fat combined consume significant disk on
+          # ubuntu-22.04's default 14GB free budget.  Reclaim ~20GB from
+          # preinstalled SDKs we do not use for a release build.
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+          sudo rm -rf /usr/local/share/boost /usr/local/graalvm
+          df -h /
+
+      - name: Install pinned nightly (from rust-toolchain.toml)
+        shell: bash
+        run: |
+          # `rustup show` reads `rust-toolchain.toml` and installs the
+          # exact channel + components pinned there.
+          rustup show
+
+          # Defensive: on `macos-latest` runner images the
+          # `~/.cargo/bin/cargo` proxy is occasionally a stale symlink
+          # pointing at `rustup-init` (the installer) instead of the
+          # proxy that forwards to the active toolchain's real cargo.
+          # When that happens, every subsequent `cargo build` /
+          # `cargo metadata` exits with `error: unexpected argument
+          # 'build' found` and a `rustup_init::run_rustup_inner`
+          # backtrace.  Forcibly re-setting the default toolchain
+          # rewrites the proxy binaries in `~/.cargo/bin`, so the
+          # symlinks resolve to the active toolchain's cargo.
+          #
+          # This step mirrors the same defensive repair in
+          # `release-cache-warm.yml`; keep them in sync.  Note that the
+          # repair is *also* re-applied after the Swatinem/rust-cache
+          # restore (next step), because the cache itself can hold a
+          # poisoned `~/.cargo/bin/cargo` that overwrites the freshly
+          # repaired proxy — see "Repair rustup proxy after cache
+          # restore" below.
+          rustup default "$(rustup show active-toolchain | awk '{print $1}')"
+
+          # Fail-fast smoke check: surface a broken proxy in ~1 s here
+          # instead of letting Swatinem/rust-cache's `cargo metadata`
+          # (and then a 30+ min `cargo build`) silently waste runner
+          # minutes before failing on the same root cause.  On the
+          # production release pipeline this matters even more: a 30+
+          # min late failure on a tag-dispatched run delays the
+          # release by a full re-run cycle.
+          cargo --version
+          rustc --version
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          # `shared-key:` (not `key:`) so the action's built-in fallback
+          # restores partial matches when `Cargo.lock` shifts between
+          # releases.  `just ship` runs `cargo update` on every release,
+          # which changes the `Cargo.lock` hash and would force an exact
+          # `key:` to miss every single time (issue #80).  `shared-key:`
+          # gives us the same cache-key prefix on every release-${target}
+          # invocation and lets the action recover ~80-90 % of the
+          # previous compile graph; only crates whose sources actually
+          # changed need recompilation.  `pr-fast.yml` uses the same
+          # pattern; the divergence here was unintentional.
+          #
+          # The cache this step restores is kept warm by
+          # `release-cache-warm.yml` — that workflow runs the same
+          # `shared-key` build on every Cargo-affecting `main` push
+          # plus a weekly cron, so the cache's last-access timestamp
+          # is refreshed often enough to survive GitHub's 7-day TTL +
+          # 10-GB-cap LRU eviction.  Without it, releases paid the
+          # full cold-build tax every time (issue #132).  If you
+          # change the build invocation below, mirror the change in
+          # `release-cache-warm.yml::warm` so the warmed cache stays
+          # bit-compatible with what this job needs.
+          shared-key: release-${{ matrix.target }}
+          cache-on-failure: 'true'
+
+      - name: Repair rustup proxy after cache restore (macOS guard)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          # `Swatinem/rust-cache` (above) restores `~/.cargo/bin/` from
+          # a prior run's cache.  On `macos-latest` that cache can
+          # contain a poisoned `cargo` proxy: an earlier run's
+          # `~/.cargo/bin/cargo` was a symlink to `rustup-init` (the
+          # installer) rather than the toolchain proxy, and the cache
+          # captured that bad state.  Restoring it here overwrites the
+          # freshly-repaired proxy from the "Install pinned nightly"
+          # step, so the very next `cargo build` exits with
+          # `error: unexpected argument 'build' found` and a
+          # `rustup_init::run_rustup_inner` backtrace.
+          #
+          # Re-running `rustup default` *after* the cache restore
+          # rewrites the proxy binaries in `~/.cargo/bin` again, so
+          # `cargo build` resolves to the active toolchain's real
+          # cargo even when the restored cache was poisoned.  On the
+          # next successful run, `Swatinem/rust-cache` will save a
+          # clean cache, and the poison clears itself.
+          #
+          # See release pipeline #97 / v0.5.98 for the regression that
+          # motivated this step.  Mirror any change here in
+          # `release-cache-warm.yml`.
+          rustup default "$(rustup show active-toolchain | awk '{print $1}')"
+          cargo --version
+
+      - name: Set up cargo-zigbuild for static musl (Linux only)
+        if: contains(matrix.target, 'musl')
+        shell: bash
+        run: |
+          # musl static Linux is built with cargo-zigbuild: zig provides the C
+          # cross-toolchain (mimalloc's C compiles cleanly) and a static musl
+          # link, without the musl-gcc / CC_* env fiddling plain cargo needs.
+          # Pinned zig via the `ziglang` PyPI wheel (no marketplace action).
+          # Pinned to the exact zig + cargo-zigbuild the maintainer validated
+          # the static-musl build with locally (this workflow leg only runs at
+          # release time, so it cannot drift-test itself — pin what is proven).
+          rustup target add ${{ matrix.target }}
+          python3 -m pip install --user "ziglang==0.14.1"
+          # cargo-zigbuild finds zig via `python3 -m ziglang`; expose it on PATH
+          # as `zig` for good measure.
+          printf 'exec python3 -m ziglang "$@"\n' | sudo tee /usr/local/bin/zig >/dev/null
+          sudo chmod +x /usr/local/bin/zig
+          zig version
+          cargo install --locked cargo-zigbuild@0.22.3
+          # No `cargo zigbuild --version` smoke here: `cargo zigbuild <args>`
+          # forwards to the `zigbuild` subcommand, which has no `--version`
+          # (it errors "unexpected argument '--version'"). The real proof is
+          # the `cargo zigbuild --release` build step below; installing at the
+          # pinned @0.22.3 already fixes the version.
+
+      - name: Build optimized release binaries
+        shell: bash
+        run: |
+          echo "🔨 Building optimized release binaries for ${{ matrix.target }}"
+          echo "   RUSTFLAGS=$RUSTFLAGS"
+
+          # Build all workspace binaries for the target.  Profile settings
+          # (LTO=fat, codegen-units=1, strip=symbols, panic=abort) come from
+          # [profile.release] in Cargo.toml — do NOT override them here.
+          # The previous `CARGO_PROFILE_RELEASE_LTO=false` override silently
+          # disabled LTO in release artifacts; removed so users get the
+          # perf the profile was designed for.
+          #
+          # --locked per §2.8 policy.  Release builds MUST resolve
+          # through the committed Cargo.lock or the binaries we ship
+          # may differ from what the tests validated — worst-case a
+          # silent dep drift ships to end-users.  CI fails loudly
+          # instead.
+          # musl → cargo-zigbuild (static C toolchain via zig); everything else
+          # → the native cargo build. Same flags/profile either way.
+          # (The donor project built Windows with a custom `[profile.ship]`
+          # + `-Z build-std` size strip; this template has no such profile,
+          # so Windows uses the plain release profile like the other targets.)
+          if [[ "${{ matrix.target }}" == *musl* ]]; then
+            cargo zigbuild --locked --release --target ${{ matrix.target }} --workspace --bins
+          else
+            cargo build --locked --release --target ${{ matrix.target }} --workspace --bins
+          fi
+
+          echo "✅ Build completed for ${{ matrix.target }}"
+
+      - name: Re-codesign macOS binaries (post-strip)
+        if: contains(matrix.target, 'apple-darwin')
+        shell: bash
+        run: |
+          # `[profile.release].strip = "symbols"` in Cargo.toml strips the
+          # Mach-O symbol table AFTER the linker has emitted an ad-hoc
+          # (linker-signed) CodeDirectory.  Strip changes the on-disk hash
+          # the CodeDirectory was computed over, leaving the signature
+          # internally inconsistent.  macOS 26+'s taskgated then refuses
+          # to launch the binary with `SIGKILL (Code Signature Invalid)`
+          # / namespace=CODESIGNING / "Taskgated Invalid Signature".
+          #
+          # Re-stamping the ad-hoc signature with `codesign --force
+          # --sign -` recomputes the CodeDirectory over the post-strip
+          # bytes so the in-memory hash matches the on-disk file again.
+          # We deliberately stay ad-hoc: we don't have an Apple Developer
+          # ID; the resulting binaries are still unnotarized and users
+          # see the standard "open anyway" Gatekeeper prompt on first
+          # launch.  But they no longer get killed at exec time.
+          #
+          # Gated on `apple-darwin` so Windows / Linux artifact paths
+          # stay untouched.
+          set -euo pipefail
+          # Add additional workspace binaries here as the project grows.
+          for bin in acmex; do
+            path="target/${{ matrix.target }}/release/$bin"
+            if [[ -f "$path" ]]; then
+              codesign --force --sign - "$path"
+              codesign --verify --verbose=2 "$path"
+            fi
+          done
+
+      - name: Show binary sizes
+        shell: bash
+        run: |
+          echo "📐 Release binary sizes:"
+          # Iterate the explicit shipping-set names (avoids `ls | grep`, SC2010).
+          # Use `if … then … fi` rather than `[[ -f $bin ]] && ls …` so a missing
+          # file on the final iteration does not propagate exit-1 out of the
+          # loop under `bash -e` (the `.exe` variant is absent on non-Windows
+          # targets and vice versa).
+          for bin in target/${{ matrix.target }}/release/acmex \
+                     target/${{ matrix.target }}/release/acmex.exe; do
+            if [[ -f "$bin" ]]; then
+              ls -lh "$bin"
+            fi
+          done
+
+      - name: Package binaries
+        shell: bash
+        run: |
+          mkdir -p release-artifacts
+
+          # Shipping set — the template builds exactly one binary today.
+          # Add additional workspace binaries here as the project grows.
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            for binary in acmex.exe; do
+              if [[ -f "target/${{ matrix.target }}/release/$binary" ]]; then
+                cp "target/${{ matrix.target }}/release/$binary" release-artifacts/
+              fi
+            done
+          else
+            for binary in acmex; do
+              if [[ -f "target/${{ matrix.target }}/release/$binary" ]]; then
+                cp "target/${{ matrix.target }}/release/$binary" release-artifacts/
+              fi
+            done
+          fi
+
+          # Create checksums.  Using `./*` guards against a future file
+          # named like `-foo` being parsed as an option by sha256sum /
+          # shasum (SC2035).
+          cd release-artifacts
+          if command -v sha256sum >/dev/null; then
+            sha256sum ./* > checksums.txt
+          else
+            shasum -a 256 ./* > checksums.txt
+          fi
+
+          echo "📦 Packaged binaries:"
+          ls -la
+
+      - name: Stage release bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "🎁 Staging release bundle for ${{ matrix.target }}..."
+
+          ARTIFACT="${{ matrix.artifact-name }}"   # e.g. acmex-windows-x64
+          TRIPLE="${{ matrix.target }}"
+          OS="${{ matrix.os }}"
+          BINDIR="target/${TRIPLE}/release"
+          if [[ "$OS" == "windows-latest" ]]; then EXT=".exe"; else EXT=""; fi
+
+          # ── Bundle staging helper ──────────────────────────────────────────
+          #   $1 = zip basename (also the archive's single root dir)
+          # The donor project emitted three tiers (-min / normal / -full);
+          # the template ships the single normal tier.  Re-adding tiers is
+          # just extra stage_bundle calls with per-tier binary lists.
+          stage_bundle() {
+            local zipbase="$1"
+            local stage="release-staging/${zipbase}"
+            rm -rf "$stage"; mkdir -p "$stage"
+
+            # Add additional workspace binaries here as the project grows.
+            local engine_bins=(acmex)
+            for b in "${engine_bins[@]}"; do
+              if [[ -f "${BINDIR}/${b}${EXT}" ]]; then
+                cp "${BINDIR}/${b}${EXT}" "$stage/"
+              fi
+            done
+
+            # License + docs.
+            cp LICENSE README.md CHANGELOG.md "$stage/"
+
+            # ── ZIP the bundle ───────────────────────────────────────────────
+            # 7z on Windows (pre-installed, no Git-Bash zip dependency);
+            # `zip` on macOS/Linux.  `cd release-staging` first so the
+            # archive's root entry is `${zipbase}/`, not
+            # `release-staging/${zipbase}/`.
+            if [[ "$OS" == "windows-latest" ]]; then
+              (cd release-staging && \
+               7z a -tzip "../release-artifacts/${zipbase}.zip" "${zipbase}" > /dev/null)
+            else
+              (cd release-staging && \
+               zip -rq "../release-artifacts/${zipbase}.zip" "${zipbase}")
+            fi
+            echo "📦 ${zipbase}.zip:"; ls -la "release-artifacts/${zipbase}.zip"
+          }
+
+          # Single (normal) tier — the bare `${ARTIFACT}.zip` name keeps the
+          # winget installers-regex and download URLs stable.
+          stage_bundle "${ARTIFACT}"
+
+          echo "📂 staging tree:"
+          find "release-staging/${ARTIFACT}" -maxdepth 4 -type f | sort
+
+          # Clean up staging; only the ZIP survives into the uploaded artifact.
+          rm -rf release-staging
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: release-artifacts/
+          retention-days: 30
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Phase 3: Create GitHub Release
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  create-github-release:
+    name: 📦 Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [release-preparation, build-release-binaries]
+    # Dormancy guard (see release-preparation).
+    if: vars.LANE_RELEASE == 'true'
+    timeout-minutes: 15
+    # Explicit per-job permissions matrix.  Documents the intent at the
+    # point of use rather than relying on inheritance from the workflow-
+    # level `permissions:` block ~520 lines up.  Note: a per-job block
+    # only NARROWS the workflow-level grant — it cannot grant a scope
+    # the workflow level didn't already declare.  More importantly, BOTH
+    # are still clamped at runtime by the repo-level "Settings → Actions
+    # → General → Workflow permissions" toggle.  If that toggle is set
+    # to "Read repository contents and packages permissions", every
+    # scope below is silently downgraded to read regardless of what is
+    # written here.  The `Pre-flight — verify Actions token …` step in
+    # `release-preparation` fails fast in that case so we don't burn
+    # ~30 min of build time before discovering it.
+    #
+    #   contents: write       — softprops/action-gh-release creates the
+    #                            v* git tag AND the release row via the
+    #                            REST API.  Without this scope, the
+    #                            create-release step fails with HTTP
+    #                            403 "Resource not accessible by
+    #                            integration" (see release pipeline
+    #                            #98 / v0.5.99 for the regression).
+    #   id-token: write       — OIDC token issuance for the SLSA
+    #                            build-provenance attestation via
+    #                            Sigstore Fulcio.
+    #   attestations: write   — posts the resulting attestation to
+    #                            this repo via GitHub's Attestations
+    #                            API.
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ inputs.commit_sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: release-artifacts
+
+      - name: Organize release assets
+        shell: bash
+        run: |
+          mkdir -p final-release
+
+          # Organize artifacts by platform.  Two shipping formats:
+          #   - Per-platform ZIP bundle (everything: binaries + brand +
+          #     docs + packaging helpers; the recommended download).
+          #   - Individual raw binaries with platform suffix
+          #     (backwards-compat URLs for users automating \`wget\` of
+          #     a single binary).
+          for artifact_dir in release-artifacts/*/; do
+            artifact_name=$(basename "$artifact_dir")
+            echo "Processing $artifact_name..."
+
+            for file in "$artifact_dir"*; do
+              if [[ -f "$file" && "$file" != *"checksums.txt" ]]; then
+                filename=$(basename "$file")
+                # ZIP bundles keep their original name (the platform
+                # suffix is already baked into matrix.artifact-name).
+                if [[ "$filename" == *.zip ]]; then
+                  cp "$file" "final-release/$filename"
+                  continue
+                fi
+                # Raw binaries get a platform suffix appended.
+                if [[ "$artifact_name" == *"linux"* ]]; then
+                  cp "$file" "final-release/${filename}-linux-x64"
+                elif [[ "$artifact_name" == *"windows"* ]]; then
+                  # $filename already ends in .exe from the windows build
+                  base="${filename%.exe}"
+                  cp "$file" "final-release/${base}-windows-x64.exe"
+                elif [[ "$artifact_name" == *"macos-arm64"* ]]; then
+                  cp "$file" "final-release/${filename}-macos-arm64"
+                fi
+              fi
+            done
+          done
+
+          echo "📦 Staged release assets (pre-SBOM, pre-checksum):"
+          ls -la final-release/
+
+      # ─── CycloneDX SBOM ──────────────────────────────────────────────────
+      #
+      # Emits one `sbom-<crate>.cdx.json` per workspace crate into
+      # `final-release/` so every shipped binary has a machine-readable
+      # inventory of its resolved transitive dependencies.  cargo-cyclonedx
+      # reads `Cargo.lock` — which is committed — so the SBOMs are
+      # deterministic for (commit, features) and bit-identical across
+      # re-runs.
+      #
+      # The SBOMs are produced BEFORE `CHECKSUMS.txt` is written and
+      # BEFORE the SLSA attestation step so that:
+      #
+      #   1. `CHECKSUMS.txt` lists them, giving downloaders a single
+      #      sha256-verifiable manifest.
+      #   2. The SLSA attestation (`subject-path: final-release/*`) covers
+      #      the SBOM bytes too, so a downstream consumer can:
+      #
+      #        gh attestation verify sbom-acmex-cli.cdx.json \
+          #          --owner ${{ github.repository_owner }}
+      #
+      #      and prove the SBOM came from this exact workflow run.
+      - name: Install cargo-cyclonedx
+        uses: taiki-e/install-action@dfc84ffb7254b048a0a843316ff5a2714dcdc7bd # v2
+        with:
+          tool: cargo-cyclonedx
+
+      - name: Install pinned nightly (needed by cargo-cyclonedx to read workspace)
+        # cargo-cyclonedx shells out to `cargo metadata`, which requires
+        # the workspace's pinned toolchain to be resolvable (rust-toolchain.toml).
+        # `rustup show` installs & activates it in one step.
+        run: rustup show
+
+      - name: Generate CycloneDX SBOMs for every workspace crate
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "📋 Generating CycloneDX 1.5 SBOMs for workspace..."
+          # --format json           : machine-readable
+          # --all-features          : match the release-build feature set
+          # --spec-version 1.5      : newest stable CycloneDX schema
+          # default --describe=crate: one SBOM per crate, Cargo targets as subcomponents
+          #
+          # Output goes adjacent to each `Cargo.toml` as `<crate>.cdx.json`.
+          cargo cyclonedx \
+            --format json \
+            --all-features \
+            --spec-version 1.5
+
+          # Collect the per-crate SBOMs into final-release/ with a uniform
+          # `sbom-<crate>.cdx.json` prefix so downloaders can tell at a
+          # glance which files are SBOMs.  `find` is used instead of a
+          # glob because crates live one level down under crates/<crate>/.
+          count=0
+          while IFS= read -r sbom; do
+            crate=$(basename "$(dirname "$sbom")")
+            dest="final-release/sbom-${crate}.cdx.json"
+            cp "$sbom" "$dest"
+            count=$((count + 1))
+          done < <(find crates -name '*.cdx.json' -type f)
+
+          if (( count == 0 )); then
+            echo "::error::cargo-cyclonedx produced no SBOMs — investigate the log above"
+            exit 1
+          fi
+
+          echo "✅ Emitted $count SBOM(s):"
+          ls -lh final-release/sbom-*.cdx.json
+
+      - name: Finalize CHECKSUMS.txt (covers binaries, ZIP bundles, and SBOMs)
+        shell: bash
+        run: |
+          cd final-release
+          # Regenerate AFTER SBOMs are placed so the manifest is complete.
+          # The SLSA attestation runs next and covers every file in this
+          # directory, so there is no window where CHECKSUMS.txt is stale
+          # relative to what ships.  `./*` guards against future filenames
+          # that could be parsed as options by sha256sum (SC2035).
+          sha256sum ./* > CHECKSUMS.txt
+
+          # SHA256SUMS — a conventionally-named copy of CHECKSUMS.txt that
+          # tooling (e.g. a future self-update helper) can fetch by exact
+          # name.  It lists every raw per-binary asset by its platform-
+          # suffixed name (e.g. `acmex-windows-x64.exe`).  Identical
+          # sha256sum format; generated here (before the attestation step)
+          # so it is covered by SLSA when that lane is enabled.
+          cp CHECKSUMS.txt SHA256SUMS
+
+          echo "📦 Final release assets (SBOMs + checksums + SHA256SUMS included):"
+          ls -la
+
+      - name: Generate SLSA build-provenance attestation
+        # Signs every file in `final-release/` with the workflow's
+        # Sigstore OIDC identity, producing a SLSA Level 3 build-
+        # provenance claim bound to (this workflow run, this commit,
+        # this set of inputs).  Consumers then verify with:
+        #
+        #   gh attestation verify <asset> \
+        #     --owner ${{ github.repository_owner }}
+        #
+        # Attestation is stored in the repo's attestations API, so it
+        # survives independently of the GitHub Release asset (even if
+        # someone with `contents: write` silently swaps a binary, the
+        # SHA256 in the attestation won't match and `gh attestation
+        # verify` fails).
+        #
+        # Lane-guarded: only runs when the repo variable LANE_SLSA is
+        # set to 'true' (attestations need Sigstore/Fulcio setup the
+        # template repo may not want yet).
+        if: vars.LANE_SLSA == 'true'
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: "final-release/*"
+
+      - name: Generate release notes
+        id: release-notes
+        shell: bash
+        run: |
+          cat > release-notes.md << 'EOF'
+          # ACMEX ${{ needs.release-preparation.outputs.version }}
+
+          ## 🚀 What's New
+
+          See the [full changelog](https://github.com/${{ github.repository }}/commits/${{ needs.release-preparation.outputs.version }})
+          and `CHANGELOG.md` in the repository for details.
+
+          ## 📦 Downloads
+
+          Each platform ships as a **one-download ZIP bundle** containing
+          the `acmex` binary plus LICENSE, README, and CHANGELOG.
+          Individual raw binaries are also attached for automation that
+          `wget`s a single file.
+
+          ### 🟦 Windows x86_64
+          - **`acmex-windows-x64.zip`** — recommended.
+          - Raw binary: `acmex-windows-x64.exe`.
+
+          ### 🍏 macOS Apple Silicon
+          - **`acmex-macos-arm64.zip`** — recommended.
+          - Raw binary: `acmex-macos-arm64`.
+          - Intel Macs: run the arm64 build under Rosetta 2.
+
+          ### 🐧 Linux x86_64 (static musl)
+          - **`acmex-linux-x64.zip`** — recommended.
+          - Raw binary: `acmex-linux-x64` (fully static; runs on any Linux
+            including old LTS, WSL, and Alpine).
+
+          ## 🔐 Verification
+
+          All binaries are accompanied by SHA256 checksums in `CHECKSUMS.txt`
+          (and `SHA256SUMS`, a conventionally-named copy).  Verify with:
+          ```bash
+          sha256sum -c CHECKSUMS.txt
+          ```
+
+          Additionally, when the repository's SLSA lane is enabled, every
+          release asset carries a **SLSA build-provenance attestation**
+          signed with the workflow's Sigstore OIDC identity.  Verify with
+          GitHub CLI:
+          ```bash
+          gh attestation verify <file> --owner ${{ github.repository_owner }}
+          ```
+          A successful verification proves the bytes were produced by
+          this exact workflow run on this exact commit.
+
+          ### 📋 SBOM (Software Bill of Materials)
+
+          Each workspace crate ships a CycloneDX 1.5 SBOM alongside the
+          binaries: `sbom-<crate>.cdx.json`.  The SBOMs are covered by
+          the same SLSA attestation as the binaries, so you can verify
+          the inventory with the same command above.  Inspect with any
+          CycloneDX-aware tool, e.g.:
+          ```bash
+          jq '.components[] | {name, version, purl}' sbom-acmex-cli.cdx.json
+          ```
+
+          ## 📋 Installation
+
+          ### Recommended: ZIP bundle
+          1. Download `acmex-<platform>.zip` for your platform.
+          2. Unzip anywhere.
+          3. **Windows**: the `.exe` is ready to run; place it on `PATH`.
+          4. **macOS**: move the `acmex` binary into `/usr/local/bin/`.  First launch: Gatekeeper warns because the binary is unsigned — right-click → Open to confirm, or run `xattr -d com.apple.quarantine acmex`.
+          5. **Linux**: `chmod +x acmex` then move it onto `PATH` (e.g. `/usr/local/bin/`).
+
+          ### Raw-binary path (automation)
+          - Download the individual binary, e.g. `acmex-linux-x64`.
+          - macOS / Linux: `chmod +x acmex-*` then optionally `mv acmex-* /usr/local/bin/acmex`.
+          - Windows: the `.exe` is ready to run; place it on `PATH`.
+
+          ## 🛠️ Build Information
+
+          - **Triggered by**: ${{ inputs.triggered_by || 'tag-push' }}
+          - **Commit**: ${{ inputs.commit_sha || github.sha }}
+          - **Toolchain**: pinned nightly from `rust-toolchain.toml`
+          - **Profile**: `[profile.release]` — LTO=fat, codegen-units=1, strip=symbols
+          - **CPU baselines**: x86_64 = `x86-64-v3` (Haswell+/Zen+); macOS ARM64 = `apple-m1` (M1+)
+
+          ---
+
+          **Full Changelog**: https://github.com/${{ github.repository }}/commits/${{ needs.release-preparation.outputs.version }}
+          EOF
+
+      # ── Pin the tag to the built commit, THEN release the tag ──
+      #
+      # This is split into two steps on purpose, to thread two distinct
+      # GitHub server-side guards that each rejected a one-step approach:
+      #
+      # 1. `git push origin $TAG` (protocol-level) is rejected whenever
+      #    the tagged commit's `.github/workflows/*` differ from the
+      #    default branch HEAD: "refusing to allow a GitHub App to
+      #    create or update workflow ... without `workflows` permission"
+      #    (run #24795626228, v99.98.99 — fires when a workflow PR merges
+      #    while a release is in flight).  So we do NOT git-push the tag.
+      #
+      # 2. `action-gh-release` with a commit-SHA `target_commitish` makes
+      #    `POST /releases` create the tag atomically — and under the
+      #    GITHUB_TOKEN integration that now returns 403 "Resource not
+      #    accessible by integration" (cli/cli#9514; began ~2026-06 on the
+      #    integration token, PATs unaffected; broke v0.6.14 run #135).
+      #    So we do NOT pass `target_commitish` to the release step.
+      #
+      # The path that clears BOTH guards: create the tag ref ourselves
+      # via `POST /git/refs` (not subject to the workflow-file guard, and
+      # a plain contents:write op — not the release-with-target endpoint),
+      # then have action-gh-release attach the release to the now-EXISTING
+      # tag with no target.  Result: exact build-commit pinning, no PAT to
+      # mint/rotate, least-privilege GITHUB_TOKEN, and a GITHUB_TOKEN-
+      # created tag does not re-trigger this `push: tags: v*` workflow.
+      - name: Create the release tag at the built commit (REST refs API)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release-preparation.outputs.tag }}
+          # `inputs.commit_sha` on the dispatch path pins the exact built
+          # commit; on the `push: tags: v*` path the tag already exists so
+          # this step short-circuits and `github.sha` is never used.
+          SHA: ${{ inputs.commit_sha || github.sha }}
+        run: |
+          set -euo pipefail
+          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG}" >/dev/null 2>&1; then
+            echo "::notice::tag ${TAG} already exists — leaving it untouched"
+          else
+            gh api -X POST "repos/${GITHUB_REPOSITORY}/git/refs" \
+              -f ref="refs/tags/${TAG}" \
+              -f sha="${SHA}"
+            echo "::notice::created tag ${TAG} -> ${SHA}"
+          fi
+
+      - name: Create GitHub Release (attaches to the pre-created tag)
+        # No `target_commitish`: the tag was just created at the built
+        # commit by the step above, so the release simply references the
+        # existing tag — sidestepping the commit-SHA-target 403 entirely.
+        uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3
+        with:
+          tag_name: ${{ needs.release-preparation.outputs.tag }}
+          name: ${{ needs.release-preparation.outputs.release-name }}
+          body_path: release-notes.md
+          files: final-release/*
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create release summary
+        shell: bash
+        run: |
+          # Single grouped redirect into $GITHUB_STEP_SUMMARY (SC2129),
+          # with the variable quoted to survive any future path with
+          # spaces in the runner-tmp directory (SC2086).
+          {
+            echo "## 🎉 Release ${{ needs.release-preparation.outputs.version }} Created!"
+            echo ""
+            echo "### 📦 Release Details:"
+            echo "- **Version**: ${{ needs.release-preparation.outputs.version }}"
+            echo "- **Tag**: ${{ needs.release-preparation.outputs.tag }}"
+            echo "- **Triggered by**: ${{ inputs.triggered_by || 'tag-push' }}"
+            echo "- **Commit**: ${{ inputs.commit_sha || github.sha }}"
+            echo ""
+            echo "### 🚀 Artifacts Built:"
+            echo "- ✅ Windows x86_64"
+            echo "- ✅ macOS ARM64"
+            echo "- ✅ Linux x86_64 (static musl)"
+            echo ""
+            echo "### 🔗 Links:"
+            echo "- [📦 Release Page](https://github.com/${{ github.repository }}/releases/tag/${{ needs.release-preparation.outputs.tag }})"
+            echo "- [📋 Full Changelog](https://github.com/${{ github.repository }}/commits/${{ needs.release-preparation.outputs.version }})"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # WinGet submission — dispatch winget-publish.yml after the release lands
+  # ═══════════════════════════════════════════════════════════════════════════
+  #
+  # Why dispatch instead of relying on `on: release` in winget-publish.yml:
+  # the Release above is created with the default GITHUB_TOKEN, and GitHub
+  # suppresses event cascades from GITHUB_TOKEN-authored actions — so a
+  # `release: released` trigger would never fire.  Triggering another
+  # workflow via `gh workflow run` (workflow_dispatch) IS a permitted
+  # GITHUB_TOKEN action, so this is the robust path.
+  #
+  # Non-blocking: `continue-on-error: true` plus the job being outside every
+  # other job's `needs:` graph means a winget hiccup (rate limit, token
+  # rotation, microsoft/winget-pkgs outage) can never fail or roll back an
+  # otherwise-successful release.
+  submit-winget:
+    name: 📦 Submit to WinGet
+    runs-on: ubuntu-latest
+    needs: [release-preparation, create-github-release]
+    # Dormancy guards: needs BOTH the release lane and the winget lane
+    # enabled, plus the canonical-repo check.
+    if: vars.LANE_RELEASE == 'true' && vars.LANE_WINGET == 'true' && github.repository_owner == 'acmex-org'
+    continue-on-error: true
+    permissions:
+      actions: write # required to dispatch winget-publish.yml via the API
+    timeout-minutes: 5
+    steps:
+      - name: Dispatch winget-publish workflow for the release tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.release-preparation.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Dispatching winget-publish.yml for ${RELEASE_TAG}"
+          # Dispatch against the repo's default branch: `gh workflow run
+          # --ref` resolves the workflow definition from that ref, and
+          # winget-publish.yml always lives on the default branch.  Using
+          # the default branch (not github.ref_name, which is the tag on a
+          # `push: tags: v*` run) keeps the dispatch ref stable.
+          default_branch="$(gh repo view "${GH_REPO}" --json defaultBranchRef -q .defaultBranchRef.name)"
+          gh workflow run winget-publish.yml \
+            --ref "${default_branch}" \
+            -f "release-tag=${RELEASE_TAG}"
+          echo "✅ winget-publish.yml dispatched for ${RELEASE_TAG} on ${default_branch} (runs independently; check the Actions tab)."
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Publish crates.io — dispatch release-plz.yml's OIDC crates-io-publish job
+  # ═══════════════════════════════════════════════════════════════════════════
+  #
+  # The release tag is created by GITHUB_TOKEN, which (GitHub anti-loop policy)
+  # does NOT trigger release-plz.yml's `push: tags: v*` event — so the crates
+  # publish must be dispatched explicitly, exactly like submit-winget above.
+  # Dispatching against the default branch keeps the dispatch ref stable; the
+  # tag is passed as `publish_tag`, and release-plz.yml checks out that tag and
+  # publishes it via OIDC trusted publishing (registration: workflow
+  # release-plz.yml + environment crates.io-publish — unchanged by this job).
+  submit-crates:
+    name: 📦 Publish crates.io (OIDC)
+    runs-on: ubuntu-latest
+    needs: [release-preparation, create-github-release]
+    # Dormancy guard (see release-preparation) + canonical-repo check.
+    if: vars.LANE_RELEASE == 'true' && github.repository_owner == 'acmex-org'
+    continue-on-error: true
+    permissions:
+      actions: write # required to dispatch release-plz.yml via the API
+    timeout-minutes: 5
+    steps:
+      - name: Dispatch release-plz crates-io-publish for the release tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.release-preparation.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          default_branch="$(gh repo view "${GH_REPO}" --json defaultBranchRef -q .defaultBranchRef.name)"
+          echo "Dispatching release-plz.yml crates-io-publish for ${RELEASE_TAG}"
+          gh workflow run release-plz.yml \
+            --ref "${default_branch}" \
+            -f "publish_tag=${RELEASE_TAG}"
+          echo "✅ release-plz.yml dispatched for ${RELEASE_TAG} (crates publish runs independently; check the Actions tab)."
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Failure Notification — opens a GitHub Issue on release failure
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  notify-failure:
+    name: 🔔 Notify on Failure
+    runs-on: ubuntu-latest
+    needs: [release-preparation, build-release-binaries, create-github-release]
+    # Dormancy guard (see release-preparation), composed with the
+    # existing failure() condition.
+    if: vars.LANE_RELEASE == 'true' && failure()
+    permissions:
+      issues: write
+    steps:
+      - name: Create failure issue
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            // Per-workflow label so Release / Tier 1 / Tier 2 failures
+            // triage to distinct issues instead of piling onto one.
+            const label = 'ci-failure-release';
+            const title = `🔴 Release Pipeline Failed — ${context.sha.substring(0, 7)}`;
+            const body = [
+              `## Release Pipeline Failed`,
+              ``,
+              `| Field | Value |`,
+              `|-------|-------|`,
+              `| **Workflow** | \`${context.workflow}\` |`,
+              `| **Run** | [#${context.runNumber}](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) |`,
+              `| **Branch** | \`${context.ref}\` |`,
+              `| **Commit** | [\`${context.sha.substring(0, 7)}\`](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/commit/${context.sha}) |`,
+              `| **Triggered by** | @${context.actor} |`,
+              ``,
+              `⚠️ **This is a release pipeline failure — immediate attention required.**`,
+              ``,
+              `📧 Notification sent to: releasefail@acmex.example`,
+            ].join('\n');
+
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: label,
+              per_page: 1,
+            });
+
+            if (existing.data.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.data[0].number,
+                body: body,
+              });
+              core.info(`Updated existing issue #${existing.data[0].number}`);
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: body,
+                labels: [label, 'ci-failure'],
+                assignees: ['acmex-owner'],
+              });
+              core.info('Created new failure issue');
+            }

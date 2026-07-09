@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: MPL-2.0
+# Copyright (c) 2025-2026 Acmex Placeholder LLC.
+
+version = 1
+
+# Default: all files in the ACMEX repository are MPL-2.0
+[[annotations]]
+path = "**"
+SPDX-FileCopyrightText = "2025-2026 Acmex Placeholder LLC."
+SPDX-License-Identifier = "MPL-2.0"
+
+# Brand assets (logos, icons, wordmark, favicons, source SVGs) are project
+# trademarks governed by TRADEMARK.md. They are NOT covered by the MPL-2.0
+# that governs the source code. Trademark and copyright are distinct legal
+# regimes; this annotation makes that separation machine-readable.
+[[annotations]]
+path = "assets/brand/**"
+SPDX-FileCopyrightText = "2025-2026 Acmex Placeholder LLC."
+SPDX-License-Identifier = "LicenseRef-ACMEX-Brand"

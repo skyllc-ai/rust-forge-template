@@ -1,0 +1,369 @@
+# SPDX-FileCopyright (c) 2025-2026 Acmex Placeholder LLC.
+# SPDX-License-Identifier: MPL-2.0
+
+# ─────────────────────────────────────────────────────────────────────────────
+# crates.io pre-publish guards.
+#
+# What this does:
+#
+#   Two independent pre-publish guards run against every workspace
+#   member that is publishable (i.e. doesn't have `publish = false`
+#   set in its Cargo.toml):
+#
+#     1. `cargo semver-checks check-release -p <crate>` — diffs the
+#        crate's current rustdoc JSON against the latest version on
+#        crates.io.  Surfaces SemVer-breaking changes (removed pub
+#        items, signature changes, new required generic params, etc.)
+#        that would require a major-version bump.  Returns success
+#        for crates that have never been published (nothing to
+#        compare against), so this guard is informational until the
+#        first publish lands, then activates automatically.
+#
+#     2. `cargo publish --dry-run -p <crate>` — full per-crate
+#        compile + manifest validation against crates.io's accept
+#        rules.  A successful dry-run for a crate proves that its
+#        metadata (`description`, `keywords`, `categories`, `readme`,
+#        `license`, docs.rs config, dependency version requirements)
+#        is acceptable to crates.io's manifest validator AND that
+#        all of its registry-form dependencies resolve.
+#
+# Template state (advisory mode, workflow always exits 0):
+#
+#   The template workspace currently has NO publishable crates — every
+#   member inherits the workspace-level `publish = false` default.  The
+#   enumeration step below derives the publishable set from `cargo
+#   metadata` at run time, so today it yields an empty list and both
+#   guard loops no-op cleanly.  The moment a crate opts in to
+#   publishing (sets `publish = true` or a registry list in its
+#   Cargo.toml), it joins the enumerated set automatically — no
+#   workflow change needed.  Once real publishes begin, flip
+#   `FAIL_ON_DRY_RUN_ERROR` / `FAIL_ON_SEMVER_BREAK` in the env block
+#   below to convert advisory mode into a hard gate.
+#
+# Why scheduled + workflow_dispatch:
+#
+#   Weekly schedule catches metadata drift introduced by upstream
+#   ecosystem changes (a new version of `chrono` lands that's
+#   incompatible with our pin, an upstream crate name lookup gets
+#   blocked by an account suspension, etc.).  workflow_dispatch lets
+#   maintainers trigger ad-hoc validation while iterating on Cargo.toml
+#   metadata edits.  No `push:` trigger because the dry-run takes
+#   ~5-15 minutes and the metadata-relevant changes are rare; weekly
+#   cadence is sufficient signal.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: "📦 crates.io dry-run + semver-checks"
+
+on:
+  schedule:
+    # Mondays 06:00 UTC — chosen to land before maintainers' typical
+    # work-week start so any drift surfaced over the weekend is visible
+    # in the workflow summary by the time someone looks.
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+# Read-only by design.  The dry-run never writes; the workflow's
+# inability to write to the registry IS the safety guarantee.
+permissions:
+  contents: read
+
+# Serialise concurrent runs on the same ref so two close-together
+# triggers don't fight over the runner cache.  cancel-in-progress
+# is false because each run captures observation-valuable state.
+concurrency:
+  group: crates-io-dry-run-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  dry-run:
+    name: cargo publish --dry-run (workspace)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    # Dormancy guard: inert until the repo variable LANE_CRATES is set
+    # to 'true'.  Also skip on forks (fork PRs can't write to the
+    # workflow summary in the source repo and would produce noisy
+    # permission-denied runs).
+    if: vars.LANE_CRATES == 'true' && github.repository_owner == 'acmex-org'
+
+    env:
+      # Flip to `true` once the project starts publishing for real.
+      # In that state the dry-run becomes a hard gate that catches
+      # metadata regressions immediately rather than leaving them in
+      # a silent-summary state.
+      FAIL_ON_DRY_RUN_ERROR: 'false'
+      # Flip to `true` once at least one crate has a baseline version
+      # on crates.io to compare against.  Until then,
+      # cargo-semver-checks's `check-release` subcommand exits
+      # successfully for crates without a published baseline (nothing
+      # to compare against), so this flag is informational anyway —
+      # the gate activates automatically as soon as the first publish
+      # lands.
+      FAIL_ON_SEMVER_BREAK: 'false'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          # Default GITHUB_TOKEN is fine for read-only checkout.  The
+          # workflow's `permissions: contents: read` already restricts
+          # write capability; explicit `persist-credentials: false`
+          # makes the no-write contract auditable from the workflow.
+          persist-credentials: false
+
+      - name: Install pinned nightly (from rust-toolchain.toml)
+        # `rustup show` reads `rust-toolchain.toml` and installs the
+        # exact channel + components pinned there.  Matches the
+        # convention used by the rest of ACMEX's CI workflows
+        # (release-plz.yml, cargo-vet-refresh.yml, pr-fast.yml).
+        run: rustup show
+
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          # Dedicated cache key — dry-run's compile output is small
+          # (per-crate package verifications) and disjoint from the
+          # main CI compile, so a separate key prevents the two from
+          # evicting each other.
+          shared-key: crates-io-dry-run
+
+      - name: Enumerate publishable crates
+        id: enumerate
+        run: |
+          set -euo pipefail
+          # NOTE (template state): the set is DERIVED from `cargo metadata`
+          # at run time.  Today every workspace member inherits the
+          # workspace-level `publish = false`, so this yields an empty
+          # list and the guard loops below no-op.  Opting a crate in to
+          # publishing adds it here automatically.
+          #
+          # `cargo metadata` produces full workspace metadata including
+          # each package's `publish` field.  Per cargo docs:
+          #   - `publish = false` serialises as `"publish": []`
+          #   - `publish = true` (or unset) serialises as `"publish": null`
+          #   - `publish = ["registry"]` serialises as a non-empty array
+          # The jq filter `.publish != []` keeps unset (null) AND
+          # explicit registry lists, dropping only `publish = false`.
+          mapfile -t CRATES < <(
+              cargo metadata --no-deps --format-version 1 \
+                | jq -r '.packages[]
+                          | select(.publish != [])
+                          | .name'
+          )
+          # Multiline outputs require a heredoc-style delimiter in
+          # GitHub Actions to preserve newlines through $GITHUB_OUTPUT.
+          {
+            echo "crates<<EOF_CRATES_LIST"
+            printf '%s\n' "${CRATES[@]}"
+            echo "EOF_CRATES_LIST"
+          } >> "$GITHUB_OUTPUT"
+          echo "Enumerated ${#CRATES[@]} publishable crate(s):"
+          printf '  - %s\n' "${CRATES[@]}"
+
+      - name: Install cargo-semver-checks
+        # Pinned to `taiki-e/install-action` (same convention as
+        # `cargo-deny`, `cargo-vet`, `cargo-machete`, `cargo-udeps`).
+        # Bundled with the rust-cache so the per-week binary fetch
+        # piggybacks on the workflow's existing cache key.
+        uses: taiki-e/install-action@dfc84ffb7254b048a0a843316ff5a2714dcdc7bd # v2
+        with:
+          tool: cargo-semver-checks
+
+      - name: Run cargo-semver-checks on publishable crates
+        id: semver
+        env:
+          CRATES: ${{ steps.enumerate.outputs.crates }}
+        run: |
+          set -uo pipefail
+          # Track per-crate results in a TSV; the summary step renders
+          # them as a table alongside the dry-run results without
+          # re-running cargo-semver-checks.
+          RESULTS_TSV="${RUNNER_TEMP:-/tmp}/semver-checks-results.tsv"
+          : > "$RESULTS_TSV"
+
+          ANY_FAILED=0
+          while IFS= read -r crate; do
+            [ -z "$crate" ] && continue
+            echo "::group::cargo semver-checks check-release -p $crate"
+            # `check-release` compares the current source against the
+            # latest version on crates.io for that crate.  For a
+            # crate that has never been published, it exits zero with
+            # a "no baseline to compare against" notice — the right
+            # behaviour while nothing is published yet.  Once the
+            # first version of a crate lands on crates.io, subsequent
+            # runs start producing real comparisons without any
+            # workflow edits.
+            #
+            # `--baseline-version` is intentionally OMITTED — we want
+            # whichever version is latest on crates.io.  With an
+            # active publish cadence you may revisit and pin to a
+            # specific stable baseline.
+            if cargo semver-checks check-release -p "$crate" 2>&1; then
+              echo "$crate	OK" >> "$RESULTS_TSV"
+              echo "::endgroup::"
+            else
+              echo "$crate	FAIL" >> "$RESULTS_TSV"
+              echo "::warning title=semver-break::$crate has a SemVer-breaking API change vs the latest crates.io release"
+              echo "::endgroup::"
+              ANY_FAILED=1
+            fi
+          done <<< "$CRATES"
+
+          {
+            echo "results_tsv<<EOF_RESULTS"
+            cat "$RESULTS_TSV"
+            echo "EOF_RESULTS"
+            echo "any_failed=$ANY_FAILED"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Dry-run publish each crate
+        id: dry_run
+        env:
+          CRATES: ${{ steps.enumerate.outputs.crates }}
+        run: |
+          set -uo pipefail
+          # Track results in a TSV temp file so the summary step can
+          # render them as a table without re-running cargo.
+          RESULTS_TSV="${RUNNER_TEMP:-/tmp}/dry-run-results.tsv"
+          : > "$RESULTS_TSV"
+
+          ANY_FAILED=0
+          while IFS= read -r crate; do
+            [ -z "$crate" ] && continue
+            echo "::group::cargo publish --dry-run -p $crate"
+            # `--allow-dirty` is required because release-plz never
+            # reaches this workflow (it's a separate scheduled run);
+            # the working tree may have unrelated edits in CI checkouts
+            # if/when other workflows queue up.  Empirically the dirty
+            # state in CI is always the checked-out commit's tree, so
+            # `--allow-dirty` is safe.
+            #
+            # `--no-verify` is intentionally OMITTED.  We want the
+            # full per-crate compile to surface metadata-vs-source
+            # mismatches (e.g. a `[lib]` rename that breaks doc-test
+            # discovery on docs.rs).  Yes this is slow; the weekly
+            # cadence absorbs the cost.
+            if cargo publish --dry-run -p "$crate" --allow-dirty 2>&1; then
+              echo "$crate	OK" >> "$RESULTS_TSV"
+              echo "::endgroup::"
+            else
+              # Capture exit code 0|1; non-zero means dry-run failed
+              # (metadata invalid, dep can't resolve, build failed).
+              echo "$crate	FAIL" >> "$RESULTS_TSV"
+              echo "::warning title=dry-run failed::$crate failed cargo publish --dry-run"
+              echo "::endgroup::"
+              ANY_FAILED=1
+            fi
+          done <<< "$CRATES"
+
+          {
+            echo "results_tsv<<EOF_RESULTS"
+            cat "$RESULTS_TSV"
+            echo "EOF_RESULTS"
+            echo "any_failed=$ANY_FAILED"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Post summary
+        if: always()
+        env:
+          MARKER: "<!-- crates-io-dry-run-managed -->"
+          DRY_RUN_ANY_FAILED: ${{ steps.dry_run.outputs.any_failed }}
+          DRY_RUN_RESULTS: ${{ steps.dry_run.outputs.results_tsv }}
+          SEMVER_ANY_FAILED: ${{ steps.semver.outputs.any_failed }}
+          SEMVER_RESULTS: ${{ steps.semver.outputs.results_tsv }}
+        run: |
+          set -euo pipefail
+          {
+            echo "${MARKER}"
+            echo "## crates.io pre-publish guard results"
+            echo ""
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Commit | \`${GITHUB_SHA}\` |"
+            echo "| Triggered by | \`${GITHUB_EVENT_NAME}\` |"
+            echo "| Dry-run any failures | \`${DRY_RUN_ANY_FAILED}\` |"
+            echo "| Dry-run mode | \`$(if [ "$FAIL_ON_DRY_RUN_ERROR" = "true" ]; then echo "GATE"; else echo "ADVISORY"; fi)\` |"
+            echo "| SemVer any breaks | \`${SEMVER_ANY_FAILED}\` |"
+            echo "| SemVer mode | \`$(if [ "$FAIL_ON_SEMVER_BREAK" = "true" ]; then echo "GATE"; else echo "ADVISORY"; fi)\` |"
+            echo ""
+            echo "### Per-crate cargo-semver-checks status"
+            echo ""
+            echo "| Crate | Status |"
+            echo "|---|---|"
+            # Sort so the table is stable across runs even if cargo
+            # metadata changes its iteration order.
+            printf '%s\n' "${SEMVER_RESULTS}" | sort | while IFS=$'\t' read -r crate status; do
+              [ -z "$crate" ] && continue
+              icon="✅"
+              [ "$status" = "FAIL" ] && icon="❌"
+              echo "| \`${crate}\` | ${icon} ${status} |"
+            done
+            echo ""
+            echo "### Per-crate cargo publish --dry-run status"
+            echo ""
+            echo "| Crate | Status |"
+            echo "|---|---|"
+            printf '%s\n' "${DRY_RUN_RESULTS}" | sort | while IFS=$'\t' read -r crate status; do
+              [ -z "$crate" ] && continue
+              icon="✅"
+              [ "$status" = "FAIL" ] && icon="❌"
+              echo "| \`${crate}\` | ${icon} ${status} |"
+            done
+            echo ""
+            if [ "$DRY_RUN_ANY_FAILED" = "1" ]; then
+              echo "### Known-expected dry-run failures (pre-publish timeframe)"
+              echo ""
+              echo "Until crate names are reserved on crates.io, the"
+              echo "following class of failure is expected and does NOT"
+              echo "indicate a regression:"
+              echo ""
+              echo "- \`no matching package named \\\`<crate>\\\` found\` —"
+              echo "  fixed by publishing stub 0.0.0 versions first."
+              echo ""
+              echo "Failures of unrelated metadata (missing description,"
+              echo "invalid category slug, readme path resolution, etc.)"
+              echo "ARE actionable and should be fixed in the next PR."
+            fi
+            if [ "$SEMVER_ANY_FAILED" = "1" ]; then
+              echo ""
+              echo "### Pre-first-publish cargo-semver-checks status"
+              echo ""
+              echo "Before the first publish the gate runs in ADVISORY"
+              echo "mode because no crate has a baseline on crates.io to"
+              echo "compare against — \`cargo semver-checks check-release\`"
+              echo "exits success for un-published crates, so a"
+              echo "non-success status above indicates either an"
+              echo "installation issue or a rustdoc-JSON regression worth"
+              echo "investigating."
+              echo ""
+              echo "After the first publish lands, the gate becomes the"
+              echo "canonical check that catches a SemVer-breaking API"
+              echo "change shipped under a non-major version bump.  Flip"
+              echo "\`FAIL_ON_SEMVER_BREAK\` to \`true\` at that point."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail job if any pre-publish guard failed and its flag is set
+        if: always()
+        env:
+          DRY_RUN_ANY_FAILED: ${{ steps.dry_run.outputs.any_failed }}
+          SEMVER_ANY_FAILED: ${{ steps.semver.outputs.any_failed }}
+        run: |
+          set -euo pipefail
+          fail=0
+          if [ "$FAIL_ON_DRY_RUN_ERROR" = "true" ] && [ "$DRY_RUN_ANY_FAILED" = "1" ]; then
+            echo "::error::At least one crate failed cargo publish --dry-run; FAIL_ON_DRY_RUN_ERROR is set, failing job."
+            fail=1
+          fi
+          if [ "$FAIL_ON_SEMVER_BREAK" = "true" ] && [ "$SEMVER_ANY_FAILED" = "1" ]; then
+            echo "::error::At least one crate failed cargo semver-checks; FAIL_ON_SEMVER_BREAK is set, failing job."
+            fail=1
+          fi
+          if [ "$fail" = "1" ]; then
+            exit 1
+          fi
+          if [ "$DRY_RUN_ANY_FAILED" = "1" ] || [ "$SEMVER_ANY_FAILED" = "1" ]; then
+            echo "::notice::At least one pre-publish guard reported a failure; running in ADVISORY mode (both FAIL_ON_* flags are 'false'), so exiting 0.  See workflow summary for the per-crate tables and the known-expected-failures explainer."
+          else
+            echo "::notice::All publishable crates passed both cargo publish --dry-run and cargo semver-checks."
+          fi

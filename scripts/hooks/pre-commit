@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MPL-2.0
+# Copyright (c) 2025-2026 Acmex Placeholder LLC.
+#
+# Tracked pre-commit git hook for the ACMEX workspace.
+#
+# Purpose: shift the cheap-but-high-signal quality gates LEFT so they
+# run on every `git commit`, not just on push:
+#   * fmt-check (when *.rs staged)
+#   * taplo fmt --check (when *.toml staged, if installed)
+#   * typos (if installed)
+#   * reuse lint (if installed)
+#   * oversized-Rust-file policy
+#
+# Budget: sub-2 seconds on a warm repo.  Sub-500 ms when no Rust / TOML
+# touched (docs-only commits).
+#
+# Install via: `just install-hooks` (sets core.hooksPath to scripts/hooks/).
+# Bypass once: `git commit --no-verify`.
+# Uninstall:   `just uninstall-hooks`.
+
+set -euo pipefail
+
+exec bash "$(dirname "$0")/_lint_fast.sh"

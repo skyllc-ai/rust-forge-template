@@ -1,0 +1,470 @@
+# ============================================================================
+# acmex — workspace manifest (template placeholder identity)
+# ============================================================================
+# Single source of truth for workspace membership, inherited package metadata,
+# centralized dependency versions, the full lint posture, and build profiles.
+# Crates opt in via `*.workspace = true`; see docs/policies/lint-posture.md.
+# ============================================================================
+
+[workspace]
+resolver = "3"
+members = [
+  # ── product crates ──
+  "crates/acmex-cli",
+  "crates/acmex-core",
+  "crates/acmex-version",
+  # ── internal CI tooling (publish = false, release = false) ──
+  "scripts/ci-pipeline",
+  "scripts/ci/acmex-gen-hooks",
+  "scripts/ci/acmex-gen-workflow",
+  "scripts/ci/acmex-manifest-audit",
+]
+# `default-members` deliberately unset: `cargo <cmd>` operates on the full
+# workspace, so nothing is silently skipped by default.
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+# `rust-version` (MSRV) is deliberately omitted while the workspace pins a
+# nightly toolchain (rust-toolchain.toml) for the unstable rustfmt options.
+# Projects that migrate to stable: re-add `rust-version` here and `msrv` in
+# clippy.toml (see README appendix "Stable downgrade").
+license = "MPL-2.0"
+repository = "https://github.com/acmex-org/acmex"
+authors = ["Acmex Placeholder Dev <dev@acmex.example>"]
+description = "acmex — template placeholder project"
+documentation = "https://docs.rs/acmex"
+readme = "README.md"
+keywords = ["template", "placeholder"]
+categories = ["command-line-utilities"]
+# Safe default: nothing is publishable unless a leaf crate opts in.
+publish = false
+
+[workspace.dependencies]
+# ───── internal crates (dual path+version so `cargo package`/release-plz work) ─────
+acmex-core = { path = "crates/acmex-core", version = "0.1.0" }
+acmex-version = { path = "crates/acmex-version", version = "0.1.0" }
+
+# ───── async runtime (net stays OFF by default; opt back in per crate) ─────
+tokio = { version = "1.52.3", default-features = false, features = [
+  "io-util",
+  "macros",
+  "rt",
+  "rt-multi-thread",
+  "signal",
+  "sync",
+  "time",
+  "tracing",
+] }
+futures = "0.3.32"
+
+# ───── serialization ─────
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.150"
+toml = "1.1.2"
+
+# ───── error handling ─────
+thiserror = "2.0.18"
+anyhow = "1.0.103"
+
+# ───── CLI ─────
+clap = { version = "4.6.1", features = [
+  "derive",
+  "env",
+  "unicode",
+  "wrap_help",
+] }
+indicatif = "0.18.6"
+colored = "3.1.1"
+
+# ───── text / time / system ─────
+regex = "1.12.4"
+chrono = { version = "0.4.45", features = ["serde"] }
+num_cpus = "1.17.0"
+uuid = { version = "1.23.4", features = ["v4"] }
+
+# ───── test-only ─────
+proptest = "1.11.0"
+assert_cmd = "2.2.2"
+tempfile = "3.27.0"
+
+[workspace.lints.clippy]
+# ───── Core lint groups (strictest levels) ─────
+cargo = { level = "deny", priority = -1 }
+nursery = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+
+# ───── DENY level lints (strictest possible - no exceptions) ─────
+# Panic policy: docs/policies/panic_policy.md
+# defines the five-category taxonomy (A-E) for every prod
+# unwrap/expect/panic site and the required #[expect(...)]
+# annotation shape.  See also docs/policies/lint-posture.md.
+wildcard_imports = "deny"
+unwrap_used = "deny"                   # Force proper error handling — see panic_policy.md §1
+expect_used = "deny"                   # Force proper error handling — see panic_policy.md §1
+panic = "deny"                         # No panics allowed — see panic_policy.md §1
+todo = "deny"                          # No TODOs in production code
+unimplemented = "deny"                 # No unimplemented code
+unreachable = "deny"                   # No unreachable code
+missing_docs_in_private_items = "deny" # Document everything
+undocumented_unsafe_blocks = "deny"    # Document all unsafe (if any)
+multiple_unsafe_ops_per_block = "deny" # Limit unsafe operations
+unnecessary_safety_doc = "deny"        # Accurate safety docs
+unnecessary_safety_comment = "deny"    # Accurate safety comments
+
+# ───── Phase 10 concurrency discipline lints — see concurrency_policy.md §1 ─────
+# The `await_holding_*` family lives in clippy's `suspicious` group, which
+# defaults to `warn`.  We pin all three at `deny` explicitly so the policy
+# doc's enforcement claim is literally true (not "effectively at deny via
+# `-D warnings` in CI") and survives any future tightening of the workspace
+# `--deny warnings` shape.  Triggering one is **never** acceptable in prod
+# code — the canonical fix is the snapshot-then-await pattern documented in
+# `concurrency_policy.md §2.2`.
+await_holding_lock = "deny"         # No std::sync::Mutex/RwLock guard across .await
+await_holding_refcell_ref = "deny"  # No RefCell::borrow{,_mut}() guard across .await
+await_holding_invalid_type = "deny" # No Rc<T> / Cell<T> across .await (Send violation)
+
+# ───── DENY level lints — safety, correctness, discipline ─────
+# These MUST be clean in production code. clippy.toml relaxes test code
+# automatically via allow-*-in-tests settings.
+missing_errors_doc = "deny"   # Document error conditions
+missing_panics_doc = "deny"   # Document panic conditions
+missing_safety_doc = "deny"   # Document safety requirements
+cognitive_complexity = "deny" # Keep functions simple (default threshold=25; violations get scoped #[expect])
+too_many_lines = "deny"       # Keep functions short (default threshold=100; violations get scoped #[expect])
+type_complexity = "deny"      # Keep types simple (default threshold=250; violations get scoped #[expect]) — see trait_policy.md §2
+# ── Phase 7f trait/generic/dispatch discipline lints — see trait_policy.md §2 ──
+too_many_arguments = "deny"          # Keep fn signatures lean (default threshold=7; violations get scoped #[expect]) — see trait_policy.md §2
+trait_duplication_in_bounds = "deny" # Disallow `T: Foo + Foo + Bar` duplicate bounds — see trait_policy.md §8 anti-patterns
+wrong_self_convention = "deny"       # Enforce as_*/into_*/to_*/from_* method-name conventions — see trait_policy.md §2
+multiple_bound_locations = "warn"    # Discourage split `<T: …>` + `where T: …` on the same `T` — see trait_policy.md §2
+large_enum_variant = "deny"          # Optimize enum memory usage
+large_stack_arrays = "deny"          # Avoid large stack allocations
+large_types_passed_by_value = "deny" # Pass large types by reference
+trivially_copy_pass_by_ref = "deny"  # Pass small types by value
+clone_on_ref_ptr = "deny"            # Use Arc::clone(&x) form — see allocation_policy.md §3.1 (category α)
+redundant_clone = "deny"             # Remove redundant clones — see allocation_policy.md §3.4 (category δ)
+unnecessary_wraps = "deny"           # Remove unnecessary Result/Option wraps
+option_option = "deny"               # Avoid Option<Option<T>>
+result_unit_err = "deny"             # Use better error types
+bool_to_int_with_if = "deny"         # Use more idiomatic conversions
+cast_lossless = "deny"               # Use lossless casts
+cast_possible_truncation = "deny"    # Warn about truncating casts
+cast_possible_wrap = "deny"          # Warn about wrapping casts
+cast_precision_loss = "deny"         # Warn about precision loss
+cast_sign_loss = "deny"              # Warn about sign loss
+float_cmp = "deny"                   # Proper float comparisons
+float_cmp_const = "deny"             # Proper float constant comparisons
+lossy_float_literal = "deny"         # Avoid lossy float literals
+imprecise_flops = "deny"             # Precise floating point operations
+suboptimal_flops = "deny"            # Optimal floating point operations
+fn_params_excessive_bools = "deny"   # Avoid too many boolean parameters
+struct_excessive_bools = "deny"      # Avoid too many boolean fields
+verbose_bit_mask = "deny"            # Use cleaner bit operations
+inefficient_to_string = "deny"       # Use efficient string conversions — see allocation_policy.md §2
+string_add = "deny"                  # Use format! instead of string addition
+string_add_assign = "deny"           # Use format! instead of +=
+string_slice = "deny"                # Use proper string slicing
+str_to_string = "deny"               # Use to_owned() instead of to_string() — see allocation_policy.md §2
+implicit_clone = "deny"              # Make clones explicit — see allocation_policy.md §2
+cloned_instead_of_copied = "deny"    # Use .copied() for Copy types — see allocation_policy.md §2
+map_clone = "deny"                   # Use .copied() over .map(Clone::clone) — see allocation_policy.md §2
+filter_map_next = "deny"             # Use find_map instead
+flat_map_option = "deny"             # Use filter_map instead
+manual_filter_map = "deny"           # Use filter_map
+manual_find_map = "deny"             # Use find_map
+map_unwrap_or = "deny"               # Use map_or instead
+unnecessary_unwrap = "deny"          # Remove unnecessary unwraps
+or_fun_call = "deny"                 # Use or_else for expensive operations
+single_match_else = "deny"           # Use if let instead of match
+match_bool = "deny"                  # Use if instead of match on bool
+indexing_slicing = "deny"            # Avoid indexing and slicing — use .get()
+# NOTE (WI-5.1/5.2): `arithmetic_side_effects` is intentionally NOT a
+# workspace lint. The repo's lint gate runs `-D warnings` (see
+# `just/shared.just::common_flags`), which would promote a workspace
+# `"warn"` to a hard error across ~1766 legitimate sites (timestamp math,
+# chunking, compact-cache offsets, crypto) far beyond the untrusted-input
+# parsers this lint is meant to guard. Instead WI-5.2 enables it
+# module-scoped (`#![warn(clippy::arithmetic_side_effects)]`) on the MFT
+# parser modules that consume raw on-disk bytes, where wrapping is a real
+# DoS risk, and converts those sites to `checked_*`.
+match_same_arms = "deny"                           # Combine identical match arms
+redundant_pattern_matching = "deny"                # Simplify pattern matching
+single_match = "deny"                              # Use if let instead of single match
+wildcard_enum_match_arm = "deny"                   # Handle all enum variants explicitly
+enum_glob_use = "deny"                             # Avoid glob imports of enums
+use_self = "deny"                                  # Use Self instead of type name
+needless_pass_by_value = "deny"                    # Pass by reference when appropriate
+trivial_regex = "deny"                             # Use string methods instead of regex
+naive_bytecount = "deny"                           # Use bytecount crate for counting
+manual_memcpy = "deny"                             # Use copy_from_slice
+manual_swap = "deny"                               # Use mem::swap
+ptr_as_ptr = "deny"                                # Use cast() instead of as
+ptr_cast_constness = "deny"                        # Proper const pointer casts
+ref_as_ptr = "deny"                                # Proper reference to pointer conversion
+borrow_as_ptr = "deny"                             # Proper borrow to pointer conversion
+case_sensitive_file_extension_comparisons = "deny" # Case-insensitive file extensions
+path_buf_push_overwrite = "deny"                   # Avoid PathBuf overwrite bugs
+same_name_method = "deny"                          # Avoid method name conflicts
+shadow_reuse = "deny"                              # Avoid variable shadowing
+shadow_same = "deny"                               # Avoid identical variable shadowing
+shadow_unrelated = "deny"                          # Avoid unrelated variable shadowing
+similar_names = "deny"                             # Avoid confusingly similar names
+suspicious_else_formatting = "deny"                # Proper else formatting
+suspicious_unary_op_formatting = "deny"            # Proper unary operator formatting
+tabs_in_doc_comments = "deny"                      # Use spaces in doc comments
+trailing_empty_array = "deny"                      # Remove trailing empty arrays
+unicode_not_nfc = "deny"                           # Use NFC Unicode normalization
+unseparated_literal_suffix = "deny"                # Separate literal suffixes
+unused_self = "deny"                               # Remove unused self parameters
+used_underscore_binding = "deny"                   # Don't use underscore bindings
+useless_let_if_seq = "deny"                        # Simplify let-if sequences
+zero_sized_map_values = "deny"                     # Avoid zero-sized map values
+
+# ───── Restriction lints (hand-picked — we do NOT enable the whole group) ─────
+# Best practice from rolldown, cargo, config-rs: cherry-pick high-value
+# restriction lints individually.
+allow_attributes = "deny"                # Force #[expect] over #[allow] — expect warns when suppression becomes stale
+allow_attributes_without_reason = "deny" # Force reason strings on all #[expect]/#[allow] attributes
+as_pointer_underscore = "deny"           # Dangerous pointer casts with inferred type
+as_underscore = "deny"                   # Catch `as _` with inferred type — lossy/dangerous casts
+cfg_not_test = "deny"                    # Catch cfg(not(test)) misuse
+dbg_macro = "deny"                       # No dbg! in production (clippy.toml allows in tests)
+deref_by_slicing = "deny"                # Use &* instead of &v[..]
+empty_line_after_doc_comments = "deny"   # Clean doc comment style
+empty_line_after_outer_attr = "deny"     # Clean attribute style
+four_forward_slashes = "deny"            # Catch //// (typo for ///)
+iter_filter_is_ok = "deny"               # Use flatten() instead of filter + is_ok
+iter_filter_is_some = "deny"             # Use flatten() instead of filter + is_some
+manual_is_power_of_two = "deny"          # Use is_power_of_two()
+pathbuf_init_then_push = "deny"          # Use PathBuf::from directly
+pub_underscore_fields = "deny"           # Don't expose _prefixed fields
+renamed_function_params = "deny"         # Trait impls must match param names
+set_contains_or_insert = "deny"          # Use entry API for sets
+unnecessary_map_or = "deny"              # Simplify map_or calls
+unnecessary_result_map_or_else = "deny"  # Simplify Result::map_or_else
+
+# ───── Error handling & safety ─────
+assertions_on_result_states = "deny"  # Use unwrap() over assert!(r.is_ok()) for clearer failures
+error_impl_error = "deny"             # Proper Error trait implementations
+exit = "deny"                         # No std::process::exit
+get_unwrap = "deny"                   # Use get().ok_or() instead
+let_underscore_must_use = "deny"      # Don't ignore must_use values
+map_err_ignore = "deny"               # Don't ignore map_err values
+mem_forget = "deny"                   # Avoid mem::forget
+missing_assert_message = "deny"       # Add messages to assertions
+missing_asserts_for_indexing = "deny" # Assert before indexing
+try_err = "deny"                      # Use ? instead of try!
+unused_result_ok = "deny"             # Don't call .ok() just to discard — use `_ = expr;`
+unwrap_in_result = "deny"             # No unwrap/expect inside Result-returning fns
+
+# ───── Memory & allocation ─────
+# Allocation policy: docs/policies/allocation_policy.md
+# defines the five-category taxonomy (α/β/γ/δ/ε) for every prod
+# .clone()/.to_owned()/format!() site and the required per-site
+# justification shape.  Audit script: scripts/dev/clone_alloc_audit.sh.
+# See also docs/policies/lint-posture.md.
+assigning_clones = "deny"              # Use clone_from over .clone() + assign — see allocation_policy.md §2
+rc_buffer = "deny"                     # Avoid Rc<String>/Rc<Vec> — see allocation_policy.md §3.1 (α)
+rc_mutex = "deny"                      # Avoid Rc<Mutex<T>> — see allocation_policy.md §3.1 (α)
+read_zero_byte_vec = "deny"            # Avoid reading into zero-capacity vec
+significant_drop_in_scrutinee = "deny" # Avoid drops in match scrutinee
+significant_drop_tightening = "deny"   # Tighten significant drop scope
+
+# ───── Concurrency & performance ─────
+mutex_atomic = "deny"          # Use atomics instead of mutex for simple types
+stable_sort_primitive = "deny" # Use unstable_sort for primitives
+infinite_loop = "deny"         # Detect infinite loops
+
+# ───── Iterator patterns ─────
+collection_is_never_read = "deny"  # Detect unused collections
+iter_on_empty_collections = "deny" # Avoid iterating empty collections
+iter_on_single_items = "deny"      # Use std::iter::once instead
+iter_over_hash_type = "deny"       # Non-deterministic iteration order
+needless_collect = "deny"          # Avoid unnecessary collect()
+needless_for_each = "deny"         # Use for loop instead of for_each
+
+# ───── String & formatting ─────
+format_push_string = "deny"         # Use write! instead of format! + push
+manual_string_new = "deny"          # Use String::new()
+needless_raw_string_hashes = "deny" # Minimize raw string hashes
+needless_raw_strings = "deny"       # Avoid unnecessary raw strings
+string_lit_chars_any = "deny"       # Use contains instead of chars().any()
+
+# ───── Numeric & type precision ─────
+default_numeric_fallback = "deny"   # Explicit numeric types
+float_arithmetic = "deny"           # Be careful with float arithmetic (scoped #[expect] where needed)
+suspicious_xor_used_as_pow = "deny" # Detect ^ used as power
+unreadable_literal = "deny"         # Use underscores in large literals
+
+# ───── Idiomatic patterns ─────
+equatable_if_let = "deny"       # Use == instead of if let for equality
+if_then_some_else_none = "deny" # Use bool::then instead
+manual_assert = "deny"          # Use assert! macro
+non_zero_suggestions = "deny"   # Prefer NonZeroXX::new(x)? over .unwrap() — composes with unwrap_used
+manual_instant_elapsed = "deny" # Use Instant::elapsed()
+manual_is_ascii_check = "deny"  # Use is_ascii methods
+manual_let_else = "deny"        # Use let-else syntax
+manual_ok_or = "deny"           # Use ok_or instead of match
+option_if_let_else = "deny"     # Use map_or_else instead
+verbose_file_reads = "deny"     # Use fs::read_to_string
+
+# ───── Control flow & logic ─────
+debug_assert_with_mut_call = "deny"     # Avoid side effects in debug_assert
+mixed_read_write_in_expression = "deny" # Avoid read+write in same expression
+same_functions_in_if_condition = "deny" # Avoid duplicate function calls
+
+# ───── Code style & structure ─────
+empty_drop = "deny"                        # Remove empty Drop implementations
+empty_structs_with_brackets = "deny"       # Use unit struct syntax
+impl_trait_in_params = "deny"              # Prefer generics over impl Trait in params
+let_underscore_untyped = "deny"            # Type underscore bindings
+min_ident_chars = "deny"                   # Minimum identifier length
+no_effect_underscore_binding = "deny"      # Remove no-effect underscore bindings
+nonstandard_macro_braces = "deny"          # Consistent macro brace style
+partial_pub_fields = "deny"                # Consistent field visibility
+pub_without_shorthand = "deny"             # Use pub(crate) shorthand
+redundant_type_annotations = "deny"        # Remove redundant type annotations
+ref_patterns = "deny"                      # Avoid ref patterns
+rest_pat_in_fully_bound_structs = "deny"   # Avoid .. in fully bound structs
+semicolon_inside_block = "deny"            # Consistent semicolon placement
+semicolon_outside_block = "deny"           # Consistent semicolon placement
+redundant_pub_crate = "allow"              # Conflicts with rustc::unreachable_pub — we prefer unreachable_pub
+single_call_fn = "allow"                   # Intentional: helper functions improve readability even if called once
+unnecessary_self_imports = "deny"          # Remove unnecessary self imports
+unnecessary_struct_initialization = "deny" # Simplify struct initialization
+unneeded_field_pattern = "deny"            # Remove unneeded field patterns
+
+# ───── Filesystem ─────
+doc_include_without_cfg = "deny" # Wrap doc includes in #[cfg(doc)] to avoid wasting compile time
+filetype_is_file = "deny"        # Detect is_file() misuse — returns false for symlinks
+large_include_file = "deny"      # Cap accidental megabyte-sized include_bytes!/include_str! sites (see clippy.toml `max-include-file-size`)
+
+# ───── Output discipline ─────
+print_stderr = "deny" # Use proper logging instead (clippy.toml allows in tests)
+print_stdout = "deny" # Use proper logging instead (clippy.toml allows in tests)
+use_debug = "deny"    # Avoid Debug in production
+
+# ───── Portability ─────
+host_endian_bytes = "deny"    # Forbid to_ne_bytes/from_ne_bytes — ACMEX reads little-endian NTFS on hosts of varying endianness
+std_instead_of_alloc = "deny" # Use alloc when std not needed
+std_instead_of_core = "deny"  # Use core when std not needed
+
+# ───── Testing hygiene ─────
+tests_outside_test_module = "deny" # Keep tests in test modules
+redundant_test_prefix = "deny"     # `fn test_foo` redundant inside `mod tests` — bare `fn foo`
+
+# ───── Unused / dead code ─────
+unused_async = "deny"       # Remove unused async
+unused_peekable = "deny"    # Remove unused peekable
+unused_rounding = "deny"    # Remove unused rounding
+unused_trait_names = "deny" # Drop `use Trait;` imports whose methods are never used through that import
+
+# ───── Exceptions ─────
+# External deps (polars, tokio ecosystem) pull transitive version conflicts
+# that we cannot resolve. Acknowledged and allowed.
+multiple_crate_versions = "allow"
+
+[workspace.lints.rust]
+# ───── Rust compiler lints (strictest possible) ─────
+unsafe_code = "deny"                                        # No unsafe code without explicit allow
+missing_docs = "deny"                                       # Document all public items
+rust_2024_compatibility = { level = "warn", priority = -1 } # Ensure 2024 edition compatibility
+# ───── Future-proofing lints ─────
+future_incompatible = { level = "deny", priority = -1 } # Catch future breaking changes
+nonstandard_style = { level = "warn", priority = -1 }   # Consistent naming conventions
+unexpected_cfgs = "warn"                                # Catch typos / stale cfg attributes
+# ───── Additional safety lints ─────
+unsafe_op_in_unsafe_fn = "deny"    # Require unsafe blocks inside unsafe fn
+unused_crate_dependencies = "warn" # Detect unused dependencies
+unused_import_braces = "deny"      # Clean import style — no tolerance
+unused_lifetimes = "deny"          # Remove unnecessary lifetimes — no tolerance
+unused_macro_rules = "deny"        # Remove unused macro rules — no tolerance
+unused_qualifications = "deny"     # Remove unnecessary path qualifications — no tolerance
+# ───── Code hygiene ─────
+elided_lifetimes_in_paths = "warn"      # Make lifetime annotations explicit in type paths
+explicit_outlives_requirements = "warn" # Remove redundant where T: 'a bounds
+single_use_lifetimes = "warn"           # Detect `fn foo<'a>(x: &'a T)` where 'a is used exactly once — sibling of already-deny unused_lifetimes
+unreachable_pub = "warn"                # Catch pub items not reachable from crate root
+variant_size_differences = "warn"       # Warn about enum variant size differences
+
+[workspace.lints.rustdoc]
+# ───── Documentation quality lints ─────
+broken_intra_doc_links = "deny"       # No broken doc links
+private_intra_doc_links = "warn"      # Warn about private doc links
+missing_crate_level_docs = "warn"     # Require crate-level documentation
+invalid_codeblock_attributes = "warn" # Valid code block attributes
+invalid_html_tags = "warn"            # Valid HTML in docs
+invalid_rust_codeblocks = "warn"      # Valid Rust in doc code blocks
+bare_urls = "warn"                    # Use proper markdown links
+unescaped_backticks = "warn"          # Catch `…` backtick mismatch in doc comments (stable since 1.78)
+redundant_explicit_links = "warn"     # Detect `[Foo](Foo)`-style links where intra-doc link suffices
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Cargo Profiles
+# ─────────────────────────────────────────────────────────────────────────────
+[profile.dev]
+opt-level = 0
+debug = true
+debug-assertions = true
+overflow-checks = true
+incremental = true
+codegen-units = 256
+
+[profile.debug-optimized]
+inherits = "dev"
+opt-level = 2
+debug = true
+debug-assertions = true
+overflow-checks = true
+
+[profile.release]
+opt-level = 3
+debug = false
+debug-assertions = false
+overflow-checks = false
+incremental = false
+codegen-units = 1
+lto = "fat"
+panic = "abort"
+strip = "symbols"
+rpath = false
+# trim-paths = "object"                 # Reproducible builds (not yet stable in Cargo)
+
+[profile.profiling]
+inherits = "release"
+debug = true         # Enable debug symbols for flamegraph
+strip = false        # Don't strip symbols (needed for profiling)
+lto = false          # Disable LTO for cleaner call stacks in profiles
+codegen-units = 16   # Balance between compile time and consistent stacks
+
+[profile.bench]
+inherits = "release"
+codegen-units = 1
+debug = false
+debug-assertions = false
+incremental = false
+lto = "thin"
+opt-level = 3
+overflow-checks = false
+strip = "debuginfo"
+
+[profile.dist]
+inherits = "release"
+lto = "thin"
+# Shipped binaries keep overflow checks on: a wrapped integer in the daemon
+# (which runs `panic = "abort"`) is a correctness/DoS risk worth the small
+# perf cost. `release` leaves them off for benchmarks; `dist` is what users
+# actually run, so it opts back in. (WI-5.1)
+overflow-checks = true
+
+[profile.test]
+inherits = "dev"
+# CI-friendly overrides: the dev profile uses codegen-units=256 for local
+# edit-build-run speed, but that produces 256 object files per crate which
+# is hostile to hosted CI runners doing full codegen. Reducing to 16
+# dramatically cuts peak RSS and link time. debug=1 gives stack traces
+# without full debuginfo cost. incremental=false is set via CARGO_INCREMENTAL=0
+# in CI (not here) so local `cargo test` still benefits from incrementals.
+debug = 1          # Stack traces without full debuginfo cost
+codegen-units = 16 # Sane for 4-core hosted runners (vs 256)
