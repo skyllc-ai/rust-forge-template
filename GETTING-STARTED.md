@@ -48,12 +48,17 @@ should live (smart default: your remembered `forge.projectsDir`, then
 one, the init ceremony, gate tools + hooks, commit signing, and the first
 green `just go`:
 
-```bash
-# On a completely bare machine, before you have any repo (public repos):
-curl -fsSL https://raw.githubusercontent.com/<owner>/<repo>/main/bootstrap.sh | bash
-# (private repo? download bootstrap.sh via the GitHub web UI and run it)
+On a completely bare machine, before you have any repo (public repos —
+for a private repo, download `bootstrap.sh` via the GitHub web UI and run
+that instead):
 
-# If you already have the repo cloned:
+```bash
+curl -fsSL https://raw.githubusercontent.com/<owner>/<repo>/main/bootstrap.sh | bash
+```
+
+If you already have the repo cloned:
+
+```bash
 bash bootstrap.sh
 ```
 

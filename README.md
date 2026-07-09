@@ -103,9 +103,11 @@ validation run:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/<owner>/rust-forge-template/main/bootstrap.sh | bash
-# unattended lane (fleet/CI; never generates signing keys):
-#   ... | bash -s -- --yes --join my-org/myproj
 ```
+
+For unattended machines (fleet/CI) there is a separate `--yes` lane that
+never generates signing keys — see GETTING-STARTED's
+"Unattended / fleet provisioning" section.
 
 **Manual** — the same journey as individual commands, for people who want
 to see every move (this is also exactly what the script runs):
