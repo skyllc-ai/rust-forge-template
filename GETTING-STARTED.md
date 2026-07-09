@@ -48,9 +48,8 @@ should live (smart default: your remembered `forge.projectsDir`, then
 one, the init ceremony, gate tools + hooks, commit signing, and the first
 green `just go`:
 
-On a completely bare machine, before you have any repo (public repos —
-for a private repo, download `bootstrap.sh` via the GitHub web UI and run
-that instead):
+On a completely bare machine, before you have any repo (the template is
+public, so this works everywhere):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/skyllc-ai/rust-forge-template/main/bootstrap.sh | bash

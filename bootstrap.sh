@@ -19,7 +19,7 @@
 # Usage:
 #   bash bootstrap.sh [FLAGS]                             # after download/clone
 #   curl -fsSL https://raw.githubusercontent.com/skyllc-ai/rust-forge-template/main/bootstrap.sh \
-#     | bash -s -- [FLAGS]                                # greenfield (public repo)
+#     | bash -s -- [FLAGS]                                # greenfield machine
 #
 # Flags:
 #   --yes                 unattended: auto-approve confirmations, install
