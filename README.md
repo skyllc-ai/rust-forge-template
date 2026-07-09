@@ -119,6 +119,10 @@ right tool** — come back when the sketch becomes a plan.
 > New to Rust, `just`, or any of this? **[GETTING-STARTED.md](GETTING-STARTED.md)**
 > is the zero-knowledge runbook — from empty machine to green pipeline,
 > including the daily loop and a fix-it table for every gate.
+>
+> 🤖 **AI agents:** read **[AGENTS.md](AGENTS.md)** before touching anything —
+> state detection, hard prohibitions, and the exact fix for every gate.
+> (Claude Code is routed there automatically via CLAUDE.md.)
 
 **Guided (recommended)** — one script drives the whole journey with a
 consent prompt at every step: docs gate → tools → GitHub auth → create/clone
