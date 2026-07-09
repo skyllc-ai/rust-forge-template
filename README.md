@@ -96,21 +96,34 @@ right tool** — come back when the sketch becomes a plan.
 > is the zero-knowledge runbook — from empty machine to green pipeline,
 > including the daily loop and a fix-it table for every gate.
 
+**Guided (recommended)** — one script drives the whole journey with a
+consent prompt at every step: docs gate → tools → GitHub auth → create/clone
+the repo → init ceremony → gate tools + hooks → commit signing → first green
+validation run:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/<owner>/rust-forge-template/main/bootstrap.sh | bash
+# unattended lane (fleet/CI; never generates signing keys):
+#   ... | bash -s -- --yes --join my-org/myproj
+```
+
+**Manual** — the same journey as individual commands, for people who want
+to see every move (this is also exactly what the script runs):
+
 ```bash
 # 1. Create your repo from this template (fresh history, no coupling)
 gh repo create my-org/myproj --template <owner>/rust-forge-template --private --clone
 cd myproj
 
-# 2. Run the init ceremony (renames acmex → your identity, resets earned state)
+# 2. Init ceremony (renames acmex → your identity, resets earned state)
 just init myproj my-org "My Org LLC" "Me <me@example.com>"
 
-# 3. Install every gate tool + wire the hooks, set up commit signing
-#    (both idempotent), then prove the machine
+# 3. Gate tools + hooks, commit signing, then prove the machine
 just setup
 just setup-signing
 just go
 
-# 4. Create the GitHub-side state a template cannot carry
+# 4. GitHub-side state a template cannot carry
 #    (rulesets + merge queue, required checks, labels, lane variables)
 bash scripts/ci/bootstrap-github.sh
 ```
