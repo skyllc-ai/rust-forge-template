@@ -15,6 +15,20 @@ CI, supply-chain checks — without assembling any of it yourself.
 > "Is this template for you?" in the [README](README.md) (30 seconds) before
 > proceeding.
 
+## Completely new to git or GitHub?
+
+You need three concepts before anything here makes sense. Don't learn them
+from us — these are the canonical guides, and they are excellent:
+
+| Concept | What it is for | Learn it here (15-30 min each) |
+| --- | --- | --- |
+| **git** | The version-control tool: every change to your code is recorded as a "commit" you can inspect, undo, and share. Everything in this template hangs off git. | [git-scm.com/book — chapters 1-2](https://git-scm.com/book/en/v2/Getting-Started-About-Version-Control) |
+| **GitHub** | The hosting service where your repository lives online: backups, collaboration, pull requests, and the CI that re-checks your work. You need a (free) account. | [Create an account](https://github.com/signup), then [GitHub's Hello World](https://docs.github.com/en/get-started/start-your-journey/hello-world) |
+| **SSH keys** | A key *pair*: the private half stays on your machine and does the signing/authenticating; the public half gets registered with GitHub so it can verify you. That is why setup always has two sides — local (create + configure) and GitHub (register). One key can serve both *authentication* (proving it's you when pushing) and *commit signing* (proving each commit came from you) — but GitHub registers those as two separate entries. | [GitHub: About SSH](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/about-ssh) · [About commit signature verification](https://docs.github.com/en/authentication/managing-commit-signature-verification/about-commit-signature-verification) |
+
+Come back when those click — the rest of this guide automates nearly all of
+the mechanics for you.
+
 **The one rule of this template:** the gates are the law. When a commit or
 push is rejected, the machine is telling you exactly what to fix. Fix the
 cause; never bypass (`--no-verify` is treated as an incident, and the bundled
@@ -57,31 +71,27 @@ gh auth login
 You do **not** need to pick a Rust version — the repo pins its own toolchain
 in `rust-toolchain.toml`, and rustup installs it automatically on first build.
 
-## Step 0.5 — Set up commit signing (required, not optional)
+## Step 0.5 — Set up commit signing (required, one command)
 
-The pre-push gate verifies that **every commit is signed** — it is a hard
-gate, so do this before your first push, not after it rejects you. The
-low-friction path is SSH signing (no GPG install needed):
+The pre-push gate verifies that **every commit is signed** — a hard gate, so
+do this before your first push, not after it rejects you. Everything that
+can be automated, is:
 
 ```bash
-# 1. An SSH key (skip if ~/.ssh/id_ed25519 exists)
-ssh-keygen -t ed25519 -C "you@example.com"
-
-# 2. Tell git to sign with it
-git config --global gpg.format ssh
-git config --global user.signingkey ~/.ssh/id_ed25519.pub
-git config --global commit.gpgsign true
-git config --global tag.gpgsign true
-
-# 3. Register it on GitHub as a SIGNING key (this is separate from the
-#    authentication key — same file is fine, different registration)
-gh ssh-key add ~/.ssh/id_ed25519.pub --type signing --title "$(hostname) signing"
-
-# 4. Prove it
-just doctor-signing
+just setup-signing
 ```
 
-Classic GPG works too (`user.signingkey <KEYID>` without `gpg.format`);
+That single command: generates an SSH key if you have none (you choose the
+passphrase), configures git to sign every commit and tag with it, registers
+the public half on GitHub as a signing key via the API, and finishes with
+`just doctor-signing` to prove the whole chain. Idempotent — re-run it any
+time; it never overwrites an existing key.
+
+The only case needing a manual step: if `gh` says its token lacks the
+signing-key scope, run `gh auth refresh -h github.com -s admin:ssh_signing_key`
+and re-run the recipe.
+
+Classic GPG works too (configure `user.signingkey <KEYID>` yourself);
 `just doctor-signing` diagnoses either setup, and `just sign-branch` can
 rescue a branch that accumulated unsigned commits.
 

@@ -104,8 +104,10 @@ cd myproj
 # 2. Run the init ceremony (renames acmex → your identity, resets earned state)
 just init name=myproj org=my-org entity="My Org LLC" author="Me <me@example.com>"
 
-# 3. Install every gate tool + wire the hooks (idempotent), then prove the machine
+# 3. Install every gate tool + wire the hooks, set up commit signing
+#    (both idempotent), then prove the machine
 just setup
+just setup-signing
 just go
 
 # 4. Create the GitHub-side state a template cannot carry
