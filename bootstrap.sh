@@ -18,7 +18,7 @@
 #
 # Usage:
 #   bash bootstrap.sh [FLAGS]                             # after download/clone
-#   curl -fsSL https://raw.githubusercontent.com/<owner>/<repo>/main/bootstrap.sh \
+#   curl -fsSL https://raw.githubusercontent.com/skyllc-ai/rust-forge-template/main/bootstrap.sh \
 #     | bash -s -- [FLAGS]                                # greenfield (public repo)
 #
 # Flags:
@@ -31,15 +31,16 @@
 #                         an identity decision, not a bootstrap side effect.
 #   --new OWNER/NAME      create a new project from the template and clone it
 #   --join OWNER/REPO     clone an existing project built from the template
-#   --template OWNER/REPO which template --new instantiates
-#                         (default: acmex-org/acmex — override after forking)
+#   --template OWNER/REPO which template --new instantiates (default:
+#                         skyllc-ai/rust-forge-template, the canonical home;
+#                         override if you forked the template)
 #   --dir PATH            parent directory the project lands in (interactive
 #                         runs ask; default: the current directory)
 #   --public              make --new repos public (default: private)
 #   --help                this text
 #
 # Fully unattended greenfield example:
-#   ... | bash -s -- --yes --new my-org/myproj --template <owner>/rust-forge-template
+#   ... | bash -s -- --yes --new my-org/myproj --template skyllc-ai/rust-forge-template
 
 set -euo pipefail
 
@@ -52,7 +53,10 @@ warn() { printf "  ${C_YELLOW}⚠  %s${C_OFF}\n" "$1"; }
 die()  { printf "  ${C_YELLOW}✋ %s${C_OFF}\n" "$1"; exit 1; }
 
 # ── Flags ────────────────────────────────────────────────────────────
-YES=0; NEW=""; JOIN=""; TEMPLATE="acmex-org/acmex"; VISIBILITY="--private"; DEST=""
+# The template's canonical home — a real, fixed address on purpose (the
+# init ceremony leaves it alone, so derived repos keep pointing at the
+# template they came from). --template overrides for forks.
+YES=0; NEW=""; JOIN=""; TEMPLATE="skyllc-ai/rust-forge-template"; VISIBILITY="--private"; DEST=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --yes) YES=1 ;;
