@@ -157,7 +157,7 @@ git_release_name = "v{{ version }}"
 # `cliff.toml` has dedicated `^fix\(security\)` and `^chore\(security\)`
 # parsers that route both to the Security section, so dropping the
 # top-level `security:` alternation here does not regress changelog
-# coverage.  See `CONTRIBUTING.md` → "Commit message conventions"
+# coverage.  See `docs/CONTRIBUTING.md` → "Commit message conventions"
 # (security commits paragraph) for the rationale.
 #
 # Format note: release-plz applies this regex per-commit to commits since
@@ -429,7 +429,7 @@ release = false
 # The workspace-level `publish = false` above is the active dormancy
 # layer.  These explicit `release = false` blocks keep release-plz from
 # iterating the product crates at all until the crates-publish lane is
-# enabled (see COMPONENTS.md → lane:crates-publish): flipping a crate
+# enabled (see docs/forge/COMPONENTS.md → lane:crates-publish): flipping a crate
 # live means (1) `publish = true` in its Cargo.toml, (2) replacing its
 # block below with `changelog_path = "CHANGELOG.md"`, (3) setting the
 # LANE_CRATES repo variable.

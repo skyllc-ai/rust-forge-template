@@ -29,7 +29,7 @@ use crate::manifest::{Gate, Manifest};
 /// guards are emitted around gates that use these tools.  Adding a
 /// new tool to the workspace baseline (e.g. via `just install-dev-tools`)
 /// requires extending this list and updating the workspace tooling
-/// docs in `CONTRIBUTING.md` simultaneously.
+/// docs in `docs/CONTRIBUTING.md` simultaneously.
 const ASSUMED_TOOLS: &[&str] = &["cargo", "bash", "cargo-nextest", "cargo-deny"];
 
 /// Embedded scaffolding for `_lint_pre_push.sh` - colors,

@@ -28,7 +28,7 @@ Run these checks in order. Pick the first match.
 0a. **Is there NO `justfile`, but there IS a `Cargo.toml` with existing
    project code?** → Adoption case: the user has a real project and wants
    this scaffolding brought TO it. Do not create a new repo. Point them at
-   `ADOPTING.md` and the one-liner (run from their repo root, clean tree):
+   `docs/forge/ADOPTING.md` and the one-liner (run from their repo root, clean tree):
    ```
    curl -fsSL https://raw.githubusercontent.com/skyllc-ai/rust-forge-template/main/adopt.sh | bash
    ```
@@ -156,7 +156,7 @@ gate name it prints, fix per section 6, retry the same command.
 
 ## 7. Adding things
 
-- **New crate**: follow `COMPONENTS.md` → `component:new-crate`. Copy
+- **New crate**: follow `docs/forge/COMPONENTS.md` → `component:new-crate`. Copy
   `crates/acmex-core` as the model. Add the crate to `[workspace] members`
   in the root `Cargo.toml` AND a `release = false` block in
   `release-plz.toml`. Then `cargo run -p acmex-manifest-audit` must pass.
@@ -164,7 +164,7 @@ gate name it prints, fix per section 6, retry the same command.
   `depname.workspace = true` in the crate. Then run `just go`; the `vet`
   and `deny` gates will tell you if the supply chain needs attention.
 - **Enable releases / publishing / winget**: these are switched-off "lanes".
-  Do not improvise. Follow the runbook in `COMPONENTS.md` for the specific
+  Do not improvise. Follow the runbook in `docs/forge/COMPONENTS.md` for the specific
   lane and confirm with the user first.
 
 ## 8. Where things are
@@ -174,8 +174,8 @@ gate name it prints, fix per section 6, retry the same command.
 | `crates/` | The product code (lib: `acmex-core`, bin: `acmex-cli`, version machinery: `acmex-version`) |
 | `scripts/ci/gates.toml` | Single source of truth for every quality gate |
 | `scripts/ci-pipeline/` | The `just go` / `just ship` engine |
-| `COMPONENTS.md` | Runbooks for growing the project (crates, lanes) |
-| `GETTING-STARTED.md` | Human onboarding guide (send users here) |
+| `docs/forge/COMPONENTS.md` | Runbooks for growing the project (crates, lanes) |
+| `docs/forge/GETTING-STARTED.md` | Human onboarding guide (send users here) |
 | `GOTO.md` | The living project-state doc: where the flow stands, what's next, which dormant lane does what. Read it at session start; update it in the same PR whenever project state changes (lane enabled, milestone done, decision made) |
 | `.config/nextest.toml` | Test-runner profiles |
 | `docs/policies/` | The reasoning behind the lint rules |
@@ -190,9 +190,9 @@ head, this is where the repo actually lives:
 | `docs/policies/*.md` (panic, allocation, concurrency, trait, dependency, build-codegen, lint-posture) | The reasoning behind every rule in sections 3-6. A change that touches policy territory should engage the policy doc, not just satisfy the lint. When you disagree with a rule, argue against the documented rationale (with the user, in the PR), never around it. |
 | `scripts/ci/gates.toml` | The machine-readable source of truth for every gate: tiers, budgets, change-classification regexes. Gate changes are made HERE, then `just acmex-gen-hooks` regenerates the hooks and the drift gates verify the workflow side. This is how you legitimately evolve the enforcement itself. |
 | `scripts/ci-pipeline/src/` | The `just go` / `just ship` engine: a resumable state machine with tree-hash invalidation, a clean-decision engine, and the release choreography (bump → changelog roll → signed release PR → auto-merge → binary build). Read before debugging pipeline behavior. |
-| `COMPONENTS.md` | The growth architecture: dormant capability *lanes* (data switches, never file changes) vs additive *components* (recipes ending in `just go`). Consult before proposing any new machinery; it may already exist, switched off. |
+| `docs/forge/COMPONENTS.md` | The growth architecture: dormant capability *lanes* (data switches, never file changes) vs additive *components* (recipes ending in `just go`). Consult before proposing any new machinery; it may already exist, switched off. |
 | `.github/workflows/pr-fast.yml` + `tier-2.yml` | The CI mirror of gates.toml (tier 1) and the weekly deep suite (miri, cargo-careful, mutation testing). `acmex-gen-workflow --check` enforces the mirror. |
-| `GETTING-STARTED.md` | The human runbook; read it when you are *guiding a person*, so your instructions match what they see. |
+| `docs/forge/GETTING-STARTED.md` | The human runbook; read it when you are *guiding a person*, so your instructions match what they see. |
 
 What capable agents are invited to do that section 4 does not cover:
 design multi-crate architecture within the manifest-inheritance rules,

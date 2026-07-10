@@ -41,7 +41,7 @@
 #                              cover).  Logged so the bypass is visible.
 #
 # **Allowed types** (mirrors `.github/workflows/commitlint.yml` and
-# `CONTRIBUTING.md` -> "Commit message conventions"): feat, fix, perf,
+# `docs/CONTRIBUTING.md` -> "Commit message conventions"): feat, fix, perf,
 # refactor, docs, test, build, ci, chore, style, revert.
 #
 # **Scope grammar**: `[a-z0-9-]+`.  Single token -- no spaces, no
@@ -145,7 +145,7 @@ ${C_YELLOW}Bypass once${C_RESET} (use sparingly):
    ${C_CYAN}COMMIT_SUBJECT_BYPASS=1 git push${C_RESET}
    ${C_CYAN}git commit --no-verify${C_RESET}    -> skips ALL commit-msg hooks
 
-See ${C_CYAN}CONTRIBUTING.md${C_RESET} -> "Commit message conventions" and
+See ${C_CYAN}docs/CONTRIBUTING.md${C_RESET} -> "Commit message conventions" and
 \`.github/workflows/commitlint.yml\` for the canonical reference.
 HELP
 }

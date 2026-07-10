@@ -4,7 +4,7 @@
 > as a pattern from the donor project this repository was extracted from.
 > `ACMEX` / `Acmex Placeholder LLC` are placeholder names. If your project
 > has no trademark to protect, delete this file (and the references to it
-> in `CONTRIBUTING.md` and `README.md`). If it does, keep the structure and
+> in `docs/CONTRIBUTING.md` and `README.md`). If it does, keep the structure and
 > replace the placeholder names, logo description, and contact addresses
 > with your own.
 

@@ -58,7 +58,7 @@
 #
 # References:
 #
-#   • CONTRIBUTING.md → "Commit message conventions"
+#   • docs/CONTRIBUTING.md → "Commit message conventions"
 #     (the user-facing list of allowed types and examples)
 #   • https://www.conventionalcommits.org/en/v1.0.0/
 #     (the spec that defines the type list and breaking-change syntax)
@@ -106,7 +106,7 @@ jobs:
     timeout-minutes: 2
     # Skip on PRs from forks: forked PRs don't have write tokens, so
     # `gh pr comment` would fail.  Forks are advised separately via the
-    # CONTRIBUTING.md docs; they get a hint from the PR template instead.
+    # docs/CONTRIBUTING.md docs; they get a hint from the PR template instead.
     # `merge_group` always originates from an in-repo PR that already
     # reached the queue, so it is never a fork - let it through.
     if: github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository
@@ -136,10 +136,10 @@ jobs:
           set -euo pipefail
 
           # ── Allowed Conventional Commits types ─────────────────────
-          # Mirrors CONTRIBUTING.md → "Commit message conventions".
+          # Mirrors docs/CONTRIBUTING.md → "Commit message conventions".
           # Order matters only for readability; the regex is OR-of-all.
           # Adding a new type means updating both this regex AND
-          # CONTRIBUTING.md in the same PR (and ideally cliff.toml's
+          # docs/CONTRIBUTING.md in the same PR (and ideally cliff.toml's
           # commit_parsers in Phase R2).
           PATTERN='^(feat|fix|perf|refactor|docs|test|build|ci|chore|style|revert)(\([a-z0-9-]+\))?!?: .{1,}$'
 
@@ -224,7 +224,7 @@ jobs:
           # Compose the advisory body.  The marker MUST be the first
           # line for trivially-greppable detection.  Keep the body
           # informative but not punishing: contributors who hit this
-          # check probably haven't read CONTRIBUTING.md yet.
+          # check probably haven't read docs/CONTRIBUTING.md yet.
           #
           # NOTE on indentation: YAML's literal block scalar (`run: |`)
           # strips the least common leading indentation from every
@@ -250,13 +250,13 @@ jobs:
           - \`docs(policies): clarify lint-posture tier promotion rules\`
           - \`feat(cli)!: drop deprecated --q shorthand\` (the trailing \`!\` marks a breaking change)
 
-          See [CONTRIBUTING.md → Commit message conventions](https://github.com/${GITHUB_REPOSITORY}/blob/main/CONTRIBUTING.md#commit-message-conventions) for the full rationale and the table of which types trigger releases.
+          See [CONTRIBUTING.md → Commit message conventions](https://github.com/${GITHUB_REPOSITORY}/blob/main/docs/CONTRIBUTING.md#commit-message-conventions) for the full rationale and the table of which types trigger releases.
 
           ---
 
           **🔴 This check is REQUIRED (release-automation Phase R1b)** - a non-conforming title **blocks merge**.  Edit the PR title to match the pattern above; this check re-runs on every title edit and turns green (and this comment auto-deletes) once the title conforms.
 
-          *(Workflow: \`.github/workflows/commitlint.yml\` · Conventions: [CONTRIBUTING.md](https://github.com/${GITHUB_REPOSITORY}/blob/main/CONTRIBUTING.md#commit-message-conventions) · release-automation Phase R1b)*
+          *(Workflow: \`.github/workflows/commitlint.yml\` · Conventions: [CONTRIBUTING.md](https://github.com/${GITHUB_REPOSITORY}/blob/main/docs/CONTRIBUTING.md#commit-message-conventions) · release-automation Phase R1b)*
           EOF
           )
 

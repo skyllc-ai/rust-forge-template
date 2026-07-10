@@ -130,12 +130,12 @@ right tool.** Come back when the sketch becomes a plan.
 | **CI** | `pr-fast.yml` tier-1 required gate (validated against gates.toml by `acmex-gen-workflow`), weekly tier-2 (miri, careful, mutants, udeps, hack, coverage), CodeQL, commitlint, nightly canary, dependabot triage + auto-merge, CI-failure notify + auto-rerun |
 | **Supply chain** | cargo-vet (5 community audit-set imports, zero exemption debt), cargo-deny, SHA-pinned actions, committed `Cargo.lock` |
 | **Licensing** | REUSE/SPDX compliance (checked at commit time), per-file headers, LICENSES/ store |
-| **Release lanes (dormant)** | Multi-target release build, crates.io publish (release-plz), winget, SLSA attestation: all present, all inert until you flip a repo variable (see `COMPONENTS.md`) |
+| **Release lanes (dormant)** | Multi-target release build, crates.io publish (release-plz), winget, SLSA attestation: all present, all inert until you flip a repo variable (see `docs/forge/COMPONENTS.md`) |
 | **Skeleton** | `acmex-core` (lib), `acmex-cli` (bin `acmex`), `acmex-version` (shared `--version` machinery): hello-world code that exercises every gate honestly |
 
 ## Quickstart
 
-> New to Rust, `just`, or any of this? **[GETTING-STARTED.md](GETTING-STARTED.md)**
+> New to Rust, `just`, or any of this? **[GETTING-STARTED.md](docs/forge/GETTING-STARTED.md)**
 > is the zero-knowledge runbook: from empty machine to green pipeline,
 > including the daily loop and a fix-it table for every gate.
 >
@@ -199,7 +199,7 @@ nothing of yours overwritten, lints installed inert), commits the trial,
 and `just adopt-undo` restores your repo bit-for-bit if you change your
 mind. Repo-global pieces (hooks config, signing, rulesets) stay deferred
 to an explicitly sequenced cutover step: see
-**[ADOPTING.md](ADOPTING.md)**.
+**[ADOPTING.md](docs/forge/ADOPTING.md)**.
 
 After init, `rg -i acmex` returns nothing; that emptiness is the proof the
 rename ceremony completed.
@@ -207,7 +207,7 @@ rename ceremony completed.
 ## Growing the project
 
 The machinery ships at 100% and idles; the product grows through recipes.
-`COMPONENTS.md` is the master catalog for both:
+`docs/forge/COMPONENTS.md` is the master catalog for both:
 
 - **Lanes** (machinery you switch ON): crates.io publishing, winget, codecov,
   SLSA, the release pipeline. Dormant behind repo variables (`LANE_*`) and
@@ -258,7 +258,7 @@ git fetch template
 git diff template/main -- justfile just/ scripts/ .github/ Cargo.toml
 ```
 
-Cherry-pick what you want; `TEMPLATE_VERSION` records the baseline you started
+Cherry-pick what you want; `docs/forge/TEMPLATE_VERSION` records the baseline you started
 from. Improvements you make to the machinery inside a product repo should land
 in the template first (its own CI proves them), then flow down.
 

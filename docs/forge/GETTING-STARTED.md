@@ -12,7 +12,7 @@ CI, supply-chain checks) without assembling any of it yourself.
 
 > **First, a fit check.** This machinery is overkill for tutorials, katas,
 > and throwaway experiments, and gold for a project meant to live. Read
-> "Is this template for you?" in the [README](README.md) (30 seconds) before
+> "Is this template for you?" in the [README](../../README.md) (30 seconds) before
 > proceeding.
 
 ## Completely new to git or GitHub?

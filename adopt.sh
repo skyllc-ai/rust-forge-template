@@ -7,7 +7,7 @@
 # =============================================================================
 # The reverse of the init ceremony: instead of bringing your identity to the
 # template, this brings the template's MACHINERY to your code. Read
-# ADOPTING.md first; it explains the staged ladder this script starts.
+# docs/forge/ADOPTING.md first; it explains the staged ladder this script starts.
 #
 # Contract (the never-erase rules):
 #   * runs only in a clean git worktree, on a fresh branch it creates, and
@@ -96,14 +96,14 @@ say "2/6 Copying the machinery (existing files become .forge-suggested)"
 # Machinery-only subset. Deliberately NOT copied: crates/ product skeleton,
 # README/GETTING-STARTED/COMPONENTS (template-specific), LICENSE/LICENSES
 # (yours), CHANGELOG, bootstrap.sh/adopt.sh/tools (template entry points),
-# release-plz.toml + CITATION/TRADEMARK (opt-in later via COMPONENTS.md).
+# release-plz.toml + CITATION/TRADEMARK (opt-in later via docs/forge/COMPONENTS.md).
 MACHINERY=(
     justfile just scripts/ci scripts/ci-pipeline scripts/hooks
     .cargo/config.toml .config/nextest.toml .claude/settings.json
     .github/workflows .github/dependabot.yml
     deny.toml .taplo.toml .typos.toml clippy.toml rustfmt.toml
     rust-toolchain.toml supply-chain/config.toml
-    crates/acmex-version AGENTS.md docs/policies ADOPTING.md
+    crates/acmex-version AGENTS.md docs/policies docs/forge/ADOPTING.md
 )
 SUGGESTED=()
 copied=0
@@ -169,11 +169,11 @@ ok "placeholder renamed in the new files only"
 say "4/6 Recording the wiring plan (forge-adopt-snippets.md)"
 # Lints are delivered at ALLOW, not warn: the gates run clippy with
 # -D warnings, so any warn-level lint would hard-fail the pipeline on a
-# legacy codebase. allow = installed and inert; the ratchet (ADOPTING.md
+# legacy codebase. allow = installed and inert; the ratchet (docs/forge/ADOPTING.md
 # step 4) flips groups/lints straight to deny when a crate is ready.
 LINTS_ALLOW="$(sed -n '/^\[workspace\.lints\.clippy\]/,/^\[profile\.dev\]/p' "$TMPL_DIR/Cargo.toml" | sed '$d' | sed 's/"deny"/"allow"/g; s/level = "deny"/level = "allow"/g; s/"warn"/"allow"/g')"
 cat > forge-adopt-snippets.md <<EOF
-# Paste these into your project (see ADOPTING.md for the full ladder)
+# Paste these into your project (see docs/forge/ADOPTING.md for the full ladder)
 
 ## 0. Workspace package metadata (root Cargo.toml)
 
@@ -241,7 +241,7 @@ turn every warn into a hard failure on day one. Instead: SURVEY a group
 ad hoc (no gate involved) with e.g.
 \`cargo clippy --workspace -- -W clippy::pedantic\`, then RATCHET by
 flipping that group or lint to "deny" in this block once a crate is
-clean (ADOPTING.md step 4).
+clean (docs/forge/ADOPTING.md step 4).
 
 \`\`\`toml
 ${LINTS_ALLOW}
@@ -424,7 +424,7 @@ cargo generate-lockfile >/dev/null 2>&1 && ok "Cargo.lock resolved (committed wi
 # bypass anyone's hooks, including yours.
 say "6/6 Committing the trial (reversible by design)"
 git add -A
-if git commit -q -m "chore(adopt): rust-forge scaffolding trial (automated; see ADOPTING.md)"; then
+if git commit -q -m "chore(adopt): rust-forge scaffolding trial (automated; see docs/forge/ADOPTING.md)"; then
     ok "committed on adopt/rust-forge-scaffolding (base: $BASE_BRANCH)"
 else
     warn "your existing hooks rejected the commit; fix and 'git commit' yourself, or 'just adopt-undo'"
@@ -436,5 +436,5 @@ printf "${C_CYAN}Try it:    just setup && just go${C_OFF}\n"
 printf "${C_CYAN}Status:    just adopt-status${C_OFF}\n"
 printf "${C_CYAN}Keep it:   push the branch and open a PR (normal flow)${C_OFF}\n"
 printf "${C_CYAN}Undo ALL:  just adopt-undo   (bit-for-bit restoration, branch deleted)${C_OFF}\n"
-printf "${C_CYAN}Then read ADOPTING.md: the lint ratchet (step 4) and the GitHub-side${C_OFF}\n"
+printf "${C_CYAN}Then read docs/forge/ADOPTING.md: the lint ratchet (step 4) and the GitHub-side${C_OFF}\n"
 printf "${C_CYAN}cutover (step 5; hooks/signing/rulesets are not branch-scoped).${C_OFF}\n"
