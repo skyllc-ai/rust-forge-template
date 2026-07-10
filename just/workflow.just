@@ -150,11 +150,17 @@ sign-branch:
 
 # One-command commit-signing setup (SSH format, the low-friction path).
 #
+# SCOPE: everything this writes is LOCAL to this repository. Your global
+# git config and every other repository on this machine stay untouched;
+# run it once per repo that wants signing. The only shared artifacts are
+# inherently user-level: the SSH key file itself and its GitHub
+# registration.
+#
 # Does everything that CAN be automated: creates an ed25519 key if you have
-# none (you choose the passphrase), points git at it (global config, SSH
-# signing format, sign commits + tags), registers the key on GitHub as a
-# SIGNING key via the API, and finishes with the doctor. Idempotent - safe
-# to re-run; never overwrites an existing key. GPG users: configure
+# none (you choose the passphrase), points THIS repo's git config at it
+# (SSH signing format, sign commits + tags), registers the key on GitHub
+# as a SIGNING key via the API, and finishes with the doctor. Idempotent;
+# safe to re-run; never overwrites an existing key. GPG users: configure
 # manually and run `just doctor-signing` instead.
 #
 # Fleet / unattended machines: this recipe never GENERATES a key without a
@@ -191,11 +197,12 @@ setup-signing:
         ssh-keygen -t ed25519 -f "$KEYFILE"
     fi
     # 2. Point git at it (global: every repo on this machine signs)
-    git config --global gpg.format ssh
-    git config --global user.signingkey "$KEYFILE.pub"
-    git config --global commit.gpgsign true
-    git config --global tag.gpgsign true
-    printf "  \033[0;32m✅ git configured: sign all commits + tags with %s.pub\033[0m\n" "$KEYFILE"
+    git config gpg.format ssh
+    git config user.signingkey "$KEYFILE.pub"
+    git config commit.gpgsign true
+    git config tag.gpgsign true
+    printf "  \033[0;32m✅ THIS repo signs all commits + tags with %s.pub\033[0m\n" "$KEYFILE"
+    printf "  \033[0;36m   (repo-local config; your other repositories are untouched)\033[0m\n"
     # 3. Register on GitHub as a SIGNING key (separate registration from the
     #    authentication use of the same key). Tolerate already-registered.
     if gh ssh-key add "$KEYFILE.pub" --type signing --title "$(hostname) signing" 2>/dev/null; then

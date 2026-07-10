@@ -126,7 +126,8 @@ your default branch.
    `just install-hooks` sets `core.hooksPath` for that clone; every
    teammate runs it once (it is opt-in by design, and harmless on branches
    that predate the scaffolding: git treats a missing hooks dir as "no
-   hooks"). `just setup-signing` configures commit signing per machine.
+   hooks"). `just setup-signing` configures commit signing for that clone
+   (repo-local git config; the key file is the only per-machine artifact).
    Use `just doctor-signing` as the team readiness checklist BEFORE step 3
    makes signatures mandatory.
 2. **Harmless server-side state, any time after the merge.** Labels, the

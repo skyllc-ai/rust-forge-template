@@ -119,7 +119,7 @@ ask() {
 #      Apple-recognized dev folder - else ~/projects)
 default_projects_dir() {
     local d
-    d=$(git config --global --get forge.projectsDir 2>/dev/null || true)
+    d=$(cat "$HOME/.config/rust-forge/projects-dir" 2>/dev/null || true)
     [[ -n "$d" ]] && { printf '%s' "$d"; return; }
     d=$(git config --global --get ghq.root 2>/dev/null || true)
     [[ -n "$d" ]] && { printf '%s' "${d/#\~/$HOME}"; return; }
@@ -279,7 +279,8 @@ else
     # Where should the project live? Your layout is yours (e.g.
     # ~/private/github) - discovery order: --dir flag, the remembered
     # `forge.projectsDir` git setting, then ask (default $PWD).
-    REMEMBERED=$(git config --global --get forge.projectsDir 2>/dev/null || true)
+    FORGE_CFG="$HOME/.config/rust-forge/projects-dir"
+    REMEMBERED=$(cat "$FORGE_CFG" 2>/dev/null || true)
     if [[ -z "$DEST" ]]; then
         DEST=$(ask "Parent directory for the project" "$(default_projects_dir)")
     fi
@@ -288,8 +289,14 @@ else
     ok "projects land in: $(pwd)"
     if [[ "$(pwd)" != "$REMEMBERED" && $YES -eq 0 ]] \
         && confirm "Remember $(pwd) as your projects directory for next time?" N; then
-        git config --global forge.projectsDir "$(pwd)"
-        ok "saved (git config --global forge.projectsDir)"
+        mkdir -p "$(dirname "$FORGE_CFG")" && printf '%s' "$(pwd)" > "$FORGE_CFG"
+        ok "saved to $FORGE_CFG (a plain file; your git config is untouched)"
+    fi
+    # Transparency: what this run will NOT touch.
+    sibling_repos=$(find "$(pwd)" -maxdepth 2 -name .git -type d 2>/dev/null | wc -l | tr -d ' ')
+    if [[ "$sibling_repos" -gt 0 ]]; then
+        note "$sibling_repos existing git repos found under $(pwd); nothing in this flow"
+        note "modifies them: every setting we make is scoped to the new project only."
     fi
 
     mode=""
