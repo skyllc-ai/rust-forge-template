@@ -149,7 +149,11 @@ ok "placeholder renamed in the new files only"
 
 # ---- Snippets file: what to paste, nothing auto-edited ---------------------
 say "4/4 Writing forge-adopt-snippets.md (paste-and-go blocks)"
-LINTS_WARN="$(sed -n '/^\[workspace\.lints\.clippy\]/,/^\[profile\.dev\]/p' "$TMPL_DIR/Cargo.toml" | sed '$d' | sed 's/"deny"/"warn"/g; s/level = "deny"/level = "warn"/g')"
+# Lints are delivered at ALLOW, not warn: the gates run clippy with
+# -D warnings, so any warn-level lint would hard-fail the pipeline on a
+# legacy codebase. allow = installed and inert; the ratchet (ADOPTING.md
+# step 4) flips groups/lints straight to deny when a crate is ready.
+LINTS_ALLOW="$(sed -n '/^\[workspace\.lints\.clippy\]/,/^\[profile\.dev\]/p' "$TMPL_DIR/Cargo.toml" | sed '$d' | sed 's/"deny"/"allow"/g; s/level = "deny"/level = "allow"/g; s/"warn"/"allow"/g')"
 cat > forge-adopt-snippets.md <<EOF
 # Paste these into your project (see ADOPTING.md for the full ladder)
 
@@ -183,13 +187,21 @@ toml = "1"
 uuid = { version = "1", features = ["v4"] }
 \`\`\`
 
-## 2. The lint posture, delivered at WARN (visible, not blocking)
+## 2. The lint posture, delivered at ALLOW (installed, inert)
 
-Paste into your root Cargo.toml. Promote groups to "deny" in waves
-(ADOPTING.md step 4). Crates opt in with \`[lints] workspace = true\`.
+Paste into your root Cargo.toml, and add \`[lints] workspace = true\` to
+each crate. Nothing changes yet: allow-level lints are silent, so every
+gate stays exactly as green as your code is today.
+
+Why not "warn"? The gates run clippy with \`-D warnings\`, which would
+turn every warn into a hard failure on day one. Instead: SURVEY a group
+ad hoc (no gate involved) with e.g.
+\`cargo clippy --workspace -- -W clippy::pedantic\`, then RATCHET by
+flipping that group or lint to "deny" in this block once a crate is
+clean (ADOPTING.md step 4).
 
 \`\`\`toml
-${LINTS_WARN}
+${LINTS_ALLOW}
 \`\`\`
 
 ## 3. First commands

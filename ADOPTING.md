@@ -47,7 +47,7 @@ What it does, and what it refuses to do:
   manual merge, and the script lists every such file at the end
 - does NOT touch your `Cargo.toml`, your crates, or your lint levels.
   Instead it writes `forge-adopt-snippets.md` containing the exact TOML
-  blocks to paste, with the lints set to **warn** (visible, not blocking)
+  blocks to paste, with the lints set to **allow** (installed, inert)
 
 It ends by printing your personal to-do list. Nothing is enforced yet.
 
@@ -56,15 +56,17 @@ It ends by printing your personal to-do list. Nothing is enforced yet.
 From `forge-adopt-snippets.md`:
 
 1. Add the tool crates to your `[workspace] members`.
-2. Paste the `[workspace.lints]` block, delivered at **warn** levels.
-   Every violation becomes visible on the next `cargo clippy`; nothing
-   fails.
+2. Paste the `[workspace.lints]` block, delivered at **allow** levels
+   (installed, inert), and add `[lints] workspace = true` per crate.
+   Nothing fails, nothing changes, until you ratchet. (Why not warn?
+   The gates run clippy with `-D warnings`, which would promote every
+   warning to a day-one failure on a legacy codebase.)
 
 Then wire the hooks and prove the machinery runs:
 
 ```bash
 just setup            # installs the gate tools, wires the hooks
-just go               # the pipeline runs; lint gates report, warn-level
+just go               # the pipeline runs end to end on YOUR code
 ```
 
 ## Step 3: the cheap wins (one mechanical PR each)
@@ -86,8 +88,10 @@ Cargo gives you three dials; use them in this order:
    smallest or newest crate, flip it to the workspace posture, clean it,
    merge. The strictness frontier advances crate by crate; every merge
    stays green.
-2. **Level dial:** within the workspace block, promote lint groups from
-   `warn` to `deny` in waves: correctness first (cheap, highest value),
+2. **Level dial:** survey a group ad hoc, outside the gates
+   (`cargo clippy --workspace -- -W clippy::correctness`), fix what it
+   shows, then flip that group from `allow` to `deny` in the workspace
+   block. Waves: correctness first (cheap, highest value),
    then suspicious, perf, pedantic, style, restriction last.
 3. **Debt dial:** inside a strict crate, stragglers get file-level
    `#![expect(lint_name, reason = "adoption debt, tracked in #N")]`.
@@ -118,5 +122,5 @@ decline what does not, in writing. Nobody rewrites a codebase wholesale.
 - **Layout:** the machinery assumes a Cargo workspace. A single-crate repo
   should first become a one-member workspace (10 minutes, mechanical).
 - **Effort scales with LOC.** Step 1-3 are days. Step 4 is a campaign you
-  schedule, or skip: warn-level lints plus new-code enforcement is already
-  a massive upgrade over nothing.
+  schedule, or skip: the hygiene + supply-chain layers plus enforcement
+  on everything new is already a massive upgrade over nothing.
