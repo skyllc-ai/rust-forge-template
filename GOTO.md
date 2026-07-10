@@ -1,6 +1,6 @@
 <!--
 SPDX-License-Identifier: MIT OR Apache-2.0
-Copyright (c) 2026 SKY, LLC.
+Copyright (c) 2026 Acmex Placeholder LLC
 -->
 
 # GOTO.md: where we are, what's next, which switch does what
