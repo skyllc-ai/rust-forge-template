@@ -48,7 +48,10 @@ What it does, and what it refuses to do:
 - **never overwrites anything you already have**: where a file exists
   (your `.gitignore`, your workflows, your `deny.toml`, ...), the
   template's version lands next to it as `<name>.forge-suggested` for a
-  manual merge, and the script lists every such file at the end
+  manual merge, and the script lists every such file at the end. The one
+  sanctioned exception: missing artifact entries (`target/`, `build/`,
+  `*.forge-suggested`) are APPENDED to your existing `.gitignore`, never
+  removing or reordering a line of yours
 - **wires your workspace automatically, under a git guard**: workspace
   members, the `[workspace.package]` table (added or completed), the
   dependencies the tool crates need (added if missing; features merged
