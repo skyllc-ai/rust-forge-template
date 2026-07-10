@@ -386,7 +386,11 @@ if [[ -n "$(git status --porcelain)" ]]; then
             git switch -c "chore/init-${pslug}"
             git add -A
             if git commit -m "chore: init ${pslug} from rust-forge-template"; then
-                git push -u origin "chore/init-${pslug}"                     && gh pr create --fill --base "$(git config forge.adoptBase 2>/dev/null || echo main)" >/dev/null                     && gh pr merge "chore/init-${pslug}" --auto                     && ok "PR opened with auto-merge armed; it lands when CI is green"                     || warn "commit made; push/PR needs a manual retry (see git output above)"
+                git push -u origin "chore/init-${pslug}" \
+                    && gh pr create --fill >/dev/null \
+                    && gh pr merge "chore/init-${pslug}" --auto \
+                    && ok "PR opened with auto-merge armed; it lands when CI is green" \
+                    || warn "commit made; push/PR needs a manual retry (see git output above)"
             else
                 warn "your hooks rejected the init commit; fix what they printed, then commit manually"
             fi
