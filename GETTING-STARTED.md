@@ -42,7 +42,7 @@ Claude Code guard blocks it outright).
 step: a docs gate (offers to open the fit check first), compiler
 prerequisites, Homebrew (macOS), git/`just`/`gh`/`jq`/`pipx`+`reuse`, rustup,
 GitHub login (an existing login is detected and reused), where the project
-should live (smart default: your remembered `forge.projectsDir`, then
+should live (smart default: your remembered projects dir, then
 `ghq.root`, then existing conventional dirs like `~/Developer`; or pass
 `--dir`), creating your repo from the template **or** cloning an existing
 one, the init ceremony, gate tools + hooks, commit signing, and the first
@@ -66,8 +66,12 @@ setup.** Every step is check-before-act: tools you have are detected (at most
 you get an optional update offer), your existing GitHub login is reused, a
 working commit-signing configuration (GPG or SSH) is left completely
 untouched (a configured-but-broken GPG setup is reported, never overwritten),
-and your projects directory is remembered (`git config --global
-forge.projectsDir`) so next time the right default is already there.
+and your projects directory is remembered in a plain file
+(`~/.config/rust-forge/projects-dir`, your git config stays untouched) so
+next time the right default is already there. **Everything the flow
+configures is scoped to the new project's repository only**; it even
+counts the sibling repos in your projects directory and tells you they
+will not be touched.
 Unattended machines: see "Unattended / fleet provisioning" near the end of
 this guide.
 
@@ -100,7 +104,9 @@ just setup-signing
 ```
 
 That single command: generates an SSH key if you have none (you choose the
-passphrase), configures git to sign every commit and tag with it, registers
+passphrase), configures **this repository** to sign every commit and tag
+with it (repo-local git config; your global config and every other
+repository on the machine stay untouched), registers
 the public half on GitHub as a signing key via the API, and finishes with
 `just doctor-signing` to prove the whole chain. Idempotent: re-run it any
 time; it never overwrites an existing key.

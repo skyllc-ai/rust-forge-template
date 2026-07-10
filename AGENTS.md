@@ -202,7 +202,8 @@ capability: the prohibitions in section 3, and reporting honestly.
 
 ## 10. What to tell the user, when
 
-- Before their first push: "run `just setup-signing` once" (signed commits
+- Before their first push: "run `just setup-signing` once per repository"
+  (its config is repo-local; signed commits
   are required; you cannot do this for them; it needs their passphrase).
 - After you finish any task: report the actual `just go` result, including
   failures. Never say "done" with a red gate.
