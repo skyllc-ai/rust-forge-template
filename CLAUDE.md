@@ -7,6 +7,11 @@ of truth for agent behavior in this repo: state detection (initialized vs
 template), absolute prohibitions, the work loop, Rust rules, and the exact
 fix for every gate. Everything below is a thin Claude-specific supplement.
 
+**Then read `GOTO.md`**: the living state of the project - where it stands
+in the flow, what the coming weeks look like, and the runbook for enabling
+dormant lanes (releases, publishing, coverage). Keep it updated when state
+changes.
+
 ## Project Overview
 
 acmex is a template-placeholder Rust workspace (created from
