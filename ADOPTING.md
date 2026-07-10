@@ -55,7 +55,8 @@ It ends by printing your personal to-do list. Nothing is enforced yet.
 
 From `forge-adopt-snippets.md`:
 
-1. Add the tool crates to your `[workspace] members`.
+1. Add the `[workspace.package]` metadata table (the tool crates
+   inherit from it) and the tool crates to your `[workspace] members`.
 2. Paste the `[workspace.lints]` block, delivered at **allow** levels
    (installed, inert), and add `[lints] workspace = true` per crate.
    Nothing fails, nothing changes, until you ratchet. (Why not warn?

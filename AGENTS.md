@@ -25,6 +25,14 @@ license to propose better designs - never an exemption from the rules.
 
 Run these checks in order. Pick the first match.
 
+0a. **Is there NO `justfile`, but there IS a `Cargo.toml` with existing
+   project code?** → Adoption case: the user has a real project and wants
+   this scaffolding brought TO it. Do not create a new repo. Point them at
+   `ADOPTING.md` and the one-liner (run from their repo root, clean tree):
+   ```
+   curl -fsSL https://raw.githubusercontent.com/skyllc-ai/rust-forge-template/main/adopt.sh | bash
+   ```
+   Then follow the pasted `forge-adopt-snippets.md` it produces, in order.
 0. **Is there NO `justfile` in the current directory (or no repository at
    all)?** → Genesis mode: the user has nothing yet. Guide them through
    these steps IN ORDER, one at a time, waiting for each to succeed:

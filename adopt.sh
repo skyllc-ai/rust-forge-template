@@ -157,6 +157,29 @@ LINTS_ALLOW="$(sed -n '/^\[workspace\.lints\.clippy\]/,/^\[profile\.dev\]/p' "$T
 cat > forge-adopt-snippets.md <<EOF
 # Paste these into your project (see ADOPTING.md for the full ladder)
 
+## 0. Workspace package metadata (root Cargo.toml)
+
+The copied tool crates inherit their metadata from \`[workspace.package]\`.
+If your root Cargo.toml does not have this table, add it (skip any keys
+you already define; adjust values to YOUR project):
+
+Note: \`edition\` must be "2024" here; the copied tool crates use 2024
+features and inherit this value. Your own crates keep whatever explicit
+\`edition\` they already declare, so this affects nothing else.
+
+\`\`\`toml
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "TODO-your-license"
+repository = "https://github.com/TODO-org/TODO-repo"
+authors = ["TODO <todo@example.com>"]
+readme = "README.md"
+keywords = ["TODO"]
+categories = ["TODO"]
+publish = false
+\`\`\`
+
 ## 1. Workspace members (root Cargo.toml, \`[workspace] members\`)
 
 \`\`\`toml
@@ -167,8 +190,10 @@ cat > forge-adopt-snippets.md <<EOF
   "scripts/ci/${SLUG}-manifest-audit",
 \`\`\`
 
-Also add to \`[workspace.dependencies]\` (the tool crates need these; check
-which you already have and keep YOUR versions):
+Also add to \`[workspace.dependencies]\`. Where you ALREADY have one of
+these, keep your version number but make sure the features listed below
+are included (the tool crates need them; e.g. serde without "derive" or
+tokio without "process" will not compile):
 
 \`\`\`toml
 ${SLUG}-version = { path = "crates/${SLUG}-version", version = "0.1.0" }
@@ -202,6 +227,16 @@ clean (ADOPTING.md step 4).
 
 \`\`\`toml
 ${LINTS_ALLOW}
+\`\`\`
+
+## 2b. Your own crates
+
+Two one-line additions per crate in its \`Cargo.toml\`:
+
+\`\`\`toml
+license.workspace = true   # or your explicit license; the deny gate flags unlicensed crates
+[lints]
+workspace = true           # opts the crate into the (currently allow-level) posture
 \`\`\`
 
 ## 3. First commands
