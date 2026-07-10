@@ -20,3 +20,4 @@ import 'just/packaging.just'
 default: _default-help
 
 import 'just/init.just'
+import 'just/adopt.just'
