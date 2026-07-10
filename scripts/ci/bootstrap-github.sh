@@ -36,15 +36,6 @@ for spec in \
   echo "   ✅ ${name}"
 done
 
-# ── 1b. Provenance topic: the breadcrumb that makes children findable
-#        (`topic:rust-forge-template`; pairs with docs/forge/FORGE-STAMP.toml)
-echo "── provenance topic"
-if gh repo edit "${REPO}" --add-topic rust-forge-template >/dev/null 2>&1; then
-  echo "   ✅ topic rust-forge-template"
-else
-  echo "   ⚠  could not add topic (add manually: gh repo edit --add-topic rust-forge-template)"
-fi
-
 # ── 2. Dormant-lane repo variables (all off; see docs/forge/COMPONENTS.md) ──────
 echo "── lane variables (all false - activation is a conscious flip)"
 for lane in LANE_RELEASE LANE_RELEASE_PLZ LANE_CRATES LANE_WINGET LANE_CODECOV LANE_CODEQL LANE_SLSA; do
