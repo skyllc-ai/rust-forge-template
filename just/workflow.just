@@ -180,14 +180,23 @@ setup-signing:
         printf "  \033[0;32m✅ commit signing already configured and working - nothing to change\033[0m\n"
         exit 0
     fi
-    existing_format=$(git config --get gpg.format || echo openpgp)
-    existing_key=$(git config --get user.signingkey || true)
-    if [[ -n "$existing_key" && "$existing_format" != "ssh" ]]; then
-        printf "  \033[1;33m⚠  an existing GPG signing setup is configured (key %s) but not working.\033[0m\n" "$existing_key"
-        printf "  \033[1;33m   This recipe will NOT overwrite it. Either repair GPG ('just doctor-signing'\033[0m\n"
-        printf "  \033[1;33m   shows what is broken), or switch to SSH signing deliberately:\033[0m\n"
-        printf "  \033[1;33m     git config --global --unset user.signingkey && just setup-signing\033[0m\n"
+    # A broken setup in THIS repo's local config is yours to resolve; we
+    # refuse to overwrite it. A broken GLOBAL config is different: we never
+    # touch global anyway, and a repo-local override is exactly the fix.
+    local_key=$(git config --local --get user.signingkey 2>/dev/null || true)
+    local_format=$(git config --local --get gpg.format 2>/dev/null || echo openpgp)
+    if [[ -n "$local_key" && "$local_format" != "ssh" ]]; then
+        printf "  \033[1;33m⚠  this repo has a LOCAL GPG signing setup (key %s) that is not working.\033[0m\n" "$local_key"
+        printf "  \033[1;33m   Not overwriting it. Repair GPG ('just doctor-signing' shows what is\033[0m\n"
+        printf "  \033[1;33m   broken) or remove the local override first:\033[0m\n"
+        printf "  \033[1;33m     git config --unset user.signingkey && just setup-signing\033[0m\n"
         exit 1
+    fi
+    global_key=$(git config --global --get user.signingkey 2>/dev/null || true)
+    if [[ -n "$global_key" ]]; then
+        printf "  \033[0;36mℹ️  your GLOBAL git config has a signing setup (key %s) that is not\033[0m\n" "$global_key"
+        printf "  \033[0;36m   working here. Leaving it alone; configuring THIS repo locally with\033[0m\n"
+        printf "  \033[0;36m   SSH signing instead (local config overrides global for this repo).\033[0m\n"
     fi
     # 1. Key material (interactive: you pick the passphrase)
     if [[ -f "$KEYFILE" ]]; then

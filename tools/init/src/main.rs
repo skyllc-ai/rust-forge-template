@@ -354,6 +354,10 @@ fn ceremony() -> Result<(), String> {
 
     // 4. Regenerate the hooks from the gate manifest (paranoia: the rename
     //    rewrote both sides identically, but regeneration is the contract).
+    // 3b. Format the renamed tree: the rename reflows generated code, and
+    //     the pre-commit fmt gate would otherwise reject the init commit.
+    run("cargo", &["fmt", "--all"])?;
+
     let gen_hooks = format!("{}-gen-hooks", id.slug);
     run("cargo", &["run", "-q", "-p", &gen_hooks, "--", "--target", "pre-push"])?;
     run("cargo", &["run", "-q", "-p", &gen_hooks, "--", "--target", "pre-commit"])?;
