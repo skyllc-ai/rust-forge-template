@@ -10,11 +10,15 @@
 # ADOPTING.md first; it explains the staged ladder this script starts.
 #
 # Contract (the never-erase rules):
-#   * runs only in a clean git worktree, and only on a fresh branch it creates
+#   * runs only in a clean git worktree, on a fresh branch it creates, and
+#     COMMITS the whole trial there: keep = merge the branch, undo =
+#     `just adopt-undo` (bit-for-bit restoration)
 #   * copies ONLY files you do not have; where a file exists, the template's
 #     version is written alongside as <name>.forge-suggested and listed
-#   * never edits your Cargo.toml, your crates, or your lint levels; the
-#     exact blocks to paste land in forge-adopt-snippets.md, lints at WARN
+#     (exception: missing artifact entries are APPENDED to your .gitignore)
+#   * wires your workspace automatically, but every edit is validated with
+#     `cargo metadata` and reverted on failure; lints land at ALLOW (inert);
+#     forge-adopt-snippets.md records what was done + manual fallbacks
 #
 # Usage, from the ROOT of your repository:
 #   curl -fsSL https://raw.githubusercontent.com/skyllc-ai/rust-forge-template/main/adopt.sh | bash
@@ -74,10 +78,12 @@ note "slug: $SLUG   template: $TEMPLATE"
 confirm "Create branch adopt/rust-forge-scaffolding and copy the machinery in?" || die "aborted"
 
 # ---- Branch + template checkout -------------------------------------------
+BASE_BRANCH="$(git branch --show-current)"
+git config forge.adoptBase "$BASE_BRANCH"
 git switch -c adopt/rust-forge-scaffolding 2>/dev/null || git switch adopt/rust-forge-scaffolding
 TMPL_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMPL_DIR"' EXIT
-say "1/4 Fetching the template"
+say "1/6 Fetching the template"
 if [[ -d "$TEMPLATE/.git" ]]; then
     git clone --quiet --depth 1 "$TEMPLATE" "$TMPL_DIR"   # local checkout (testing / offline)
 else
@@ -86,7 +92,7 @@ fi
 ok "template at $(git -C "$TMPL_DIR" rev-parse --short HEAD)"
 
 # ---- Copy: never clobber ---------------------------------------------------
-say "2/4 Copying the machinery (existing files become .forge-suggested)"
+say "2/6 Copying the machinery (existing files become .forge-suggested)"
 # Machinery-only subset. Deliberately NOT copied: crates/ product skeleton,
 # README/GETTING-STARTED/COMPONENTS (template-specific), LICENSE/LICENSES
 # (yours), CHANGELOG, bootstrap.sh/adopt.sh/tools (template entry points),
@@ -122,13 +128,25 @@ copy_path() { # SRC_REL
 }
 for p in "${MACHINERY[@]}"; do copy_path "$p"; done
 ok "copied $copied new files"
+# If you already had a .gitignore we did not touch it; append (never
+# overwrite) the entries the machinery's runtime artifacts need.
+if [[ -e .gitignore ]]; then
+    ADDED_IGNORES=""
+    for pat in "target/" "build/" "*.forge-suggested"; do
+        grep -qxF "$pat" .gitignore 2>/dev/null || ADDED_IGNORES="$ADDED_IGNORES$pat\n"
+    done
+    if [[ -n "$ADDED_IGNORES" ]]; then
+        printf '\n# added by rust-forge adopt (machinery runtime artifacts)\n%b' "$ADDED_IGNORES" >> .gitignore
+        ok ".gitignore: appended machinery artifact entries (yours untouched above)"
+    fi
+fi
 if [[ ${#SUGGESTED[@]} -gt 0 ]]; then
     warn "${#SUGGESTED[@]} files already existed; template versions saved as *.forge-suggested:"
     for f in "${SUGGESTED[@]}"; do note "   $f  ->  $f.forge-suggested"; done
 fi
 
 # ---- Rename the placeholder to the slug ------------------------------------
-say "3/4 Renaming the internal placeholder to '$SLUG'"
+say "3/6 Renaming the internal placeholder to '$SLUG'"
 CAP="$(printf '%s' "${SLUG:0:1}" | tr '[:lower:]' '[:upper:]')${SLUG:1}"
 UP="$(printf '%s' "$SLUG" | tr '[:lower:]' '[:upper:]')"
 # Only files we just created (never the user's own files).
@@ -148,7 +166,7 @@ done
 ok "placeholder renamed in the new files only"
 
 # ---- Snippets file: what to paste, nothing auto-edited ---------------------
-say "4/4 Writing forge-adopt-snippets.md (paste-and-go blocks)"
+say "4/6 Recording the wiring plan (forge-adopt-snippets.md)"
 # Lints are delivered at ALLOW, not warn: the gates run clippy with
 # -D warnings, so any warn-level lint would hard-fail the pipeline on a
 # legacy codebase. allow = installed and inert; the ratchet (ADOPTING.md
@@ -249,12 +267,174 @@ just go                # the pipeline runs end to end (lints warn-level)
 EOF
 ok "forge-adopt-snippets.md written"
 
+# ---- Phase 5: wire the workspace automatically (git-guarded) ---------------
+# Every automated edit is validated with `cargo metadata`; an edit that
+# breaks the manifest is reverted on the spot (we are on a committed-clean
+# branch, so git is the safety net). Anything automation cannot do safely
+# lands in forge-adopt-fallbacks.txt for a human.
+say "5/6 Wiring your workspace (automatic; every edit is validated or reverted)"
+export FORGE_SLUG="$SLUG" FORGE_TMPL="$TMPL_DIR"
+if python3 - <<'PYWIRE'
+import json, os, re, subprocess, sys
+slug = os.environ["FORGE_SLUG"]; tmpl = os.environ["FORGE_TMPL"]
+
+def validate():
+    return subprocess.run(["cargo", "metadata", "--format-version", "1", "--no-deps"],
+                          capture_output=True).returncode == 0
+
+def guarded(path, new_text, what):
+    old = open(path).read()
+    open(path, "w").write(new_text)
+    if validate():
+        print(f"  OK {what}")
+        return True
+    open(path, "w").write(old)
+    print(f"  !! {what}: automation produced an invalid manifest; reverted")
+    return False
+
+fallbacks = []
+s = open("Cargo.toml").read()
+
+# 1. workspace members
+members = [f"crates/{slug}-version", "scripts/ci-pipeline",
+           f"scripts/ci/{slug}-gen-hooks", f"scripts/ci/{slug}-gen-workflow",
+           f"scripts/ci/{slug}-manifest-audit"]
+m = re.search(r"members\s*=\s*\[", s)
+if m:
+    add = "".join(f'\n  "{x}",' for x in members if f'"{x}"' not in s)
+    s = s[:m.end()] + add + s[m.end():]
+else:
+    fallbacks.append("members: no `members = [` array found")
+
+# 2. workspace.package: whole table if absent, missing keys if present
+wp_keys = {"version": '"0.1.0"', "edition": '"2024"',
+           "license": '"MIT OR Apache-2.0"',
+           "repository": '"https://github.com/TODO-org/TODO-repo"',
+           "authors": '["TODO <todo@example.com>"]', "readme": '"README.md"',
+           "keywords": '["TODO"]', "categories": '["development-tools"]',
+           "publish": "false"}
+if "[workspace.package]" not in s:
+    tbl = "\n[workspace.package]\n" + "".join(f"{k} = {v}\n" for k, v in wp_keys.items())
+    s += tbl
+else:
+    tbl_m = re.search(r"^\[workspace\.package\]\n((?:(?!^\[).*\n)*)", s, re.M)
+    body = tbl_m.group(1)
+    missing = "".join(f"{k} = {v}\n" for k, v in wp_keys.items()
+                      if not re.search(rf"^{k}\s*=", body, re.M))
+    if missing:
+        s = s[:tbl_m.end(1)] + missing + s[tbl_m.end(1):]
+# the tool crates need edition 2024
+def fix_edition(mm):
+    return mm.group(1) + '"2024"'
+s = re.sub(r"(?ms)^(\[workspace\.package\](?:(?!^\[).*\n)*?edition\s*=\s*)\"20(?:15|18|21)\"",
+           fix_edition, s)
+
+# 3. workspace.dependencies: add what is missing, merge features into what exists
+deps = {
+ f"{slug}-version": f'{{ path = "crates/{slug}-version", version = "0.1.0" }}',
+ "anyhow": '"1"', "chrono": '{ version = "0.4", features = ["serde"] }',
+ "clap": '{ version = "4", features = ["derive", "env", "unicode", "wrap_help"] }',
+ "colored": '"3"', "futures": '"0.3"', "indicatif": '"0.18"', "num_cpus": '"1"',
+ "regex": '"1"', "serde": '{ version = "1", features = ["derive"] }',
+ "serde_json": '"1"',
+ "tokio": '{ version = "1", default-features = false, features = ["io-util", "macros", "process", "rt", "rt-multi-thread", "signal", "sync", "time", "tracing"] }',
+ "toml": '"1"', "uuid": '{ version = "1", features = ["v4"] }',
+}
+need_features = {
+ "serde": ["derive"],
+ "clap": ["derive", "env", "unicode", "wrap_help"],
+ "chrono": ["serde"], "uuid": ["v4"],
+ "tokio": ["io-util", "macros", "process", "rt", "rt-multi-thread", "signal", "sync", "time", "tracing"],
+}
+if "[workspace.dependencies]" not in s:
+    s += "\n[workspace.dependencies]\n"
+dep_m = re.search(r"^\[workspace\.dependencies\]\n", s, re.M)
+ins = dep_m.end()
+for name, spec in deps.items():
+    line_m = re.search(rf"^{re.escape(name)}\s*=\s*(.+)$", s, re.M)
+    if not line_m:
+        s = s[:ins] + f"{name} = {spec}\n" + s[ins:]
+        continue
+    if name in need_features:
+        val = line_m.group(1)
+        if val.strip().startswith('"'):
+            ver = val.strip().strip('"')
+            feats = ", ".join(f'"{f}"' for f in need_features[name])
+            extra = ", default-features = false" if name == "tokio" else ""
+            s = s[:line_m.start(1)] + f'{{ version = "{ver}", features = [{feats}]{extra} }}' + s[line_m.end(1):]
+        elif "features" in val:
+            missing = [f for f in need_features[name] if f'"{f}"' not in val]
+            if missing:
+                fm = re.search(r"features\s*=\s*\[", val)
+                addf = "".join(f'"{f}", ' for f in missing)
+                newval = val[:fm.end()] + addf + val[fm.end():]
+                s = s[:line_m.start(1)] + newval + s[line_m.end(1):]
+        else:
+            fallbacks.append(f"dep {name}: multi-line table, merge features by hand")
+
+# 4. the lint posture at allow (installed, inert)
+if "[workspace.lints.clippy]" not in s:
+    t = open(os.path.join(tmpl, "Cargo.toml")).read()
+    lm = re.search(r"(?ms)^\[workspace\.lints\.clippy\].*?(?=^\[profile\.dev\])", t)
+    lints = (lm.group(0).replace('"deny"', '"allow"')
+                        .replace('level = "deny"', 'level = "allow"')
+                        .replace('"warn"', '"allow"'))
+    s += "\n" + lints
+
+if not guarded("Cargo.toml", s, "root Cargo.toml (members, workspace.package, deps, lints at allow)"):
+    sys.exit(3)
+
+# 5. per-crate: license + [lints] workspace = true (their crates only)
+meta = json.loads(subprocess.run(["cargo", "metadata", "--format-version", "1", "--no-deps"],
+                                 capture_output=True, text=True).stdout)
+root = os.getcwd()
+for pkg in meta["packages"]:
+    man = pkg["manifest_path"]
+    rel = os.path.relpath(man, root)
+    if rel.startswith("scripts/") or rel.startswith(f"crates/{slug}-version"):
+        continue
+    c = open(man).read()
+    orig = c
+    if not re.search(r"^license(-file)?(\.workspace)?\s*=", c, re.M):
+        c2 = re.sub(r"^(edition[^\n]*\n)", r"\1license.workspace = true\n", c, count=1, flags=re.M)
+        c = c2 if c2 != c else c.replace("[package]\n", "[package]\nlicense.workspace = true\n", 1)
+    if "[lints]" not in c:
+        c += "\n[lints]\nworkspace = true\n"
+    if c != orig and not guarded(man, c, f"crate {pkg['name']} (license + lints opt-in)"):
+        fallbacks.append(f"crate {pkg['name']}: add license + [lints] workspace = true by hand")
+
+if fallbacks:
+    open("forge-adopt-fallbacks.txt", "w").write("\n".join(fallbacks) + "\n")
+    print("  !! some spots need a human; see forge-adopt-fallbacks.txt (details in forge-adopt-snippets.md)")
+sys.exit(0)
+PYWIRE
+then
+    ok "workspace wired automatically (snippets file kept as the record of what was done)"
+else
+    warn "automatic wiring hit a wall; your files were reverted, nothing is broken."
+    warn "forge-adopt-snippets.md has the manual blocks for the parts that failed."
+fi
+# Resolve + commit the lockfile with the trial (committed-lock policy; also
+# keeps the tree clean after your first build, so adopt-undo stays one command)
+cargo generate-lockfile >/dev/null 2>&1 && ok "Cargo.lock resolved (committed with the trial)" || warn "could not resolve Cargo.lock; it will appear on first build"
+
+# ---- Phase 6: commit the trial on the adopt branch --------------------------
+# A plain commit: if YOUR pre-existing hooks reject it, that is your policy
+# speaking; resolve and commit manually (or undo the branch). We never
+# bypass anyone's hooks, including yours.
+say "6/6 Committing the trial (reversible by design)"
+git add -A
+if git commit -q -m "chore(adopt): rust-forge scaffolding trial (automated; see ADOPTING.md)"; then
+    ok "committed on adopt/rust-forge-scaffolding (base: $BASE_BRANCH)"
+else
+    warn "your existing hooks rejected the commit; fix and 'git commit' yourself, or 'just adopt-undo'"
+fi
+
 echo
-printf "${C_GREEN}Done. Your code was not touched; nothing is enforced yet.${C_OFF}\n"
-printf "${C_CYAN}Next: 1) paste the two blocks from forge-adopt-snippets.md${C_OFF}\n"
-printf "${C_CYAN}      2) merge any *.forge-suggested files by hand${C_OFF}\n"
-printf "${C_CYAN}      3) just setup && just go${C_OFF}\n"
-printf "${C_CYAN}      4) read ADOPTING.md for the ratchet (steps 3-4) and, IMPORTANT,${C_OFF}\n"
-printf "${C_CYAN}         step 5: the GitHub-side cutover (hooks/signing/rulesets are${C_OFF}\n"
-printf "${C_CYAN}         NOT branch-scoped; sequence them after this branch merges)${C_OFF}\n"
-printf "${C_CYAN}      5) git add -A && git commit when you like what you see${C_OFF}\n"
+printf "${C_GREEN}Done. Everything is committed on the adopt branch; your base branch is untouched.${C_OFF}\n"
+printf "${C_CYAN}Try it:    just setup && just go${C_OFF}\n"
+printf "${C_CYAN}Status:    just adopt-status${C_OFF}\n"
+printf "${C_CYAN}Keep it:   push the branch and open a PR (normal flow)${C_OFF}\n"
+printf "${C_CYAN}Undo ALL:  just adopt-undo   (bit-for-bit restoration, branch deleted)${C_OFF}\n"
+printf "${C_CYAN}Then read ADOPTING.md: the lint ratchet (step 4) and the GitHub-side${C_OFF}\n"
+printf "${C_CYAN}cutover (step 5; hooks/signing/rulesets are not branch-scoped).${C_OFF}\n"

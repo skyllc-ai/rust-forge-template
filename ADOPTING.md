@@ -38,7 +38,8 @@ curl -fsSL https://raw.githubusercontent.com/skyllc-ai/rust-forge-template/main/
 
 What it does, and what it refuses to do:
 
-- creates a branch `adopt/rust-forge-scaffolding` in your repo
+- creates a branch `adopt/rust-forge-scaffolding` in your repo (your base
+  branch is recorded, for the undo)
 - copies the machinery-only subset in: `just/` + `justfile`, the gate
   manifest and its generator crates, the pipeline crate, git hooks, CI
   workflows, nextest profiles, deny/vet/typos/taplo/clippy/rustfmt configs,
@@ -48,30 +49,48 @@ What it does, and what it refuses to do:
   (your `.gitignore`, your workflows, your `deny.toml`, ...), the
   template's version lands next to it as `<name>.forge-suggested` for a
   manual merge, and the script lists every such file at the end
-- does NOT touch your `Cargo.toml`, your crates, or your lint levels.
-  Instead it writes `forge-adopt-snippets.md` containing the exact TOML
-  blocks to paste, with the lints set to **allow** (installed, inert)
+- **wires your workspace automatically, under a git guard**: workspace
+  members, the `[workspace.package]` table (added or completed), the
+  dependencies the tool crates need (added if missing; features merged
+  into entries you already have), the full lint posture at **allow**
+  (installed, inert), plus `license.workspace = true` and
+  `[lints] workspace = true` in each of your crates. Every single edit is
+  validated with `cargo metadata`; an edit that would break your manifest
+  is reverted on the spot and listed in `forge-adopt-fallbacks.txt` for a
+  human. `forge-adopt-snippets.md` stays as the record of what was done
+  (and the manual recipe for any fallback).
+- **commits the whole trial on the adopt branch.** Your base branch is
+  untouched; a plain `git commit` is used, so if your own pre-existing
+  hooks reject it, that is your policy speaking, never bypassed.
 
-It ends by printing your personal to-do list. Nothing is enforced yet.
+Why "allow" and not "warn" for the lints: the gates run clippy with
+`-D warnings`, which would promote every warning to a day-one failure on
+a legacy codebase. Allow means installed and silent; the ratchet (step 4)
+flips groups to deny when a crate is ready.
 
-## Step 2: wire the workspace (paste two blocks)
-
-From `forge-adopt-snippets.md`:
-
-1. Add the `[workspace.package]` metadata table (the tool crates
-   inherit from it) and the tool crates to your `[workspace] members`.
-2. Paste the `[workspace.lints]` block, delivered at **allow** levels
-   (installed, inert), and add `[lints] workspace = true` per crate.
-   Nothing fails, nothing changes, until you ratchet. (Why not warn?
-   The gates run clippy with `-D warnings`, which would promote every
-   warning to a day-one failure on a legacy codebase.)
-
-Then wire the hooks and prove the machinery runs:
+## Step 2: try it, keep it, or undo it
 
 ```bash
-just setup            # installs the gate tools, wires the hooks
+just setup            # installs the gate tools, wires the hooks (repo-local)
 just go               # the pipeline runs end to end on YOUR code
+just adopt-status     # where the trial stands
 ```
+
+Like what you see? Push the branch and open a PR; merging it is the
+adoption. Not convinced?
+
+```bash
+just adopt-undo
+```
+
+That returns to your base branch, deletes the adopt branch, and unsets the
+repo-local `core.hooksPath`: your repository is restored **bit-for-bit** to
+the pre-adoption state. Kept on purpose: installed tools (machine software
+you likely want anyway), your SSH key and its GitHub registration
+(user-level artifacts), and repo-local signing config if you ran
+`just setup-signing` (harmless; the undo output says how to remove it).
+Changed your mind again? Re-run `adopt.sh` any time; the trial is cheap in
+both directions.
 
 ## Step 3: the cheap wins (one mechanical PR each)
 

@@ -193,10 +193,13 @@ bash scripts/ci/bootstrap-github.sh
 ```
 
 **Already have a project?** The scaffolding can be brought to existing
-code too: file changes on a branch, nothing overwritten, lints installed
-inert with a documented ratchet, and the repo-global pieces (hooks
-config, signing, rulesets) deferred to an explicitly sequenced cutover
-step: see **[ADOPTING.md](ADOPTING.md)** (`adopt.sh`).
+code too, fully automated and fully reversible: `adopt.sh` wires
+everything on a dedicated branch (every edit git-guarded and validated,
+nothing of yours overwritten, lints installed inert), commits the trial,
+and `just adopt-undo` restores your repo bit-for-bit if you change your
+mind. Repo-global pieces (hooks config, signing, rulesets) stay deferred
+to an explicitly sequenced cutover step: see
+**[ADOPTING.md](ADOPTING.md)**.
 
 After init, `rg -i acmex` returns nothing; that emptiness is the proof the
 rename ceremony completed.
