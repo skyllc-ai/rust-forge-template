@@ -79,7 +79,7 @@ pub(crate) struct Cli {
     /// By default `ship --fresh` invokes `just toolchain-sync` (bumps
     /// `rust-toolchain.toml` to today's nightly).  Pass this flag when
     /// the latest nightly is known-broken and you want to keep the
-    /// currently pinned one — the pipeline will fall back to
+    /// currently pinned one - the pipeline will fall back to
     /// `just toolchain-ensure` (install-the-pinned-one).  Non-fresh
     /// `ship` runs always use `toolchain-ensure` regardless of this
     /// flag; the sync only happens on `--fresh`.

@@ -9,7 +9,7 @@
 //! fingerprint.
 //!
 //! Projects that want Windows resource embedding (icon, version info,
-//! app.manifest) add `winresource` here — see the donor pattern in the
+//! app.manifest) add `winresource` here - see the donor pattern in the
 //! template documentation.
 
 fn main() {

@@ -43,7 +43,7 @@ sccache-clear:
 #
 # `just test` runs `cargo llvm-cov nextest` which writes an instrumented
 # build tree to `$CARGO_TARGET_DIR/llvm-cov-target/`.  That tree can
-# grow to 100+ GB over a long session — every profile bump, every
+# grow to 100+ GB over a long session - every profile bump, every
 # `.profraw` from a failed run, and every compiled test binary stays
 # cached there.  On a near-full disk (Dropbox / external drive / small
 # SSD) this is the top cause of ENOSPC that surfaces as:
@@ -56,7 +56,7 @@ sccache-clear:
 # The daemon's `write_paths_blob` correctly falls back to
 # `SearchPayload::InlineBlob` on disk-full, but those two tests pin
 # the shmem branch specifically, so a disk-full environment makes
-# them loudly fail — which is exactly the design: silently skipping
+# them loudly fail - which is exactly the design: silently skipping
 # would hide real `write_paths_blob` regressions on healthy hosts.
 #
 # What it prunes:
@@ -81,17 +81,17 @@ clean-cov:
 
     FREED_KB=0
 
-    # Phase 1 — llvm-cov instrumentation trees.
+    # Phase 1 - llvm-cov instrumentation trees.
     for sub in llvm-cov-target llvm-cov; do
         if [ -d "$TARGET_DIR/$sub" ]; then
             SIZE_KB=$(du -sk "$TARGET_DIR/$sub" 2>/dev/null | cut -f1 || echo 0)
-            printf "   \033[0;34m•\033[0m %s/%s — %s KB\n" "$TARGET_DIR" "$sub" "$SIZE_KB"
+            printf "   \033[0;34m•\033[0m %s/%s - %s KB\n" "$TARGET_DIR" "$sub" "$SIZE_KB"
             rm -rf "$TARGET_DIR/$sub"
             FREED_KB=$((FREED_KB + SIZE_KB))
         fi
     done
 
-    # Phase 2 — stray .profraw instrumentation files.
+    # Phase 2 - stray .profraw instrumentation files.
     if [ -d "$TARGET_DIR" ]; then
         PROFRAW_COUNT=$(find "$TARGET_DIR" -name '*.profraw' -type f 2>/dev/null | wc -l | tr -d ' ')
         if [ "${PROFRAW_COUNT:-0}" -gt 0 ]; then
@@ -99,12 +99,12 @@ clean-cov:
                 | du -sk --files0-from=- 2>/dev/null \
                 | awk '{sum += $1} END {print sum+0}')
             find "$TARGET_DIR" -name '*.profraw' -type f -delete 2>/dev/null || true
-            printf "   \033[0;34m•\033[0m %s leftover *.profraw file(s) — %s KB\n" "$PROFRAW_COUNT" "${PROFRAW_KB:-0}"
+            printf "   \033[0;34m•\033[0m %s leftover *.profraw file(s) - %s KB\n" "$PROFRAW_COUNT" "${PROFRAW_KB:-0}"
             FREED_KB=$((FREED_KB + ${PROFRAW_KB:-0}))
         fi
     fi
 
-    # Phase 3 — orphan daemon shmem files.
+    # Phase 3 - orphan daemon shmem files.
     # Paths mirror `dirs_next::data_local_dir().join("acmex/shmem")` which
     # is what the daemon writes through in `acmex_client::shmem`.
     case "$(uname -s)" in
@@ -119,12 +119,12 @@ clean-cov:
         if [ "${SHMEM_COUNT:-0}" -gt 0 ]; then
             SHMEM_KB=$(du -sk "$SHMEM_DIR" 2>/dev/null | cut -f1 || echo 0)
             rm -rf "$SHMEM_DIR"/*
-            printf "   \033[0;34m•\033[0m %s shmem file(s) in %s — %s KB\n" "$SHMEM_COUNT" "$SHMEM_DIR" "$SHMEM_KB"
+            printf "   \033[0;34m•\033[0m %s shmem file(s) in %s - %s KB\n" "$SHMEM_COUNT" "$SHMEM_DIR" "$SHMEM_KB"
             FREED_KB=$((FREED_KB + SHMEM_KB))
         fi
     fi
 
-    # Summary — promote to MB / GB for readability.
+    # Summary - promote to MB / GB for readability.
     if [ "$FREED_KB" -ge 1048576 ]; then
         printf "\033[0;32m✅ Freed ~%s GB\033[0m\n" "$((FREED_KB / 1048576))"
     elif [ "$FREED_KB" -ge 1024 ]; then
@@ -132,6 +132,6 @@ clean-cov:
     elif [ "$FREED_KB" -gt 0 ]; then
         printf "\033[0;32m✅ Freed %s KB\033[0m\n" "$FREED_KB"
     else
-        printf "\033[0;32m✅ Nothing to clean — llvm-cov tree and shmem dir already empty.\033[0m\n"
+        printf "\033[0;32m✅ Nothing to clean - llvm-cov tree and shmem dir already empty.\033[0m\n"
     fi
 

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2025-2026 Acmex Placeholder LLC.
 #
-# Dependabot — automated dependency update PRs.
+# Dependabot - automated dependency update PRs.
 # See: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates
 
 version: 2
@@ -22,7 +22,7 @@ updates:
     # Use `chore` so the generated PR title (`chore(deps): bump foo …`)
     # passes `.github/workflows/commitlint.yml`'s Conventional Commits
     # allowlist (`feat|fix|perf|refactor|docs|test|build|ci|chore|style|
-    # revert`).  `deps` would be rejected — the previous setting was the
+    # revert`).  `deps` would be rejected - the previous setting was the
     # root cause of the 2026-05 Dependabot pipeline stall (see PR #125).
     # `chore(deps): …` is also the default Dependabot upstream uses and
     # the most common convention in OSS Rust crates.
@@ -41,7 +41,7 @@ updates:
         exclude-patterns:
           - "serde*"
 
-  # GitHub Actions — pinned to SHA, Dependabot proposes SHA bumps
+  # GitHub Actions - pinned to SHA, Dependabot proposes SHA bumps
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

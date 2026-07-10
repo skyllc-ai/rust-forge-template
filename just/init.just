@@ -12,13 +12,13 @@
 #
 # Arguments are POSITIONAL: name org [entity] [author] [domain] [license].
 # (`just` treats key=value tokens as raw strings, so a name=myproj style
-# call would arrive with the literal "name=" prefix — do not use it.)
+# call would arrive with the literal "name=" prefix - do not use it.)
 # domain defaults to <org>.example; license defaults to MIT OR Apache-2.0.
 init name org entity="" author="" domain="" license="":
     #!/usr/bin/env bash
     set -euo pipefail
     if [ ! -d tools/init ]; then
-        printf "\033[0;31m❌ tools/init not found — this repo looks initialized already.\033[0m\n"
+        printf "\033[0;31m❌ tools/init not found - this repo looks initialized already.\033[0m\n"
         exit 1
     fi
     ARGS=(--name "{{ name }}" --org "{{ org }}")

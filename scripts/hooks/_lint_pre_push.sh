@@ -25,12 +25,12 @@
 #
 # Architecture (Phase 2 of dev-flow-implementation-plan.md § 1.4):
 #
-#   Bucket 1 — cheap, parallel, fire-and-forget.  Non-cargo jobs plus
+#   Bucket 1 - cheap, parallel, fire-and-forget.  Non-cargo jobs plus
 #              cargo-vet (which is fast and dep-gated).  Waits at the
 #              end of the script; all Bucket 1 results report even
 #              when Bucket 2 fails.
 #
-#   Bucket 2 — cargo-heavy, sequential, FAIL-FAST.  Ordered cheapest →
+#   Bucket 2 - cargo-heavy, sequential, FAIL-FAST.  Ordered cheapest →
 #              most expensive so the first actionable red surfaces
 #              within ~15 s rather than the old ~40-60 s.  After the
 #              first failure, remaining jobs are marked `skip` and
@@ -49,7 +49,7 @@
 #
 # Per-gate documentation (label, command, rationale, expected runtime,
 # CI counterpart) lives in `scripts/ci/gates.toml`'s `[[gate]]` tables
-# — that is the single source of truth, and the generator preserves
+# - that is the single source of truth, and the generator preserves
 # it on every regen.
 
 set -euo pipefail
@@ -141,9 +141,9 @@ DEP_CHANGED=0;   class_matches '^(.*Cargo\.toml$|Cargo\.lock$|supply-chain/)' &&
 INFRA_CHANGED=0; class_matches '^(\.github/|scripts/|\.cargo/|\.config/|just/|rust-toolchain|clippy\.toml$|rustfmt\.toml$|deny\.toml$|REUSE\.toml$|codecov\.yml$)' && INFRA_CHANGED=1
 CODE_CHANGED=$(( RUST_CHANGED || DEP_CHANGED || INFRA_CHANGED ))
 
-printf '%s🚦 lint-pre-push — workspace parallel gate%s\n' "$C_BLUE" "$C_RESET"
+printf '%s🚦 lint-pre-push - workspace parallel gate%s\n' "$C_BLUE" "$C_RESET"
 if [[ "$CHANGED_FILES" == "__UNKNOWN__" ]]; then
-    printf '   %s(manual mode — no pushed range detected; running all gates)%s\n' "$C_CYAN" "$C_RESET"
+    printf '   %s(manual mode - no pushed range detected; running all gates)%s\n' "$C_CYAN" "$C_RESET"
 else
     printf '   %s(rust=%d dep=%d infra=%d code=%d)%s\n' \
         "$C_CYAN" "$RUST_CHANGED" "$DEP_CHANGED" "$INFRA_CHANGED" "$CODE_CHANGED" "$C_RESET"
@@ -155,7 +155,7 @@ trap 'rm -rf "$TMP"' EXIT
 
 # ── Bucket 1 (cheap, parallel) ─────────────────────────────────────────
 # Non-cargo jobs + cargo-vet (dep-gated).  All run concurrently; we wait
-# at the end.  Cargo-heavy jobs are deliberately NOT here — they would
+# at the end.  Cargo-heavy jobs are deliberately NOT here - they would
 # serialise on cargo's target-dir lock and stall the cheap jobs.
 BG_NAMES=()
 BG_PIDS=()
@@ -198,7 +198,7 @@ run_seq() {
 }
 
 # ── Dispatch (generated from gates.toml) ──────────────────────────────
-# Bucket 1 — fire-and-forget.  Cheap, parallel; no cargo lock
+# Bucket 1 - fire-and-forget.  Cheap, parallel; no cargo lock
 # contention.  See gates.toml for the canonical gate set.
 spawn_bg "fmt" cargo fmt --all -- --check
 spawn_bg "file-size" bash scripts/ci/check_file_size_policy.sh
@@ -237,7 +237,7 @@ spawn_bg "machete" cargo-machete --skip-target-dir
 command -v typos >/dev/null 2>&1 && spawn_bg "typos" typos .
 command -v reuse >/dev/null 2>&1 && spawn_bg "reuse" reuse lint --quiet
 
-# Bucket 2 — sequential, fail-fast.  Only runs when code
+# Bucket 2 - sequential, fail-fast.  Only runs when code
 # changed (rust | dep | infra).  Pure-docs-only pushes skip
 # the compile/test gate entirely.
 if (( CODE_CHANGED )); then
@@ -292,7 +292,7 @@ done
 
 # If we ran Bucket 2 at all but nothing fired (pure docs), say so.
 if (( ! CODE_CHANGED )); then
-    printf '  %sℹ%s  Bucket 2 skipped — no rust/dep/infra files changed\n' "$C_CYAN" "$C_RESET"
+    printf '  %sℹ%s  Bucket 2 skipped - no rust/dep/infra files changed\n' "$C_CYAN" "$C_RESET"
 fi
 
 # Aggregate failure list for final dump.
@@ -304,16 +304,16 @@ missing=()
 command -v typos     >/dev/null 2>&1 || missing+=("typos-cli")
 command -v reuse     >/dev/null 2>&1 || missing+=("reuse (pipx install reuse)")
 # cargo-vet is listed here as an advisory when we reach this point without
-# having hard-failed — i.e. current push did NOT hit `dep_changed`.  The
+# having hard-failed - i.e. current push did NOT hit `dep_changed`.  The
 # future push that does hit it will hard-fail unless the tool is present.
 command -v cargo-vet >/dev/null 2>&1 || missing+=("cargo-vet (required for dep-change pushes)")
 if (( ${#missing[@]} > 0 )); then
-    # NOTE: no backticks around `just install-dev-tools` — the cyan
+    # NOTE: no backticks around `just install-dev-tools` - the cyan
     # ANSI codes already emphasise the command, and literal backticks
     # inside a single-quoted printf format string trip shellcheck
     # SC2016 ("expressions don't expand in single quotes") even
     # though they are harmless literal bytes in this context.
-    printf '  %s💡%s optional tools missing: %s — run %sjust install-dev-tools%s\n' \
+    printf '  %s💡%s optional tools missing: %s - run %sjust install-dev-tools%s\n' \
         "$C_CYAN" "$C_RESET" "${missing[*]}" "$C_CYAN" "$C_RESET"
 fi
 
@@ -324,7 +324,7 @@ if (( ${#FAILED[@]} > 0 )); then
         cat "$TMP/$name.out"
     done
     DUR=$(( $(date +%s) - START ))
-    printf '\n%s❌ lint-pre-push FAILED (%ss) — push aborted%s\n' "$C_RED" "$DUR" "$C_RESET" >&2
+    printf '\n%s❌ lint-pre-push FAILED (%ss) - push aborted%s\n' "$C_RED" "$DUR" "$C_RESET" >&2
     # Same SC2016 avoidance as the install-dev-tools hint above:
     # drop the visual backticks around the escape-hatch command and
     # let the yellow ANSI color carry the emphasis.

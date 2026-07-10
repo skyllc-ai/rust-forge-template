@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2025-2026 Acmex Placeholder LLC.
 #
-# `just vet-bump` driver — guided cargo-vet exemption bump with audit
+# `just vet-bump` driver - guided cargo-vet exemption bump with audit
 # and trailer hygiene.
 #
-# **Why this exists** — the lazy fix for "tokio 1.52.2 -> 1.52.3 broke
+# **Why this exists** - the lazy fix for "tokio 1.52.2 -> 1.52.3 broke
 # `cargo vet check`" is to bump `[[exemptions.tokio]] version = "..."`
 # and call it a day.  That turns every exemption into a permanent
 # rubber stamp.  The discipline gate in
@@ -17,10 +17,10 @@
 #   1. Locate the current exemption's version (OLD).
 #   2. Locate the version cargo.lock now wants (NEW).
 #   3. Print the commands the operator should run to:
-#        a. `cargo vet diff <crate> OLD NEW` — review the upstream diff.
-#        b. `cargo vet certify <crate> OLD NEW` — record the audit
+#        a. `cargo vet diff <crate> OLD NEW` - review the upstream diff.
+#        b. `cargo vet certify <crate> OLD NEW` - record the audit
 #           (interactive: prompts for criteria + notes).
-#        c. (No exemption bump needed — the delta audit anchored on OLD
+#        c. (No exemption bump needed - the delta audit anchored on OLD
 #           extends the trust chain forward to NEW.)
 #        d. Stage `supply-chain/audits.toml`, commit with a
 #           `Vet-Reviewed-Diff: <crate>@OLD->NEW` trailer.
@@ -84,7 +84,7 @@ shift
 
 # ── Pre-flight checks ───────────────────────────────────────────────
 if [[ ! -f "$REPO_ROOT/$CONFIG_REL" ]]; then
-    printf '%s[FAIL]%s %s not found — run from a ACMEX workspace root\n' \
+    printf '%s[FAIL]%s %s not found - run from a ACMEX workspace root\n' \
         "$C_RED" "$C_RESET" "$CONFIG_REL" >&2
     exit 1
 fi
@@ -176,7 +176,7 @@ case $# in
         OLD="$(old_from_config "$CRATE")" || true
         NEW="$1"
         if [[ -z "$OLD" ]]; then
-            printf '%s[FAIL]%s no exemption for %s in %s — pass OLD explicitly\n' \
+            printf '%s[FAIL]%s no exemption for %s in %s - pass OLD explicitly\n' \
                 "$C_RED" "$C_RESET" "$CRATE" "$CONFIG_REL" >&2
             exit 1
         fi
@@ -199,13 +199,13 @@ if [[ -z "${NEW:-}" ]]; then
 fi
 
 if [[ "$OLD" == "$NEW" ]]; then
-    printf '%s[OK]%s exemption for %s already at %s — nothing to bump\n' \
+    printf '%s[OK]%s exemption for %s already at %s - nothing to bump\n' \
         "$C_GREEN" "$C_RESET" "$CRATE" "$OLD"
     exit 0
 fi
 
 # Detect direction (informational only; the discipline gate is
-# direction-insensitive — see `check_vet_audit_discipline.sh`).
+# direction-insensitive - see `check_vet_audit_discipline.sh`).
 if [[ "$OLD" < "$NEW" ]]; then
     DIRECTION="forward"
 else
@@ -250,7 +250,7 @@ cat <<RECIPE
 
 ${C_BLUE}# vet-bump:${C_RESET} ${C_CYAN}${CRATE}${C_RESET} ${C_YELLOW}${OLD}${C_RESET} -> ${C_GREEN}${NEW}${C_RESET}  (${DIRECTION}, criteria=${C_CYAN}${CRITERIA}${C_RESET})
 
-${C_YELLOW}Step 1 — review the upstream diff${C_RESET}
+${C_YELLOW}Step 1 - review the upstream diff${C_RESET}
 ${C_CYAN}    cargo vet diff ${CRATE} ${OLD} ${NEW}${C_RESET}
 
   Read every changed file.  Note anything new under one of:
@@ -258,7 +258,7 @@ ${C_CYAN}    cargo vet diff ${CRATE} ${OLD} ${NEW}${C_RESET}
     · network / FS / process I/O       · build.rs side effects
     · feature gates                    · public-API signature drift
 
-${C_YELLOW}Step 2 — record the audit${C_RESET}
+${C_YELLOW}Step 2 - record the audit${C_RESET}
 ${C_CYAN}    cargo vet certify ${CRATE} ${OLD} ${NEW} --criteria ${CRITERIA}${C_RESET}
 
   cargo-vet will open an editor for the audit notes.  Write a concrete
@@ -267,18 +267,18 @@ ${C_CYAN}    cargo vet certify ${CRATE} ${OLD} ${NEW} --criteria ${CRITERIA}${C_
   The notes survive in supply-chain/audits.toml and are the audit
   trail downstream consumers will read.
 
-${C_YELLOW}Step 3 — commit the audit${C_RESET}
+${C_YELLOW}Step 3 - commit the audit${C_RESET}
 ${C_CYAN}    git add supply-chain/audits.toml${C_RESET}
 ${C_CYAN}    git commit -S \\
         -m 'chore(security): audit ${CRATE} ${OLD} -> ${NEW}' \\
         --trailer 'Vet-Reviewed-Diff: ${CRATE}@${OLD}->${NEW}'${C_RESET}
 
-  The ${C_CYAN}Vet-Reviewed-Diff:${C_RESET} trailer is mandatory — the discipline
+  The ${C_CYAN}Vet-Reviewed-Diff:${C_RESET} trailer is mandatory - the discipline
   gate (scripts/ci/check_vet_audit_discipline.sh) checks for it on
   every commit that bumps an exemption.  Branch protection enforces
   signed commits on main (${C_CYAN}-S${C_RESET}).
 
-${C_YELLOW}Step 4 — verify locally${C_RESET}
+${C_YELLOW}Step 4 - verify locally${C_RESET}
 ${C_CYAN}    cargo vet check --locked${C_RESET}
 ${C_CYAN}    bash scripts/ci/check_vet_audit_discipline.sh range origin/main..HEAD${C_RESET}
 

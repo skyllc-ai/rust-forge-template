@@ -6,13 +6,13 @@
 # and prevents issues caused by switching between stable/nightly toolchains
 
 [toolchain]
-# Pinned nightly — single source of truth for every environment.
+# Pinned nightly - single source of truth for every environment.
 # CI must NOT override this with `@nightly`; workflows install via
 # `rustup show` (which reads this file) so the pin is always honored.
 #
 # Current pin: nightly-2026-07-06.  Requires ethnum >= 1.5.3 (the
 # workspace Cargo.lock resolves 1.5.3 transitively via polars-compute +
-# parquet — verify with `grep -A1 'name = "ethnum"' Cargo.lock`).
+# parquet - verify with `grep -A1 'name = "ethnum"' Cargo.lock`).
 #
 # Resolved-history note (kept so a future bump does not re-tread this):
 #   * nightly-2026-04-13 broke tokio 1.51.1 (unresolved imports in
@@ -24,7 +24,7 @@
 #             `mem::transmute::<(), TryFromIntError>(())`
 #     because std's `TryFromIntError` private field grew 0 -> 8 bits.
 #     ethnum 1.5.3 removed that zero-sized transmute, so the regression
-#     is fixed at the dependency level — NOT by holding an old nightly.
+#     is fixed at the dependency level - NOT by holding an old nightly.
 #     If you bump the channel and hit E0512, the fix is
 #     `cargo update -p ethnum --precise 1.5.3` (or newer), never a
 #     toolchain downgrade.

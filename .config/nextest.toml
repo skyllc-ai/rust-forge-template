@@ -1,14 +1,14 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2025-2026 Acmex Placeholder LLC.
 #
-# ACMEX — nextest repository configuration
+# ACMEX - nextest repository configuration
 # https://nexte.st/docs/configuration/reference/
 
 # Require nextest ≥ 0.9.130 (flaky-result, fail-fast object, run-extra-args)
 nextest-version = { required = "0.9.130", recommended = "0.9.132" }
 
 # ---------------------------------------------------------------------------
-# Default profile — local development
+# Default profile - local development
 # ---------------------------------------------------------------------------
 [profile.default]
 # Auto-detect CPUs; reserve 2 for the OS / IDE / language server.
@@ -25,7 +25,7 @@ status-level = "pass"
 final-status-level = "flaky"
 
 # ---------------------------------------------------------------------------
-# CI profile — conservative, deterministic, full diagnostics
+# CI profile - conservative, deterministic, full diagnostics
 # Usage: cargo nextest run --profile ci
 # ---------------------------------------------------------------------------
 [profile.ci]
@@ -49,7 +49,7 @@ store-success-output = false
 store-failure-output = true
 
 # ---------------------------------------------------------------------------
-# pre-push-smoke — mandatory fast test subset at git-push time.
+# pre-push-smoke - mandatory fast test subset at git-push time.
 # Budget: 10-20 s warm on a developer laptop.
 # Usage: cargo nextest run --profile pre-push-smoke --locked
 #
@@ -75,7 +75,7 @@ status-level = "fail"
 final-status-level = "flaky"
 
 # ---------------------------------------------------------------------------
-# Slow / integration profile — for #[ignore] platform- or resource-gated tests
+# Slow / integration profile - for #[ignore] platform- or resource-gated tests
 # Usage: cargo nextest run --profile slow --run-ignored ignored-only
 # ---------------------------------------------------------------------------
 [profile.slow]

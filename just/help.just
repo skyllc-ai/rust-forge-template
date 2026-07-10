@@ -3,7 +3,7 @@
 
 # Default help content.
 _default-help:
-    @printf "\033[0;34m🚀 ACMEX — Ultra Fast File Search\033[0m\n"
+    @printf "\033[0;34m🚀 ACMEX - Ultra Fast File Search\033[0m\n"
     @echo "=================================================="
     @echo ""
     @printf "\033[0;32m🚀 Ship & Validate:\033[0m\n"

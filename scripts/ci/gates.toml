@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2025-2026 Acmex Placeholder LLC.
 #
-# ACMEX quality-gate manifest — single source of truth for the gate
+# ACMEX quality-gate manifest - single source of truth for the gate
 # set enforced at pre-commit, pre-push, and PR Fast CI.
 #
 # This file is the implementation of Phase 1 of
@@ -12,7 +12,7 @@
 # (`scripts/hooks/_lint_fast.sh`, `scripts/hooks/_lint_pre_push.sh`,
 # `.github/workflows/pr-fast.yml`) are still hand-maintained.  The
 # `scripts/ci/check_gates_drift.sh` drift detector verifies the
-# manifest stays in sync with what those files actually do — it
+# manifest stays in sync with what those files actually do - it
 # fails CI if any gate listed here is missing from the corresponding
 # consumer, or if a consumer-defined gate is missing from this file.
 #
@@ -26,7 +26,7 @@
 [manifest]
 version = 1
 generated_files = [
-  # Phase 1: empty — nothing is generated yet.
+  # Phase 1: empty - nothing is generated yet.
   # Phase 2: "scripts/hooks/_lint_pre_push.sh"
   # Phase 3: + "scripts/hooks/_lint_fast.sh", ".github/workflows/pr-fast.yml"
 ]
@@ -39,10 +39,10 @@ rust = '\.rs$'
 dep = '^(.*Cargo\.toml$|Cargo\.lock$|supply-chain/)'
 infra = '^(\.github/|scripts/|\.cargo/|\.config/|just/|rust-toolchain|clippy\.toml$|rustfmt\.toml$|deny\.toml$|REUSE\.toml$|codecov\.yml$)'
 docs = '\.md$'
-# code = (rust OR dep OR infra) — derived; not a regex
+# code = (rust OR dep OR infra) - derived; not a regex
 
 # ─────────────────────────────────────────────────────────────────────
-# Always-on gates — fire regardless of change classification
+# Always-on gates - fire regardless of change classification
 # ─────────────────────────────────────────────────────────────────────
 
 [[gate]]
@@ -96,7 +96,7 @@ Phase 1 of `docs/architecture/gates-manifest-plan.md`.  Self-referential
 gate that verifies this manifest stays in lockstep with the gate set
 actually defined in `_lint_fast.sh`, `_lint_pre_push.sh`, and
 `pr-fast.yml`.  Bypass once via `BYPASS_GATES_DRIFT=1 git push`
-(mirrors `COMMIT_SUBJECT_BYPASS=1`); CI has no bypass — drift on
+(mirrors `COMMIT_SUBJECT_BYPASS=1`); CI has no bypass - drift on
 `main` is a deliberate "fix-me-now" signal.
 """
 
@@ -211,7 +211,7 @@ regen) hard-fails this gate at pre-push and CI.
 Sibling of `hooks-drift` for the pre-commit tier.  Same `acmex-gen-hooks`
 binary, same `--check` semantics, different `--target` (and therefore
 different output-path).  Lives in the pre-push + pr-fast tiers (NOT
-pre-commit) — running the pre-commit drift detector inside the
+pre-commit) - running the pre-commit drift detector inside the
 pre-commit hook itself would compile the validator on every commit
 and add unwanted latency to T1 (~sub-2 s budget); pre-push is the
 right place to catch the drift before it reaches the remote.
@@ -240,7 +240,7 @@ order = 29
 notes = """
 Phase 1 follow-up from
 `docs/dev/architecture/code_clean/phase_1_manifest_implementation_plan.md`
-(local-only) — issue #211.  Encodes the 15 Phase-1 manifest invariants
+(local-only) - issue #211.  Encodes the 15 Phase-1 manifest invariants
 (§3 of the plan) as machine-checkable assertions and runs them against
 every member `Cargo.toml`.  Catches the drift class the manual Phase-1
 audit can only detect on the annual cadence: a new crate landing
@@ -251,9 +251,9 @@ new path-dep pointing outside `[workspace.members]`, etc.
 Gated on `dep_changed` (Cargo.{toml,lock} | supply-chain/) because the
 audit only needs to fire when a manifest actually changes.  Documented
 exceptions (the `KnownExceptions` allow-lists in
-scripts/ci/acmex-manifest-audit/src/audit.rs — empty in the template,
+scripts/ci/acmex-manifest-audit/src/audit.rs - empty in the template,
 populated as crates earn documented deviations)
-are hardcoded in the audit with in-code citations — adding a new
+are hardcoded in the audit with in-code citations - adding a new
 deviation requires updating the exception list AND citing why,
 keeping the gate green on intentional deviations while still firing
 on accidental ones.
@@ -304,7 +304,7 @@ notes = """
 Verifies every non-merge commit in the pushed range carries a signature.
 `main` is governed by a `required_signatures` ruleset (plus a merge
 queue), so an unsigned commit passes every other local gate yet is
-rejected at the merge queue — a slow, maximally-late failure after a full
+rejected at the merge queue - a slow, maximally-late failure after a full
 CI round-trip.  This moves the catch left to ~1 s at push time and points
 at the `just sign-branch` self-heal.  No bypass: an unsigned commit bound
 for `main` will be rejected upstream regardless, so skipping only defers
@@ -312,7 +312,7 @@ the same failure.
 """
 
 # ─────────────────────────────────────────────────────────────────────
-# Rust-changed gates — fire when *.rs is touched
+# Rust-changed gates - fire when *.rs is touched
 # ─────────────────────────────────────────────────────────────────────
 
 [[gate]]
@@ -380,7 +380,7 @@ bucket = "seq"
 order = 25
 consumer_names = { "pr-fast" = "clippy-no-default" }
 notes = """
-Phase 8e regression guard for issue #295 — feature additivity.
+Phase 8e regression guard for issue #295 - feature additivity.
 
 `cargo clippy --workspace --no-default-features --all-targets -- -D warnings`
 catches the class of bug that surfaced post-Phase-8 closeout: items
@@ -391,7 +391,7 @@ warnings these gaps emit.
 
 Catches the classic regression class: an item only compiled under
 `--no-default-features` (or a non-default feature combination) that
-default-features builds never see — un-gated helpers, stale
+default-features builds never see - un-gated helpers, stale
 `cfg(feature = ...)` fences, feature-gated `expect` attributes.
 
 Mirrors `lint-ci` in flag stack and `-D warnings` strictness; differs
@@ -435,11 +435,11 @@ this and `doc-tests` in one step.
 only links reachable from the public API surface, so a broken
 `[`crate::path::pub_crate_item`]` (or a `//!` shortcut to a private
 sibling) silently renders as dead text instead of failing.  Cross-
-platform — `#[cfg(windows)]` items absent on the macOS/Linux runner
+platform - `#[cfg(windows)]` items absent on the macOS/Linux runner
 are written as code spans, not links.
 
 INTENTIONAL: we do NOT add `-D rustdoc::private_intra_doc_links`, and
-this is the desired posture — do not "harden" it in.  `-Dwarnings`
+this is the desired posture - do not "harden" it in.  `-Dwarnings`
 already denies the whole default warning set; that lint stays quiet
 here because `--document-private-items` documents the internals, so a
 `//!`/public link to a `pub(crate)` sibling is a *valid internal
@@ -448,11 +448,11 @@ cross-reference*, not a leak.  (Verified: `-Dwarnings` +
 `-D rustdoc::private_intra_doc_links` flips 2 such links in
 `acmex-cli/src/main.rs` to errors.)  That lint guards a *published*
 crate's public docs from dangling to items a downstream user cannot
-see — a concern that does not apply to our internal-only doc build.
+see - a concern that does not apply to our internal-only doc build.
 Turning it on would force valid internal `[symbol]` links down to
 dead code spans (a doc regression) for zero correctness gain.  The
-real failure class we care about — broken / unresolved links anywhere
-— is already caught by `broken-intra-doc-links` under `-Dwarnings`.
+real failure class we care about - broken / unresolved links anywhere
+- is already caught by `broken-intra-doc-links` under `-Dwarnings`.
 """
 
 [[gate]]
@@ -484,7 +484,7 @@ pr-fast's `docs` job alongside `rustdoc`.
 """
 
 # ─────────────────────────────────────────────────────────────────────
-# Code-changed gates (rust|dep|infra) — fire when any code class touched
+# Code-changed gates (rust|dep|infra) - fire when any code class touched
 # ─────────────────────────────────────────────────────────────────────
 
 [[gate]]
@@ -594,7 +594,7 @@ confidence.
 """
 
 # ─────────────────────────────────────────────────────────────────────
-# Dep-changed gates — fire when Cargo.{toml,lock} or supply-chain/ touched
+# Dep-changed gates - fire when Cargo.{toml,lock} or supply-chain/ touched
 # ─────────────────────────────────────────────────────────────────────
 
 [[gate]]
@@ -629,7 +629,7 @@ bucket = "bg"
 order = 45
 consumer_names = { "pr-fast" = "security" }
 notes = """
-Four-layer cargo-vet audit-discipline policy (Layer 1 + Layer 4 — see
+Four-layer cargo-vet audit-discipline policy (Layer 1 + Layer 4 - see
 `docs/architecture/security/supply-chain-posture.md` §"Mandating
 audits over blanket bumps").  Hard-fails any `[[exemptions.<crate>]]`
 version-bump in the pushed range that is not paired with BOTH (A) a
@@ -643,7 +643,7 @@ manually undid).  The companion `just vet-bump <crate>` recipe (Layer
 `supply-chain/` CODEOWNERS line (Layer 3) routes the resulting PR to
 a human reviewer.
 
-Bypass: `BYPASS_VET_AUDIT_DISCIPLINE=1 git push`.  CI has no bypass —
+Bypass: `BYPASS_VET_AUDIT_DISCIPLINE=1 git push`.  CI has no bypass -
 the gate is hard on `main`.  pr-fast bundles this into the existing
 `security` job alongside `vet` and `deny`.
 """
@@ -667,7 +667,7 @@ Fast AST-based unused-dependency detector.  Greps source for
 sections in every workspace `Cargo.toml`.
 
 Complementary to `cargo-udeps` (Tier 2 weekly) which actually
-compiles the workspace to detect unused deps — `udeps` is more
+compiles the workspace to detect unused deps - `udeps` is more
 accurate (catches deps used only behind `#[cfg]` that machete's
 static grep misses) but multi-minute and nightly-only.  machete
 runs sub-second on stable, fits the pre-push budget cleanly.
@@ -685,7 +685,7 @@ sub-second build via binstall).  pr-fast bundles into the existing
 Invocation form: `cargo-machete` (direct binary) rather than
 `cargo machete` (cargo subcommand dispatch).  Background: cargo
 1.97-nightly + cargo-machete v0.9.1 interact badly when invoked
-via the cargo subcommand wrapper — cargo passes the subcommand
+via the cargo subcommand wrapper - cargo passes the subcommand
 name `machete` as argv[1], and cargo-machete's gumdrop CLI parser
 treats that leading positional as a path and stops parsing flags
 (so `--skip-target-dir` lands as a second path).  The failure mode
@@ -693,7 +693,7 @@ is silent under `cargo machete --skip-target-dir` in a developer
 terminal (works fine via shell PATH resolution) but reproduces in
 the git pre-push hook context, breaking `just ship-fresh` on the
 2026-05-12 release attempt of v0.5.95.  Direct binary invocation
-bypasses the cargo dispatch entirely — argv becomes
+bypasses the cargo dispatch entirely - argv becomes
 `["cargo-machete", "--skip-target-dir"]` and `--skip-target-dir`
 is correctly recognised as a flag.  Both forms work in normal
 terminals; the direct form is the form that always works.
@@ -719,7 +719,7 @@ bundles vet + deny.
 """
 
 # ─────────────────────────────────────────────────────────────────────
-# Cross-platform gate — Windows lint via cargo-xwin
+# Cross-platform gate - Windows lint via cargo-xwin
 # ─────────────────────────────────────────────────────────────────────
 
 [[gate]]
@@ -749,7 +749,7 @@ equivalent strict clippy NATIVELY on `windows-latest`.
 """
 
 # ─────────────────────────────────────────────────────────────────────
-# Optional / advisory gates — soft-skip with install hint
+# Optional / advisory gates - soft-skip with install hint
 # ─────────────────────────────────────────────────────────────────────
 
 [[gate]]
@@ -796,7 +796,7 @@ expected_runtime_secs = 1
 bucket = "bg"
 order = 70
 notes = """
-Pre-commit only — `*.toml` staged-scope.  At pre-push there is no
+Pre-commit only - `*.toml` staged-scope.  At pre-push there is no
 staged set; running over the whole workspace surfaces pre-existing
 TOML drift that is out of scope for the push being validated.
 """
@@ -814,6 +814,6 @@ bucket = "bg"
 order = 80
 notes = """
 Catches `cargo vet` config drift (missing newlines, etc.) before
-push.  Hard at pre-commit only — at pre-push the `vet` gate already
+push.  Hard at pre-commit only - at pre-push the `vet` gate already
 checks the same constraints transitively.
 """

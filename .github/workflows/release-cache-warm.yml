@@ -15,7 +15,7 @@
 #        producing a different `Cargo.lock` hash and a different
 #        `Cargo.toml`-version-hash.  Exact-key match misses every time.
 #     2. Prefix-fallback would still find the previous release's cache
-#        — but **only if it still exists**.  GitHub Actions evicts
+#        - but **only if it still exists**.  GitHub Actions evicts
 #        caches via LRU at the 10-GB-per-repo cap, and unconditionally
 #        deletes them 7 days after their last access.  A weekly release
 #        cadence collides with the 7-day TTL: by the time `release.yml`
@@ -37,7 +37,7 @@
 #     ship".  Adding a `push: branches: main` trigger there couples the
 #     warm-cache job to the production release flow's `concurrency:`
 #     group, `permissions:`, OIDC token issuance, and SLSA attestation
-#     scaffolding — none of which apply to a cache-warm run, all of
+#     scaffolding - none of which apply to a cache-warm run, all of
 #     which would have to be carefully gated.  A separate workflow
 #     keeps the contract clean: `release.yml` ships releases,
 #     `release-cache-warm.yml` keeps its caches hot.
@@ -61,7 +61,7 @@ on:
       # changes.  Pure-docs / scripts / CHANGELOG-only changes don't
       # invalidate the cache, so they shouldn't re-trigger a 45-min
       # compile per platform.  Mirror the file set against
-      # `release.yml`'s `cargo build --workspace --bins` — anything
+      # `release.yml`'s `cargo build --workspace --bins` - anything
       # that influences that command's input set must be listed here.
       - 'Cargo.toml'
       - 'Cargo.lock'
@@ -72,7 +72,7 @@ on:
       # to the warming logic re-runs against current main).
       - '.github/workflows/release-cache-warm.yml'
   schedule:
-    # Weekly cron — Monday 05:00 UTC.  Belt-and-suspenders for periods
+    # Weekly cron - Monday 05:00 UTC.  Belt-and-suspenders for periods
     # of dependency stability when no `Cargo.lock`-touching pushes
     # happen for >7 days (the GitHub Actions cache TTL).  Without this,
     # a 7-day quiet stretch would let every release-${target} cache
@@ -84,7 +84,7 @@ on:
     # on `main` before pushing the next release tag.
 
 # Cancel older in-flight warm runs when a new commit lands.  Cache-warm
-# is best-effort by design — only the latest commit's cache state is
+# is best-effort by design - only the latest commit's cache state is
 # interesting.  `release.yml` runs are NOT in this concurrency group,
 # so a tag-dispatched release won't be canceled by a same-time main
 # push.
@@ -93,7 +93,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  # Read repo contents.  No write scope — this workflow ships nothing.
+  # Read repo contents.  No write scope - this workflow ships nothing.
   contents: read
   # Cache read/write happens via the actions/cache backend, not via
   # the `actions:` permission scope.  Documented here for explicitness.
@@ -102,7 +102,7 @@ env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
   # Override `.cargo/config.toml`'s `rustc-wrapper = "sccache"` setting
-  # for the same reason `release.yml` does — sccache isn't preinstalled
+  # for the same reason `release.yml` does - sccache isn't preinstalled
   # on GitHub-hosted runners and would crash every `cargo` invocation
   # at exec time.  Empty `RUSTC_WRAPPER` disables the wrapper without
   # touching `config.toml`.
@@ -111,7 +111,7 @@ env:
 jobs:
   warm:
     # Mirrors `release.yml::build-release-binaries`'s matrix exactly.
-    # If you add or change a target there, change it here too —
+    # If you add or change a target there, change it here too -
     # otherwise the new target's cache will not be warmed and its
     # release runs will pay the cold-build tax.
     name: 🔥 Warm ${{ matrix.target }}
@@ -122,7 +122,7 @@ jobs:
     timeout-minutes: ${{ matrix.timeout }}
     # Cache-warming is best-effort by design (see header comment).  A
     # transient runner-image flake on any single target should not show
-    # the workflow as ❌ in PR checks / branch protection — only the
+    # the workflow as ❌ in PR checks / branch protection - only the
     # release pipeline that consumes the warmed cache matters for
     # release correctness.  Real regressions still surface via the
     # workflow's run history and the per-job summary table.
@@ -153,7 +153,7 @@ jobs:
       - name: Free up disk space (Linux only)
         if: runner.os == 'Linux'
         run: |
-          # Same recovery as `release.yml` — Polars + ring + LTO=fat
+          # Same recovery as `release.yml` - Polars + ring + LTO=fat
           # exhausts ubuntu-22.04's default 14-GB free-budget.
           sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
           sudo rm -rf /usr/local/share/boost /usr/local/graalvm
@@ -201,7 +201,7 @@ jobs:
         if: runner.os == 'macOS'
         shell: bash
         run: |
-          # Mirrors `release.yml`'s same-named step — see that workflow
+          # Mirrors `release.yml`'s same-named step - see that workflow
           # for the full rationale.  Summary: `Swatinem/rust-cache`
           # restores `~/.cargo/bin/` from a prior run's cache, which on
           # `macos-latest` can hold a poisoned `cargo` symlink pointing
@@ -226,7 +226,7 @@ jobs:
           # Identical invocation to `release.yml::build-release-binaries`.
           # If that command's flags ever diverge from this one, the cache
           # produced here will still hit on key but might not match the
-          # actual artifact set release.yml needs — keep them aligned.
+          # actual artifact set release.yml needs - keep them aligned.
           # `--locked` per the workspace's §2.8 policy.
           #
           # Single auto-retry on failure absorbs GitHub-runner-image

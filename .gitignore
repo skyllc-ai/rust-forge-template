@@ -13,7 +13,7 @@ target/
 #   * SLSA attestation integrity (release provenance references a specific
 #     dep graph; without Cargo.lock that graph would drift every run)
 #   * cargo-vet stability (exemptions are keyed on specific crate-versions
-#     — a floating Cargo.lock would break cargo vet check on every
+#     - a floating Cargo.lock would break cargo vet check on every
 #     unrelated upstream patch release)
 # To deliberately update deps, use `cargo update` or a Dependabot PR.
 **/*.rs.bk
@@ -34,14 +34,14 @@ target/
 # =============================================================================
 # Build artifacts & generated binaries
 # =============================================================================
-# Build artifacts directory — all generated files stay out of git.
+# Build artifacts directory - all generated files stay out of git.
 build/
 *.rlib
 *.bin
 # `*.bin` is meant to keep transient generated blobs out of git.  When the
 # project gains INTENTIONAL committed binary assets (embedded tables via
 # `include_bytes!`, integration-test fixtures), carve them back in here
-# explicitly — a file that is both committed AND gitignored makes
+# explicitly - a file that is both committed AND gitignored makes
 # release-plz abort with "the working directory has uncommitted changes".
 # Fixture carve-out (documented per fixture in tests/fixtures/README.md):
 !tests/fixtures/**/*.bin
@@ -51,9 +51,9 @@ build/
 # Logs, vendor, misc
 # =============================================================================
 /Shell/
-# /LOG/ is strictly local-only.  Every file under it — runtime logs
+# /LOG/ is strictly local-only.  Every file under it - runtime logs
 # (defender ETLs, mental_health, `ship_run*.log` captures), per-session
-# notes, healing logs, assessment scratchpads, anything — stays on the
+# notes, healing logs, assessment scratchpads, anything - stays on the
 # developer's machine and NEVER reaches git.  The project-level
 # `CHANGELOG.md` at the repo root is the only changelog that ships.
 /LOG/
@@ -116,7 +116,7 @@ metadata.json
 .cargo/.zshrc
 
 # =============================================================================
-# Internal dev docs (plans, audits, investigations — local only)
+# Internal dev docs (plans, audits, investigations - local only)
 # =============================================================================
 /docs/dev/
 /docs/research/
@@ -125,7 +125,7 @@ metadata.json
 # =============================================================================
 # Explicit public-docs guard
 # =============================================================================
-# /docs/benchmarks/ is the public-facing competitive-benchmark hub — dated
+# /docs/benchmarks/ is the public-facing competitive-benchmark hub - dated
 # canonical reports, archive, hub README, reproduction scripts. This
 # directory MUST stay tracked. The negation below is defensive: if a future
 # gitignore rule ever matches /docs/benchmarks/* (e.g. someone adds
@@ -162,7 +162,7 @@ crates/acmex-cli/console
 
 # =============================================================================
 # Demo video cuts (scripts/dev/demo/*-video.tape outputs) are upload
-# artifacts for YouTube/LinkedIn/X — never committed.  GIF variants in
+# artifacts for YouTube/LinkedIn/X - never committed.  GIF variants in
 # assets/demo/ remain the only tracked demo media.
 # =============================================================================
 acmex-cli-video.mp4

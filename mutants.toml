@@ -11,7 +11,7 @@
 #
 # Both call paths inherit the same exclusion / args / timeout policy
 # so the local-vs-CI delta is exactly the runner-environment shape
-# (parallelism, output retention) — not the test selection.
+# (parallelism, output retention) - not the test selection.
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Pass --locked through to every cargo invocation cargo-mutants
@@ -23,7 +23,7 @@ additional_cargo_args = ["--locked"]
 
 # 2.0x baseline runtime as the per-mutant timeout (default is 5.0x
 # + a 20 s floor).  Tighter so an infinite-loop mutation (the
-# canonical pathological case — e.g. `while i < n` mutated to
+# canonical pathological case - e.g. `while i < n` mutated to
 # `while i <= n` in code that breaks on equality) fails fast
 # instead of consuming the whole job budget.  With a fast baseline
 # suite (a few seconds warm), 2.0x + the 20 s minimum floor gives a
@@ -54,12 +54,12 @@ exclude_globs = [
 
 # Skip mutating function bodies whose visibility is `pub` but
 # annotated `#[cfg(not(test))]` shims around an FFI / OS-call
-# boundary.  These are not "logic" — they're integration glue and
+# boundary.  These are not "logic" - they're integration glue and
 # their tests live elsewhere (smoke tests, integration suites).
 # Leaving these unmutated keeps the signal focused on actual
 # decision logic.
 exclude_re = [
-  # Constructors that just `Self { ... }` — mutating the field
+  # Constructors that just `Self { ... }` - mutating the field
   # ordering / values produces noise that the type checker would
   # catch anyway.
   "fn new[A-Z_].*\\{ Self \\{",

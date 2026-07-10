@@ -24,7 +24,7 @@
 #   1. NEW third-party action introduced.  A plain SHA bump of an
 #      already-trusted action (`actions/checkout@<old> → @<new>`) is
 #      routine.  A `uses:` that names an action **not previously present
-#      anywhere in the repo** is a brand-new trust dependency — worth a
+#      anywhere in the repo** is a brand-new trust dependency - worth a
 #      human glance to confirm the publisher is who we think it is
 #      (typo-squat / look-alike-org defense).
 #
@@ -36,7 +36,7 @@
 #
 # What this does NOT do:
 #
-#   • Block merge.  Emits `::warning::` annotations only — the goal is to
+#   • Block merge.  Emits `::warning::` annotations only - the goal is to
 #     prompt the reviewer, not to short-circuit Dependabot's automation.
 #   • Audit the *contents* of an action.  Pinning + reviewer judgment is
 #     the control; this just makes the two signals above impossible to
@@ -173,7 +173,7 @@ jobs:
           fi
 
           if [[ "$STATUS" == "ok" ]]; then
-            echo "✅ **Within bounds** — SHA-only bump of existing action(s); no annotation emitted." >> "$GITHUB_STEP_SUMMARY"
+            echo "✅ **Within bounds** - SHA-only bump of existing action(s); no annotation emitted." >> "$GITHUB_STEP_SUMMARY"
           fi
 
           # Diagnostic echo to the job log.

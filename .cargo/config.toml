@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Acmex Placeholder LLC
 #
 # =============================================================================
-# Cargo configuration — deliberately (almost) empty
+# Cargo configuration - deliberately (almost) empty
 # =============================================================================
 #
 # The template ships STOCK Cargo behavior. Policy lives where it is portable:
@@ -18,7 +18,7 @@
 # lacks the binary. Enable for plain `cargo` too via ~/.cargo/config.toml.
 #
 # Machine-specific tuning (linkers, target-dir redirects, target-cpu=native)
-# belongs in YOUR user-level ~/.cargo/config.toml, never in the repo —
+# belongs in YOUR user-level ~/.cargo/config.toml, never in the repo -
 # ready-made samples: .cargo/macos.sample.toml + .cargo/windows.sample.toml,
 # walkthrough: GETTING-STARTED.md § "Performance tuning (optional)".
 # Two hard-won reasons:
@@ -27,5 +27,5 @@
 #     everyone's binaries (and breaks cross-compilation outright).
 #   * Shared target-dir redirects (e.g. /tmp/rust-target) silently accumulate
 #     hundreds of GB across workspaces and take down the machine when the
-#     volume fills — keep the default per-repo ./target, which `cargo clean`
+#     volume fills - keep the default per-repo ./target, which `cargo clean`
 #     and repo removal actually clean up.

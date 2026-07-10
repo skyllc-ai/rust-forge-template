@@ -6,12 +6,12 @@
 #
 # Architecture (Phase 2 of dev-flow-implementation-plan.md § 1.4):
 #
-#   Bucket 1 — cheap, parallel, fire-and-forget.  Non-cargo jobs plus
+#   Bucket 1 - cheap, parallel, fire-and-forget.  Non-cargo jobs plus
 #              cargo-vet (which is fast and dep-gated).  Waits at the
 #              end of the script; all Bucket 1 results report even
 #              when Bucket 2 fails.
 #
-#   Bucket 2 — cargo-heavy, sequential, FAIL-FAST.  Ordered cheapest →
+#   Bucket 2 - cargo-heavy, sequential, FAIL-FAST.  Ordered cheapest →
 #              most expensive so the first actionable red surfaces
 #              within ~15 s rather than the old ~40-60 s.  After the
 #              first failure, remaining jobs are marked `skip` and
@@ -30,7 +30,7 @@
 #
 # Per-gate documentation (label, command, rationale, expected runtime,
 # CI counterpart) lives in `scripts/ci/gates.toml`'s `[[gate]]` tables
-# — that is the single source of truth, and the generator preserves
+# - that is the single source of truth, and the generator preserves
 # it on every regen.
 
 set -euo pipefail
@@ -122,9 +122,9 @@ DEP_CHANGED=0;   class_matches '^(.*Cargo\.toml$|Cargo\.lock$|supply-chain/)' &&
 INFRA_CHANGED=0; class_matches '^(\.github/|scripts/|\.cargo/|\.config/|just/|rust-toolchain|clippy\.toml$|rustfmt\.toml$|deny\.toml$|REUSE\.toml$|codecov\.yml$)' && INFRA_CHANGED=1
 CODE_CHANGED=$(( RUST_CHANGED || DEP_CHANGED || INFRA_CHANGED ))
 
-printf '%s🚦 lint-pre-push — workspace parallel gate%s\n' "$C_BLUE" "$C_RESET"
+printf '%s🚦 lint-pre-push - workspace parallel gate%s\n' "$C_BLUE" "$C_RESET"
 if [[ "$CHANGED_FILES" == "__UNKNOWN__" ]]; then
-    printf '   %s(manual mode — no pushed range detected; running all gates)%s\n' "$C_CYAN" "$C_RESET"
+    printf '   %s(manual mode - no pushed range detected; running all gates)%s\n' "$C_CYAN" "$C_RESET"
 else
     printf '   %s(rust=%d dep=%d infra=%d code=%d)%s\n' \
         "$C_CYAN" "$RUST_CHANGED" "$DEP_CHANGED" "$INFRA_CHANGED" "$CODE_CHANGED" "$C_RESET"
@@ -136,7 +136,7 @@ trap 'rm -rf "$TMP"' EXIT
 
 # ── Bucket 1 (cheap, parallel) ─────────────────────────────────────────
 # Non-cargo jobs + cargo-vet (dep-gated).  All run concurrently; we wait
-# at the end.  Cargo-heavy jobs are deliberately NOT here — they would
+# at the end.  Cargo-heavy jobs are deliberately NOT here - they would
 # serialise on cargo's target-dir lock and stall the cheap jobs.
 BG_NAMES=()
 BG_PIDS=()

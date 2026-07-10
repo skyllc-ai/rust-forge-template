@@ -3,7 +3,7 @@
 
 #![expect(
     clippy::print_stdout,
-    reason = "operational CLI tool — phase banners + step results go to stdout (issue #212)"
+    reason = "operational CLI tool - phase banners + step results go to stdout (issue #212)"
 )]
 
 //! Non-resumable Phase 1 / Phase 2 driver functions.
@@ -11,17 +11,17 @@
 //! These variants skip the [`crate::workflow::WorkflowState`] wrapper
 //! and run straight through from start to finish.  They back the
 //! standalone `just go`, `just check-all`, and `just phase2-ship`
-//! recipes — i.e. the lanes where "resume mid-flight" semantics are
+//! recipes - i.e. the lanes where "resume mid-flight" semantics are
 //! not useful because the lane has no state to preserve.  The
 //! resumable equivalents live in [`crate::ship`].
 //!
-//! * [`phase1_optimized`] — thin orchestrator: [`phase1_prime`] →
+//! * [`phase1_optimized`] - thin orchestrator: [`phase1_prime`] →
 //!   [`phase1_tests`] → [`phase1_fanout_validation`].
-//! * [`phase2_optimized`] — commit + push in a straight line (used by `just
+//! * [`phase2_optimized`] - commit + push in a straight line (used by `just
 //!   phase2-ship`, separate from the resumable `run_enhanced_phase2` that
 //!   [`crate::ship`] drives). Version bumping is handled by release-plz on
 //!   `main`.
-//! * [`coverage_data_exists`] / [`coverage_report_command`] — the
+//! * [`coverage_data_exists`] / [`coverage_report_command`] - the
 //!   `coverage-report` subcommand primitives; referenced from both
 //!   `phase1_tests` and the CLI dispatch.
 
@@ -35,7 +35,7 @@ use crate::version::get_current_version;
 use crate::workflow::WorkflowState;
 
 /// Return `true` if a previous `cargo llvm-cov` run left behind
-/// coverage data under `target/llvm-cov-target/` — the signal
+/// coverage data under `target/llvm-cov-target/` - the signal
 /// `coverage-report` uses to decide whether to regenerate HTML from
 /// cached data or re-run the whole test suite with instrumentation.
 pub(crate) fn coverage_data_exists() -> bool {
@@ -162,7 +162,7 @@ async fn phase1_fanout_validation(ctx: &PipelineContext) -> Result<()> {
             "--all-features",
         ]),
         // pedantic/nursery/cargo/multiple_crate_versions levels are set
-        // in workspace Cargo.toml — only per-target overrides needed
+        // in workspace Cargo.toml - only per-target overrides needed
         // here.
         ("Production linting", "cargo", vec![
             "clippy",
@@ -263,7 +263,7 @@ pub(crate) async fn phase1_optimized(ctx: &PipelineContext) -> Result<()> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Phase 2 (explicit ship lane — non-resumable counterpart)
+// Phase 2 (explicit ship lane - non-resumable counterpart)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Phase 2: Explicit ship lane (commit → push).  Used by the

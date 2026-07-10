@@ -4,7 +4,7 @@
 #
 # cargo-vet exemption-audit discipline gate.
 #
-# **Why this exists** — `supply-chain/config.toml`'s `[[exemptions.<crate>]]`
+# **Why this exists** - `supply-chain/config.toml`'s `[[exemptions.<crate>]]`
 # blocks are the project's audit-debt ledger.  Every entry is a promise that
 # we will eventually replace the exemption with a proper `[[audits.<crate>]]`
 # record in `audits.toml` (or with an upstream import).  When a dependency
@@ -15,31 +15,31 @@
 #
 # This script is the "no lazy bumps" gate.  For every exemption version
 # changed between the merge-base and the pushed range, it requires
-# **both** of the following (defense-in-depth — see
+# **both** of the following (defense-in-depth - see
 # `docs/architecture/security/supply-chain-posture.md` §"Mandating audits
 # over blanket bumps"):
 #
-#   (A) Audit-correspondence — a matching `[[audits.<crate>]]` delta block
+#   (A) Audit-correspondence - a matching `[[audits.<crate>]]` delta block
 #       in `supply-chain/audits.toml` covering the version transition
 #       (`delta = "OLD -> NEW"`) with non-empty `notes`.  This is the
 #       formal audit record `cargo vet diff` produced.
 #
-#   (B) Commit-trailer attestation — at least one commit in the range
+#   (B) Commit-trailer attestation - at least one commit in the range
 #       carries a `Vet-Reviewed-Diff: <crate>@<OLD>-><NEW>` trailer.
 #       This is the human reviewer's signature in the git log, anchored
 #       to the commit-signing key (branch protection enforces signed
 #       commits on `main`).  Multiple bumps in one push must each have
 #       a corresponding trailer.
 #
-# Both checks must pass — the audit record is the *what was reviewed*,
+# Both checks must pass - the audit record is the *what was reviewed*,
 # the trailer is the *who reviewed it* + *acknowledged in this push*.
 # A passing audit without a trailer means the audit predates the bump
 # (possibly stale).  A passing trailer without an audit means the
-# reviewer skipped the formal record — exactly the failure mode
+# reviewer skipped the formal record - exactly the failure mode
 # PR #166 introduced (see `audits.toml` notes on `assert_cmd` and
 # `tokio`).
 #
-# **Modes** — invoked the same way as `check_commit_subjects.sh`:
+# **Modes** - invoked the same way as `check_commit_subjects.sh`:
 #
 #   range RANGE              -- validate every exemption bump in the
 #                              git revision range RANGE (e.g.
@@ -69,7 +69,7 @@
 #                                    `cargo vet` access.  Logged in
 #                                    stderr so the bypass is visible
 #                                    to the reviewer.  CI has no
-#                                    bypass — the gate is hard on `main`.
+#                                    bypass - the gate is hard on `main`.
 #
 #   VET_DISCIPLINE_VERBOSE=1      -- print one line per parsed exemption
 #                                    bump.  Useful for debugging the
@@ -134,7 +134,7 @@ fi
 #
 # Handles the legitimate case of the same crate appearing under multiple
 # `[[exemptions.<crate>]]` blocks at different versions (e.g.
-# `crypto-common` 0.1.7 + 0.2.1 in the live config) — each block emits
+# `crypto-common` 0.1.7 + 0.2.1 in the live config) - each block emits
 # its own line.  Empty/optional fields stay blank.
 parse_exemptions() {
     awk '
@@ -260,7 +260,7 @@ exemptions_at() {
 }
 
 # Walk the parsed audits.toml at HEAD (working-tree).  Audits are
-# authoritative at HEAD only — there is no value in checking what
+# authoritative at HEAD only - there is no value in checking what
 # audits existed at BASE since the gate's job is to confirm the bumps
 # are *currently* audited.
 audits_now() {
@@ -278,7 +278,7 @@ audits_now() {
 # Output: one trailer per line, normalised to
 # `<crate>\t<OLD>\t<NEW>` so the caller can grep `-Fxq` for a specific
 # bump.  Invalid trailer values (malformed arrow, missing version) are
-# silently ignored — the audit-correspondence check will still fire if
+# silently ignored - the audit-correspondence check will still fire if
 # they're meant to cover a real bump.
 #
 # Implementation note: we use `git log --format=%B` (the raw commit body)
@@ -334,7 +334,7 @@ validate_range() {
     base_set=$(exemptions_at "$base")
     # HEAD: if the range ends at HEAD/branch tip, read the working tree
     # so a partially-staged change is also checked.  `git rev-parse HEAD`
-    # may resolve to the same OID as `head` — in that case we use the
+    # may resolve to the same OID as `head` - in that case we use the
     # working tree to catch uncommitted drift.
     local head_oid
     head_oid=$(git rev-parse --verify "$head" 2>/dev/null || echo "")
@@ -373,19 +373,19 @@ validate_range() {
     # For each (crate,version,criteria) in HEAD that is NOT in BASE,
     # classify as ADD (no base versions for this crate, untracked) or
     # BUMP (some base version of this crate exists and is no longer in
-    # HEAD — direction-insensitive: a forward 2.2.1 -> 2.2.2 OR a
+    # HEAD - direction-insensitive: a forward 2.2.1 -> 2.2.2 OR a
     # backward 2.2.2 -> 2.2.1 "anchor restoration" both count).
     #
     # Only BUMPs are gated.  ADDs (brand-new exemptions for a crate
     # that wasn't previously exempt) are out of scope for the v1 of
-    # this policy — they are mostly produced mechanically by
+    # this policy - they are mostly produced mechanically by
     # `cargo vet regenerate exemptions` when a new transitive dep
     # appears, and gating them would break dependabot's regenerate
     # flow.  Adds are still subject to the layer-3 (CODEOWNERS) review
     # gate at the PR level.
     while IFS=$'\t' read -r crate version criteria; do
         [[ -z "$crate" || -z "$version" ]] && continue
-        # Skip if this exact pair already existed at base — no change.
+        # Skip if this exact pair already existed at base - no change.
         if grep -Fxq "$crate"$'\t'"$version" <<<"$base_pairs"; then
             continue
         fi
@@ -405,9 +405,9 @@ validate_range() {
         done <<<"$base_versions_for_crate"
 
         if [[ -z "$replaced_old" ]]; then
-            # ADD — out of scope for v1 of the discipline gate.
+            # ADD - out of scope for v1 of the discipline gate.
             if [[ "${VET_DISCIPLINE_VERBOSE:-0}" == "1" ]]; then
-                printf '  %s[skip]%s add %s@%s — new exemption, not gated\n' \
+                printf '  %s[skip]%s add %s@%s - new exemption, not gated\n' \
                     "$C_CYAN" "$C_RESET" "$crate" "$version" >&2
             fi
             continue
@@ -436,7 +436,7 @@ validate_range() {
 
         if (( have_audit && have_trailer )); then
             if [[ "${VET_DISCIPLINE_VERBOSE:-0}" == "1" ]]; then
-                printf '  %s[ok]%s bump %s %s -> %s — audit + trailer present\n' \
+                printf '  %s[ok]%s bump %s %s -> %s - audit + trailer present\n' \
                     "$C_GREEN" "$C_RESET" "$crate" "$replaced_old" "$version" >&2
             fi
             continue
@@ -502,7 +502,7 @@ case "$mode" in
         # push-to-main mode, fall back to the merge-base with
         # `origin/main` (which on a clean PR-merge is HEAD~1).
         if [[ -n "${GITHUB_BASE_REF:-}" ]]; then
-            # PR mode — need to make sure the base branch is fetched.
+            # PR mode - need to make sure the base branch is fetched.
             if ! git rev-parse --verify "origin/${GITHUB_BASE_REF}" >/dev/null 2>&1; then
                 git fetch --no-tags --depth=2 origin "${GITHUB_BASE_REF}" >/dev/null 2>&1 || true
             fi

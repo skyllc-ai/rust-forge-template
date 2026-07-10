@@ -2,28 +2,28 @@
 # Copyright (c) 2025-2026 Acmex Placeholder LLC.
 #
 # ─────────────────────────────────────────────────────────────────────────────
-# winget-token-expiry-check — weekly heads-up before WINGET_TOKEN dies.
+# winget-token-expiry-check - weekly heads-up before WINGET_TOKEN dies.
 #
 # `winget-publish.yml` needs a classic PAT (`WINGET_TOKEN`, `public_repo`
 # scope) to fork + push to microsoft/winget-pkgs.  When that PAT expires
-# the release-triggered WinGet submission fails — and because it runs on
+# the release-triggered WinGet submission fails - and because it runs on
 # the `release: released` event (not the PR path), nobody sees the red X
 # until someone notices winget is stuck at an old version weeks later.
 #
 # This workflow removes that silent-failure window.  Once a week it asks
-# GitHub how long the token actually has left — classic PATs return their
+# GitHub how long the token actually has left - classic PATs return their
 # expiry in the `github-authentication-token-expiration` response header
-# on any authenticated REST call — and:
+# on any authenticated REST call - and:
 #
 #   * < WARN_DAYS left  → opens / refreshes a tracking issue so the
 #     maintainer rotates the token before a release needs it.
 #   * already expired / invalid (401) → opens / refreshes the issue with
-#     an "ACT NOW" body — the next release WILL fail.
+#     an "ACT NOW" body - the next release WILL fail.
 #   * healthy            → closes any previously-opened tracking issue
 #     (so a rotation auto-resolves the reminder).
 #
 # Why a probe and not a hard-coded date: the probe catches early
-# revocation, accidental scope changes, and manual rotations too — the
+# revocation, accidental scope changes, and manual rotations too - the
 # reminder always reflects the token's real state, never a stale guess.
 #
 # Manual `workflow_dispatch` is provided so you can re-check immediately
@@ -34,12 +34,12 @@ name: 🔑 WinGet Token Expiry Check
 
 on:
   schedule:
-    # Monday 07:00 UTC — after tier-2 (06:00) so it doesn't contend for
+    # Monday 07:00 UTC - after tier-2 (06:00) so it doesn't contend for
     # the scheduled-runner window, and well ahead of any weekday release.
     - cron: '0 7 * * 1'
   workflow_dispatch:
 
-# Least-privilege: the job needs to read API headers (no special scope —
+# Least-privilege: the job needs to read API headers (no special scope -
 # the token itself authenticates) and write issues for the reminder.
 permissions:
   contents: read
@@ -73,7 +73,7 @@ jobs:
           set -euo pipefail
 
           if [[ -z "${WINGET_TOKEN:-}" ]]; then
-            # Secret missing entirely — treat as "broken now".
+            # Secret missing entirely - treat as "broken now".
             {
               echo "status=missing"
               echo "expiry="
@@ -101,7 +101,7 @@ jobs:
 
           if [[ "$http_code" == "401" ]]; then
             { echo "status=expired"; echo "expiry="; echo "days_left="; } >> "$GITHUB_OUTPUT"
-            echo "::warning::WINGET_TOKEN rejected with HTTP 401 — expired or revoked."
+            echo "::warning::WINGET_TOKEN rejected with HTTP 401 - expired or revoked."
             exit 0
           fi
 
@@ -172,7 +172,7 @@ jobs:
                   body: `✅ WINGET_TOKEN is healthy again (status: \`${status}\`, expiry: \`${expiry}\`, ~${daysLeft} days left). Closing.`,
                 });
                 await github.rest.issues.update({ owner, repo, issue_number: num, state: 'closed' });
-                core.info(`Closed reminder issue #${num} — token healthy.`);
+                core.info(`Closed reminder issue #${num} - token healthy.`);
               } else {
                 core.info(`Token healthy (status=${status}); no reminder needed.`);
               }
@@ -200,9 +200,9 @@ jobs:
               `| Warn threshold | ${warnDays} days |`,
               ``,
               `### How to rotate`,
-              `1. Create a new **classic** PAT at https://github.com/settings/tokens — scope \`public_repo\` only, ~1-year expiry.`,
+              `1. Create a new **classic** PAT at https://github.com/settings/tokens - scope \`public_repo\` only, ~1-year expiry.`,
               `2. \`gh secret set WINGET_TOKEN --repo ${owner}/${repo}\` and paste it.`,
-              `3. Run the **🔑 WinGet Token Expiry Check** workflow manually (\`workflow_dispatch\`) to confirm healthy — it will auto-close this issue.`,
+              `3. Run the **🔑 WinGet Token Expiry Check** workflow manually (\`workflow_dispatch\`) to confirm healthy - it will auto-close this issue.`,
               ``,
               `_Filed by \`winget-token-expiry-check.yml\` (weekly probe of the token's real expiry header)._`,
             ].join('\n');

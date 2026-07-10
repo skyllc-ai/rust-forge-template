@@ -16,7 +16,7 @@
 # Deny all vulnerabilities
 version = 2
 ignore = [
-  # (none — the template starts with zero advisory ignores; add entries here
+  # (none - the template starts with zero advisory ignores; add entries here
   #  only with a reachability analysis + an upstream-fix tracking note)
 ]
 
@@ -63,7 +63,7 @@ wildcards = "allow"
 # These are transitive dependencies with semver-incompatible version requirements
 # that we cannot control - they come from Polars and other large dependencies
 skip-tree = [
-  # (none — the template starts with zero duplicate-version waivers; add
+  # (none - the template starts with zero duplicate-version waivers; add
   #  entries only for foundational transitive crates you cannot control)
 ]
 

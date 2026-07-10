@@ -33,7 +33,7 @@ done
 
 # If we ran Bucket 2 at all but nothing fired (pure docs), say so.
 if (( ! CODE_CHANGED )); then
-    printf '  %sℹ%s  Bucket 2 skipped — no rust/dep/infra files changed\n' "$C_CYAN" "$C_RESET"
+    printf '  %sℹ%s  Bucket 2 skipped - no rust/dep/infra files changed\n' "$C_CYAN" "$C_RESET"
 fi
 
 # Aggregate failure list for final dump.
@@ -45,16 +45,16 @@ missing=()
 command -v typos     >/dev/null 2>&1 || missing+=("typos-cli")
 command -v reuse     >/dev/null 2>&1 || missing+=("reuse (pipx install reuse)")
 # cargo-vet is listed here as an advisory when we reach this point without
-# having hard-failed — i.e. current push did NOT hit `dep_changed`.  The
+# having hard-failed - i.e. current push did NOT hit `dep_changed`.  The
 # future push that does hit it will hard-fail unless the tool is present.
 command -v cargo-vet >/dev/null 2>&1 || missing+=("cargo-vet (required for dep-change pushes)")
 if (( ${#missing[@]} > 0 )); then
-    # NOTE: no backticks around `just install-dev-tools` — the cyan
+    # NOTE: no backticks around `just install-dev-tools` - the cyan
     # ANSI codes already emphasise the command, and literal backticks
     # inside a single-quoted printf format string trip shellcheck
     # SC2016 ("expressions don't expand in single quotes") even
     # though they are harmless literal bytes in this context.
-    printf '  %s💡%s optional tools missing: %s — run %sjust install-dev-tools%s\n' \
+    printf '  %s💡%s optional tools missing: %s - run %sjust install-dev-tools%s\n' \
         "$C_CYAN" "$C_RESET" "${missing[*]}" "$C_CYAN" "$C_RESET"
 fi
 
@@ -65,7 +65,7 @@ if (( ${#FAILED[@]} > 0 )); then
         cat "$TMP/$name.out"
     done
     DUR=$(( $(date +%s) - START ))
-    printf '\n%s❌ lint-pre-push FAILED (%ss) — push aborted%s\n' "$C_RED" "$DUR" "$C_RESET" >&2
+    printf '\n%s❌ lint-pre-push FAILED (%ss) - push aborted%s\n' "$C_RED" "$DUR" "$C_RESET" >&2
     # Same SC2016 avoidance as the install-dev-tools hint above:
     # drop the visual backticks around the escape-hatch command and
     # let the yellow ANSI color carry the emphasis.

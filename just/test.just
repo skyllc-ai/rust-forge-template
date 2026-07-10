@@ -69,7 +69,7 @@ lint-ci:
     @printf "\033[0;34m🚨 CI lint gating (FAST-FAIL)...\033[0m\n"
     cargo clippy --workspace --all-targets --all-features --no-deps -- -D warnings
 
-# Feature-additivity regression guard (Phase 8e — issue #295).  Runs the
+# Feature-additivity regression guard (Phase 8e - issue #295).  Runs the
 # same strict clippy flag stack as `lint-ci` but with `--no-default-features`
 # instead of `--all-features`, catching items that are reachable only when
 # a feature is enabled but not themselves `#[cfg(feature = "…")]`-gated.
@@ -80,7 +80,7 @@ lint-ci-no-default:
 
 # Cross-platform CI lint gate via Docker (Linux target).
 # Catches Linux-only clippy drift that the local host (macOS) cannot reproduce
-# — e.g. platform-dependent type aliases like `libc::time_t` where nightly
+# - e.g. platform-dependent type aliases like `libc::time_t` where nightly
 # clippy's `cast_possible_wrap` behaviour differs between targets.
 #
 # Uses a named Docker volume for `target/` so repeated runs reuse the Linux
@@ -93,11 +93,11 @@ lint-ci-linux:
     set -euo pipefail
     printf "\033[0;34m🐧 Cross-platform CI lint gate (Linux x86_64 via Docker)...\033[0m\n"
     if ! command -v docker >/dev/null 2>&1; then
-        printf "\033[0;31m❌ docker not found — install Docker Desktop / colima / OrbStack to use this recipe.\033[0m\n"
+        printf "\033[0;31m❌ docker not found - install Docker Desktop / colima / OrbStack to use this recipe.\033[0m\n"
         exit 1
     fi
     if ! docker info >/dev/null 2>&1; then
-        printf "\033[0;31m❌ docker daemon unreachable — start your container runtime first.\033[0m\n"
+        printf "\033[0;31m❌ docker daemon unreachable - start your container runtime first.\033[0m\n"
         exit 1
     fi
     docker volume create acmex-linux-target >/dev/null
@@ -117,7 +117,7 @@ lint-ci-linux:
 
 # Cross-platform strict lint gate for Windows (cargo-xwin clippy).
 #
-# The Windows counterpart of `lint-prod` / `lint-tests` / `lint-ci` — mirrors
+# The Windows counterpart of `lint-prod` / `lint-tests` / `lint-ci` - mirrors
 # the exact same flag stack so the strict clippy rules apply identically on
 # Windows-gated code.  Phase W5 of
 # `docs/architecture/windows-clippy-and-linux-cross-plan.md` cleared the
@@ -138,7 +138,7 @@ lint-tests-windows:
     @printf "\033[0;34m🪟 Windows strict test lint (cargo xwin clippy)...\033[0m\n"
     cargo xwin clippy --workspace --tests --all-features --target x86_64-pc-windows-msvc --no-deps -- {{ test_flags }}
 
-# Authoritative cross-target lint gate for Windows — mirrors the strict
+# Authoritative cross-target lint gate for Windows - mirrors the strict
 # `cargo clippy --all-targets --all-features --no-deps -- -D warnings`
 # stack the `pr-fast.yml::windows-lint` job runs natively on
 # `windows-latest` (Phase W5.5).  Pre-push runs this via
@@ -159,7 +159,7 @@ lint-ci-windows:
 # How it works: `cargo-zigbuild`'s `clippy` subcommand sets up a `zig
 # cc` wrapper as the C cross-compiler so `cc-rs` (which drives
 # `zstd-sys` / `psm` / `blake3` build.rs files) produces native Linux
-# x86_64 ELF objects from a macOS host — no Docker, no Linux VM, no
+# x86_64 ELF objects from a macOS host - no Docker, no Linux VM, no
 # separate cross-toolchain install.
 #
 # Pinned to `zig 0.14.1`.  Homebrew's `zig` formula tracks latest
@@ -173,8 +173,8 @@ lint-ci-windows:
 # `just install-dev-tools` on macOS hosts).
 lint-ci-linux-zig:
     @printf "\033[0;34m🦎 Linux x86_64 clippy via cargo-zigbuild (native macOS → Linux)...\033[0m\n"
-    @if ! command -v zig >/dev/null 2>&1; then printf "\033[0;31m❌ zig not found — install with: \033[0;36mjust install-dev-tools\033[0m\n"; exit 1; fi
-    @if ! command -v cargo-zigbuild >/dev/null 2>&1; then printf "\033[0;31m❌ cargo-zigbuild not found — install with: \033[0;36mjust install-dev-tools\033[0m\n"; exit 1; fi
+    @if ! command -v zig >/dev/null 2>&1; then printf "\033[0;31m❌ zig not found - install with: \033[0;36mjust install-dev-tools\033[0m\n"; exit 1; fi
+    @if ! command -v cargo-zigbuild >/dev/null 2>&1; then printf "\033[0;31m❌ cargo-zigbuild not found - install with: \033[0;36mjust install-dev-tools\033[0m\n"; exit 1; fi
     # Override `.cargo/config.toml`'s `target-cpu=native` rustflags for
     # the cross-compile target.  On macOS the host CPU is `apple-m4`
     # (or similar arm64 codename) which cargo-zigbuild propagates to
@@ -257,7 +257,7 @@ hooks-drift:
 #      `notify-failure.needs:` (the rename-bookkeeping failure mode
 #      that motivated the whole gate-manifest plan);
 #   4. the `required` job's `name:` is exactly `PR Fast CI / required`
-#      — the literal string in the repo's branch-protection rule.
+#      - the literal string in the repo's branch-protection rule.
 #
 # Read-only: never mutates the workflow file.  See plan §4.2 for the
 # full property specification + the rationale for the structural-
@@ -288,7 +288,7 @@ gen-fast:
 # Verifies that the on-disk `scripts/hooks/_lint_fast.sh` matches
 # what `acmex-gen-hooks --target pre-commit` would produce from the
 # canonical `scripts/ci/gates.toml`.  Sibling of `hooks-drift` for
-# the pre-commit tier — same binary, different `--target`.  Wired
+# the pre-commit tier - same binary, different `--target`.  Wired
 # into the pre-push hook (Bucket 1) and the `pr-fast.yml::fast-drift`
 # job so manifest / emitted-hook divergence hard-blocks merge.
 #
@@ -299,7 +299,7 @@ gen-fast:
 fast-drift:
     @cargo run -q --release -p acmex-gen-hooks -- --target pre-commit --check
 
-# Host-only on purpose — Windows (`lint-*-windows`) and Linux-in-Docker
+# Host-only on purpose - Windows (`lint-*-windows`) and Linux-in-Docker
 # (`lint-ci-linux`) are separate recipes.  They will be wired into this
 # sweep after their backlogs converge to zero (Phase W5 of the
 # cross-target plan: `docs/architecture/windows-clippy-and-linux-cross-plan.md`).
@@ -320,7 +320,7 @@ lint-all:
 #   pre-push   → `just lint-pre-push`   (workspace-parallel, ≤ 60 s)
 #   PR CI      → .github/workflows/pr-fast.yml (classify-gated matrix + native windows-lint)
 # Recipes below back both the git hooks and manual invocations so the
-# two surfaces never drift — see `scripts/hooks/_lint_*.sh` for the
+# two surfaces never drift - see `scripts/hooks/_lint_*.sh` for the
 # shared parallel runners.
 
 # Spell-check the workspace (requires `typos-cli`).
@@ -363,7 +363,7 @@ install-dev-tools:
     fi
     # cargo-machete is required by the pre-push / pr-fast `machete` gate
     # (Tier R3 of `docs/dev/architecture/code_clean/CLIPPY_POSTURE.md`).
-    # Sub-second AST-based unused-dependency detector — complements
+    # Sub-second AST-based unused-dependency detector - complements
     # cargo-udeps (Tier 2 weekly, multi-minute, nightly-only) with a
     # cheap pre-push check that catches the common case before PR opens.
     # ~3 MB binary; binstall takes <5 s when cargo-binstall is present.
@@ -389,7 +389,7 @@ install-dev-tools:
         printf "   \033[0;32m✓\033[0m x86_64-pc-windows-msvc target installed\n"
     fi
     # zig + cargo-zigbuild back the `lint-ci-linux-zig` accelerator
-    # (Phase L1).  Optional but recommended on macOS hosts — lets
+    # (Phase L1).  Optional but recommended on macOS hosts - lets
     # contributors run the Linux clippy sweep natively (no Docker)
     # for fast inner-loop checks.  The Docker `lint-ci-linux` path
     # remains authoritative; this is a dev-loop accelerator only.
@@ -446,7 +446,7 @@ install-dev-tools:
         fi
     fi
     if ! command -v reuse >/dev/null 2>&1; then
-        printf "   \033[1;33m!\033[0m reuse not found — install with: \033[0;36mpipx install reuse\033[0m\n"
+        printf "   \033[1;33m!\033[0m reuse not found - install with: \033[0;36mpipx install reuse\033[0m\n"
     else
         printf "   \033[0;32m✓\033[0m reuse already installed\n"
     fi
@@ -463,7 +463,7 @@ lint-fast:
 # Fans out clippy (-D warnings) + fmt-check + rustdoc (-D warnings) +
 # cargo deny + nextest --no-run (test-binary link check) + file-size-policy
 # + typos (optional) + reuse (optional).  Budget: ≈ 25–45 s warm, ≈ 60–90 s
-# cold.  All failures surface in one pass — per-job ✅/❌ grid, then every
+# cold.  All failures surface in one pass - per-job ✅/❌ grid, then every
 # failing job's full output is dumped before exit.
 lint-pre-push:
     @bash scripts/hooks/_lint_pre_push.sh
@@ -480,7 +480,7 @@ check-commits:
     @COMMIT_SUBJECT_VERBOSE=1 bash scripts/ci/check_commit_subjects.sh range origin/main..HEAD
 
 # Install the tracked git hooks (pre-commit + commit-msg + pre-push).
-# Idempotent — safe to re-run.  Sets `git config core.hooksPath` to the
+# Idempotent - safe to re-run.  Sets `git config core.hooksPath` to the
 # tracked `scripts/hooks/` directory so the hooks survive `git clone`
 # and cannot be accidentally deleted from `.git/hooks/`.
 install-hooks:
@@ -502,7 +502,7 @@ install-hooks:
 uninstall-hooks:
     @printf "\033[0;34m🪝 Uninstalling tracked git hooks...\033[0m\n"
     git config --unset core.hooksPath || true
-    @printf "\033[0;32m✅ Git hooks uninstalled — commits and pushes are no longer gated.\033[0m\n"
+    @printf "\033[0;32m✅ Git hooks uninstalled - commits and pushes are no longer gated.\033[0m\n"
 
 # Validate rustdoc links and warnings (catches private-intra-doc-links etc.).
 #

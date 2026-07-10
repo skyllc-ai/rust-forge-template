@@ -6,8 +6,8 @@
 # repo's quality gates.
 #
 # Blocked patterns:
-#   * `--no-verify`        — skips the pre-commit / pre-push hooks entirely
-#   * `-c core.hooksPath=` — inline override that silently disables the
+#   * `--no-verify`        - skips the pre-commit / pre-push hooks entirely
+#   * `-c core.hooksPath=` - inline override that silently disables the
 #                            tracked hooks in scripts/hooks/
 #
 # Why this exists: the gates (fmt, typos, file-size, clippy, deny, ...) are

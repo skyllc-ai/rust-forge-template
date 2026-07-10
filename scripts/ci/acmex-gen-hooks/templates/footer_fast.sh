@@ -27,12 +27,12 @@ command -v typos >/dev/null 2>&1 || missing+=("typos-cli")
 command -v taplo >/dev/null 2>&1 || missing+=("taplo-cli")
 command -v reuse >/dev/null 2>&1 || missing+=("reuse (pipx install reuse)")
 if (( ${#missing[@]} > 0 )); then
-    # NOTE: no backticks around `just install-dev-tools` — the cyan
+    # NOTE: no backticks around `just install-dev-tools` - the cyan
     # ANSI codes already emphasise the command, and literal backticks
     # inside a single-quoted printf format string trip shellcheck
     # SC2016 ("expressions don't expand in single quotes") even
     # though they are harmless literal bytes in this context.
-    printf '  %s💡%s optional tools missing: %s — run %sjust install-dev-tools%s\n' \
+    printf '  %s💡%s optional tools missing: %s - run %sjust install-dev-tools%s\n' \
         "$C_CYAN" "$C_RESET" "${missing[*]}" "$C_CYAN" "$C_RESET"
 fi
 

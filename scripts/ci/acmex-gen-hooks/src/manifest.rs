@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2025-2026 Acmex Placeholder LLC.
 //
-// Manifest schema model — mirrors `scripts/ci/gates.toml`.
+// Manifest schema model - mirrors `scripts/ci/gates.toml`.
 //
 // The `gates.toml` file is the canonical source-of-truth for the
 // workspace's PR-time gate set.  See `docs/architecture/gates-manifest-plan.md`
@@ -11,7 +11,7 @@
 //   2. Validate the invariants the codegen relies on (no duplicate ids, every
 //      `tiers` entry valid, every `bucket` valid, every `gate_when` valid).
 //
-// The validator is intentionally lightweight — it only catches schema
+// The validator is intentionally lightweight - it only catches schema
 // bugs that would crash the generator.  Cross-consumer drift detection
 // is the Phase-1 `check_gates_drift.sh` script's job and stays
 // authoritative there.
@@ -25,13 +25,13 @@ use serde::Deserialize;
 /// verbatim so `[[gate]]` arrays of tables deserialise straight in.
 #[derive(Debug, Deserialize)]
 pub(crate) struct Manifest {
-    /// Optional `[manifest]` header table — version + plan-doc
+    /// Optional `[manifest]` header table - version + plan-doc
     /// cross-reference.  Surfaced by `--verbose`; Phase 3 will also
     /// gate generator compatibility on `version`.
     #[serde(default, rename = "manifest")]
     pub(crate) header: ManifestMeta,
 
-    /// Optional `[classification]` table — the regex stack used by
+    /// Optional `[classification]` table - the regex stack used by
     /// `_lint_pre_push.sh` for `RUST_CHANGED` / `DEP_CHANGED` /
     /// `INFRA_CHANGED` detection.  Phase 2 keeps the regexes in the
     /// embedded `preamble` template (§5 of the plan: codegen is
@@ -91,7 +91,7 @@ pub(crate) struct Classification {
 /// the Rust spelling.
 #[derive(Debug, Deserialize)]
 pub(crate) struct Gate {
-    /// Kebab-case canonical identifier — the `spawn_bg` / `run_seq`
+    /// Kebab-case canonical identifier - the `spawn_bg` / `run_seq`
     /// label emitted into the hook (modulo `consumer_names` overrides).
     pub(crate) id: String,
     /// Human-readable name surfaced by drift-detector messages and
@@ -122,7 +122,7 @@ pub(crate) struct Gate {
     /// pre-flight will also read it.
     #[serde(default)]
     pub(crate) expected_runtime_secs: u32,
-    /// Bucket assignment — `"bg"` (Bucket 1, fire-and-forget) or
+    /// Bucket assignment - `"bg"` (Bucket 1, fire-and-forget) or
     /// `"seq"` (Bucket 2, sequential / fail-fast).  Optional because
     /// it is only meaningful when the gate participates in the
     /// `pre-push` tier; pr-fast-only gates (e.g. the full `tests` run
@@ -150,7 +150,7 @@ pub(crate) struct Gate {
 }
 
 impl Manifest {
-    /// Lightweight invariant validation — only the things the codegen
+    /// Lightweight invariant validation - only the things the codegen
     /// itself depends on.  Cross-consumer drift is Phase 1's job.
     pub(crate) fn validate(&self) -> Result<()> {
         // No duplicate ids.
@@ -216,7 +216,7 @@ impl Manifest {
         Ok(())
     }
 
-    /// Filter gates by tier membership — the codegen iterates this
+    /// Filter gates by tier membership - the codegen iterates this
     /// once per emit.  Sorted by `(bucket-as-defined-order, order)` so
     /// Bucket-1 `spawn_bg` lines come before Bucket-2 `run_seq` lines
     /// and within each bucket gates fire in the order the plan declares.

@@ -18,7 +18,7 @@
 #     is typo-squatted / malicious) surfaces as a PR annotation for
 #     the reviewer to investigate before merge.
 #
-# Rationale — why a dedicated workflow and not a step in `pr-fast.yml`:
+# Rationale - why a dedicated workflow and not a step in `pr-fast.yml`:
 #
 #   Security policy is strongest when it's legible in one file.  A
 #   separate workflow lets a future maintainer find every
@@ -100,8 +100,8 @@ jobs:
           # in 0-2 new transitive crates; anything larger is worth a
           # second look (either a legit fan-out that's safe once
           # confirmed, or the red flag this workflow exists to catch).
-          # Override in the env block here — not via repo-level
-          # settings — so the policy lives in-repo under review.
+          # Override in the env block here - not via repo-level
+          # settings - so the policy lives in-repo under review.
           GROWTH_THRESHOLD: 3
         run: |
           set -euo pipefail
@@ -116,7 +116,7 @@ jobs:
           N_AFTER=$(grep -c '^name = ' Cargo.lock)
           DIFF=$((N_AFTER - N_BEFORE))
 
-          # Surface the raw numbers regardless — useful for a
+          # Surface the raw numbers regardless - useful for a
           # retroactive audit even when the delta is within bounds.
           # Single grouped redirect into $GITHUB_STEP_SUMMARY (SC2129).
           {
@@ -135,12 +135,12 @@ jobs:
             # `::warning::` emits a PR-level annotation that shows up
             # both in the check summary and next to the diff in the
             # Files Changed view.  We deliberately do not fail the
-            # check (no `exit 1`) — the goal is to prompt a reviewer,
+            # check (no `exit 1`) - the goal is to prompt a reviewer,
             # not to block Dependabot's automation pipeline.
-            echo "::warning file=Cargo.lock::Dependabot PR adds $DIFF new crates (threshold: $GROWTH_THRESHOLD). Review the Cargo.lock diff carefully for unexpected transitive additions — a typical minor bump adds 0-2 crates; a large fan-out may indicate an upstream maintainer account compromise or a typo-squatting attack."
-            echo "⚠️  **Threshold exceeded** — PR annotation emitted." >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning file=Cargo.lock::Dependabot PR adds $DIFF new crates (threshold: $GROWTH_THRESHOLD). Review the Cargo.lock diff carefully for unexpected transitive additions - a typical minor bump adds 0-2 crates; a large fan-out may indicate an upstream maintainer account compromise or a typo-squatting attack."
+            echo "⚠️  **Threshold exceeded** - PR annotation emitted." >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "✅ **Within bounds** — no annotation emitted." >> "$GITHUB_STEP_SUMMARY"
+            echo "✅ **Within bounds** - no annotation emitted." >> "$GITHUB_STEP_SUMMARY"
           fi
 
           # Also echo to the job log for quick scanning.
@@ -170,7 +170,7 @@ jobs:
             | sort -u > "$AFTER_FILE"
 
           # Names present in AFTER but not in BEFORE are the additions.
-          # Drop the header if empty — no point cluttering the summary.
+          # Drop the header if empty - no point cluttering the summary.
           ADDED=$(comm -13 "$BEFORE_FILE" "$AFTER_FILE")
           if [[ -n "$ADDED" ]]; then
             # Single grouped redirect into $GITHUB_STEP_SUMMARY (SC2129).

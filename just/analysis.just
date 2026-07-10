@@ -23,17 +23,17 @@ audit-comprehensive:
 #   cargo-audit    → known CVEs in the RustSec database (advisories).
 #   cargo-deny     → license policy + multiple-version / source checks.
 #   cargo-geiger   → structural: how many `unsafe` blocks, how many
-#                    `build.rs` scripts, how many proc-macros — the
+#                    `build.rs` scripts, how many proc-macros - the
 #                    crates worth auditing *first* if you're worried
 #                    about a supply-chain attack at the code level.
 #
 # When to run:
 #
-#   • Periodically (monthly) to track the trend — is the `unsafe`
+#   • Periodically (monthly) to track the trend - is the `unsafe`
 #     footprint growing disproportionately to added features?
 #   • Before merging a Dependabot PR that flips a crate to a new
 #     major version (compare the summary before vs after).
-#   • When investigating an incident — see which crates in the tree
+#   • When investigating an incident - see which crates in the tree
 #     execute `build.rs` (= arbitrary code at compile time).
 #
 # Why NOT in CI:
@@ -43,7 +43,7 @@ audit-comprehensive:
 #   information is advisory rather than binary pass/fail.  Baking it
 #   into Tier 1 would produce noisy failures without real signal.
 #   Keeping it as a local recipe means the dev runs it when they
-#   actually want the data — and the report lives under `target/`
+#   actually want the data - and the report lives under `target/`
 #   so it doesn't pollute the repo.
 #
 # Install once: `cargo install cargo-geiger`.  First run rebuilds
@@ -75,7 +75,7 @@ geiger-summary:
         printf "\033[1;33m⚠️  cargo-geiger not found; run 'cargo install cargo-geiger' first\033[0m\n"
         exit 1
     fi
-    printf "\033[0;34m☢️  cargo-geiger — top hotspots\033[0m\n"
+    printf "\033[0;34m☢️  cargo-geiger - top hotspots\033[0m\n"
     cargo geiger --manifest-path "$(pwd)/crates/acmex-cli/Cargo.toml" --all-features --update-readme=false 2>&1 | \
         grep -E '^[[:space:]]*[0-9]+/[0-9]+' | \
         sort -t/ -k2,2 -n -r | \
@@ -168,7 +168,7 @@ pgo:
 
     # Honour CARGO_TARGET_DIR / .cargo/config.toml `build.target-dir`.
     # The workspace ships windows.toml with `target-dir = "C:/rust-target/acmex"`
-    # and advises Unix users to set `CARGO_TARGET_DIR` manually — so a
+    # and advises Unix users to set `CARGO_TARGET_DIR` manually - so a
     # hard-coded `target/` here fails whenever either override is live.
     TARGET_DIR="${CARGO_TARGET_DIR:-$(pwd)/target}"
     printf "\033[0;34m  target dir:    %s\033[0m\n" "$TARGET_DIR"
@@ -213,17 +213,17 @@ pgo:
     "$LLVM_PROFDATA" merge -o "$MERGED" "$PGO_DIR"
     printf "\033[0;32m  ✓ merged profile: %s\033[0m\n" "$MERGED"
     RUSTFLAGS="-Cprofile-use=${MERGED}" cargo build --release -p acmex-cli
-    printf "\033[0;32m✅ PGO build complete — %s/release/acmex now uses the merged profile\033[0m\n" "$TARGET_DIR"
+    printf "\033[0;32m✅ PGO build complete - %s/release/acmex now uses the merged profile\033[0m\n" "$TARGET_DIR"
     printf "\033[0;34m   Run `just use-local` to install, then re-bench against the pre-PGO baseline.\033[0m\n"
 
 # Windows variant of the PGO pipeline.  Uses PowerShell because
-# `shared.just` sets `windows-shell := powershell.exe` — the bash
+# `shared.just` sets `windows-shell := powershell.exe` - the bash
 # recipe above would fail with "No such file or directory" under the
 # default Windows shell selection.
 #
 # Optional env var: `$env:ACMEX_PGO_DRIVE = 'D'` scopes the corpus run
 # to a single drive, cutting phase 2 wall time roughly in half.  The
-# daemon must already be running (`acmex daemon start`) — spawning an
+# daemon must already be running (`acmex daemon start`) - spawning an
 # elevated daemon mid-PGO would conflict with the instrumented binary.
 [windows]
 pgo:

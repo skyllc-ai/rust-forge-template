@@ -10,7 +10,7 @@
 
 # Build a macOS .app bundle wrapping the release acmex binary.
 #
-# Output: dist/ACMEX.app (dist/ is gitignored — ephemeral build output).
+# Output: dist/ACMEX.app (dist/ is gitignored - ephemeral build output).
 dist-macos:
     @printf "\033[0;34m📦 Building macOS .app bundle...\033[0m\n"
     cargo build --release -p acmex-cli

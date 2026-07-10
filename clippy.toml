@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# ACMEX — Clippy Configuration
+# ACMEX - Clippy Configuration
 # ─────────────────────────────────────────────────────────────────────────────
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2025-2026 Acmex Placeholder LLC.
@@ -7,12 +7,12 @@
 # in Cargo.toml.  It is picked up automatically by all crates in the workspace.
 #
 # Philosophy:
-#   - Production code: strictest possible — no panics, no unwraps, no dbg!
-#   - Test code: fail fast and loud — unwrap, expect, panic, dbg!, print are
+#   - Production code: strictest possible - no panics, no unwraps, no dbg!
+#   - Test code: fail fast and loud - unwrap, expect, panic, dbg!, print are
 #     all welcome because a test that doesn't crash on failure is useless.
 # ─────────────────────────────────────────────────────────────────────────────
 
-# ── MSRV awareness — INTENTIONALLY UNSET (refs issue #267) ──────────────────
+# ── MSRV awareness - INTENTIONALLY UNSET (refs issue #267) ──────────────────
 # The workspace has no `[workspace.package].rust-version` claim because
 # `acmex-polars` enables `polars/nightly` unconditionally, which transitively
 # requires nightly Rust (see issue #267 + the `Cargo.toml` rationale block).
@@ -62,17 +62,17 @@ allow-dbg-in-tests = true
 allow-print-in-tests = true
 
 # ── API evolution ────────────────────────────────────────────────────────────
-# We are NOT a published library — internal refactoring should not be blocked
+# We are NOT a published library - internal refactoring should not be blocked
 # by "this would break downstream crates" false positives.
 avoid-breaking-exported-api = false
 
 # ── Identifier length ────────────────────────────────────────────────────────
-# Default (1) kept — threshold 2 was tested and only flagged idiomatic Rust
+# Default (1) kept - threshold 2 was tested and only flagged idiomatic Rust
 # names (ch, cp, io, fs) with zero real wins.  Removed as pure noise.
 
 # ── Thresholds ──────────────────────────────────────────────────────────────
 # All thresholds at Clippy defaults.  Violations are handled with targeted
-# #[expect(lint, reason = "...")] on individual items — never blanket raises.
+# #[expect(lint, reason = "...")] on individual items - never blanket raises.
 # cognitive-complexity-threshold = 25   (default)
 # too-many-lines-threshold = 100        (default)
 # type-complexity-threshold = 250       (default)

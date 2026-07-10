@@ -5,7 +5,7 @@
 //! macros (`ACMEX_GIT_SHA`, `ACMEX_RUSTC`, `ACMEX_TARGET`, `ACMEX_PROFILE`).
 //!
 //! Projects that want Windows resource embedding (icon, version info,
-//! app.manifest) add `winresource` here — see the template documentation.
+//! app.manifest) add `winresource` here - see the template documentation.
 
 fn main() {
     acmex_version::emit_build_env();

@@ -12,7 +12,7 @@
 
 [package]
 name = "acmex-core"
-description = "acmex core library — template placeholder skeleton"
+description = "acmex core library - template placeholder skeleton"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -22,7 +22,7 @@ readme.workspace = true
 keywords.workspace = true
 categories.workspace = true
 documentation.workspace = true
-# Internal crate — inherits the workspace `publish = false` default.
+# Internal crate - inherits the workspace `publish = false` default.
 publish.workspace = true
 
 [package.metadata.docs.rs]

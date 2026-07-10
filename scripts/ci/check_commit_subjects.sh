@@ -4,12 +4,12 @@
 #
 # Conventional Commits subject validator.
 #
-# **Why this exists** — `.github/workflows/commitlint.yml` validates the
+# **Why this exists** - `.github/workflows/commitlint.yml` validates the
 # **PR title** at PR-open / synchronize time.  That catch is post-push:
 # the contributor finds out about a malformed scope like
 # `feat(acmex-core, daemon)` only after the workflow has already failed
 # upstream.  This script encodes the SAME regex as the CI workflow
-# (single source of truth — see "REGEX" below) so the pre-push hook
+# (single source of truth - see "REGEX" below) so the pre-push hook
 # (`scripts/hooks/_lint_pre_push.sh`) and the commit-msg hook
 # (`scripts/hooks/commit-msg`) can fail the offending subject locally.
 #

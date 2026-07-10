@@ -3,12 +3,12 @@
 
 //! Minimal Cargo.toml model for the acmex-manifest-audit drift detector.
 //!
-//! Only the fields the audit cares about are deserialised — the rest
+//! Only the fields the audit cares about are deserialised - the rest
 //! of every member's `Cargo.toml` is captured as an untyped
 //! `toml::Value` so the audit can poke at arbitrary tables (e.g.
 //! `[lints]`, `[profile.*]`, `[patch.*]`) without enumerating every
 //! permitted shape.  This keeps the audit robust to schema additions
-//! upstream — a new top-level table in Cargo.toml doesn't break the
+//! upstream - a new top-level table in Cargo.toml doesn't break the
 //! audit; it just isn't checked.
 
 use anyhow::{Context as _, Result};
@@ -18,7 +18,7 @@ use serde::Deserialize;
 /// fields the audit cares about.
 #[derive(Debug, Deserialize)]
 pub(crate) struct RootManifest {
-    /// `[workspace]` table — every root manifest must have one
+    /// `[workspace]` table - every root manifest must have one
     /// because ACMEX is a virtual workspace.  Missing `[workspace]`
     /// is itself a finding (handled in `audit::root_is_virtual`).
     pub(crate) workspace: Option<Workspace>,
@@ -38,7 +38,7 @@ pub(crate) struct Workspace {
     /// Member-list strings.  Phase 1 invariant 3.1 requires this to
     /// match `find crates scripts -name Cargo.toml` 1:1.
     pub(crate) members: Vec<String>,
-    // NB: `default-members` is intentionally not captured here —
+    // NB: `default-members` is intentionally not captured here -
     // Phase 1 invariant 3.11 is checked via source-text regex on
     // the raw root manifest (because `toml::from_str` strips
     // comments and the invariant's "documented fallback" case
@@ -77,15 +77,15 @@ pub(crate) struct MemberManifest {
     pub(crate) lints: Option<toml::Table>,
 
     /// `[profile.*]` table.  Phase 1 invariant 3.8 requires this to
-    /// be absent — profile policy lives at the workspace root only.
+    /// be absent - profile policy lives at the workspace root only.
     pub(crate) profile: Option<toml::Value>,
 
     /// `[patch.*]` table.  Phase 1 invariant 3.8 requires this to be
-    /// absent — patch policy lives at the workspace root only.
+    /// absent - patch policy lives at the workspace root only.
     pub(crate) patch: Option<toml::Value>,
 
     /// `[workspace]` table.  Phase 1 invariant 3.8 requires this to
-    /// be absent in members — only the root may declare
+    /// be absent in members - only the root may declare
     /// `[workspace]`.
     pub(crate) workspace: Option<toml::Value>,
 }
@@ -101,28 +101,28 @@ pub(crate) struct MemberPackage {
     // not captured here.  Keeping the file-path-derived id in sync
     // with `package.name` is itself a future Phase-2 audit
     // dimension if it becomes worth checking.
-    /// `version = ...` — must be `version.workspace = true`.  When
+    /// `version = ...` - must be `version.workspace = true`.  When
     /// inherited it appears as the toml-rs `Workspace { workspace =
     /// true }` shape; when overridden it appears as a string.
     pub(crate) version: Option<toml::Value>,
 
-    /// `edition = ...` — Phase 1 invariant 3.3 requires
+    /// `edition = ...` - Phase 1 invariant 3.3 requires
     /// `.workspace = true`.
     pub(crate) edition: Option<toml::Value>,
 
-    /// `license = ...` — Phase 1 invariant 3.5 requires
+    /// `license = ...` - Phase 1 invariant 3.5 requires
     /// `.workspace = true`.
     pub(crate) license: Option<toml::Value>,
 
-    /// `authors = ...` — Phase 1 invariant 3.5 requires
+    /// `authors = ...` - Phase 1 invariant 3.5 requires
     /// `.workspace = true`.
     pub(crate) authors: Option<toml::Value>,
 
-    /// `repository = ...` — Phase 1 invariant 3.5 requires
+    /// `repository = ...` - Phase 1 invariant 3.5 requires
     /// `.workspace = true`.
     pub(crate) repository: Option<toml::Value>,
 
-    /// `readme = ...` — Phase 1 invariant 3.5 requires
+    /// `readme = ...` - Phase 1 invariant 3.5 requires
     /// `.workspace = true`, with one narrowly scoped exception:
     /// crates listed in `KnownExceptions::readme_override_ok` may
     /// instead set the literal value `"README.md"` to point
@@ -131,7 +131,7 @@ pub(crate) struct MemberPackage {
     /// still fires a finding even for listed crates.
     pub(crate) readme: Option<toml::Value>,
 
-    /// `keywords = ...` — Phase 1 invariant 3.5 requires
+    /// `keywords = ...` - Phase 1 invariant 3.5 requires
     /// `.workspace = true`, with one narrowly scoped exception:
     /// crates listed in `KnownExceptions::keywords_override_ok` may
     /// instead set a **non-empty TOML array** of crates.io-shaped
@@ -141,7 +141,7 @@ pub(crate) struct MemberPackage {
     /// enforced authoritatively by `cargo publish --dry-run`.
     pub(crate) keywords: Option<toml::Value>,
 
-    /// `categories = ...` — Phase 1 invariant 3.5 requires
+    /// `categories = ...` - Phase 1 invariant 3.5 requires
     /// `.workspace = true`, with the same narrow exception as
     /// `keywords`: crates listed in
     /// `KnownExceptions::categories_override_ok` may instead set a
@@ -150,11 +150,11 @@ pub(crate) struct MemberPackage {
     /// authoritatively by `cargo publish --dry-run`.
     pub(crate) categories: Option<toml::Value>,
 
-    /// `documentation = ...` — Phase 1 invariant 3.5 requires
+    /// `documentation = ...` - Phase 1 invariant 3.5 requires
     /// `.workspace = true`.
     pub(crate) documentation: Option<toml::Value>,
 
-    /// `publish = ...` — Phase 1 invariant 3.14 requires either
+    /// `publish = ...` - Phase 1 invariant 3.14 requires either
     /// `publish.workspace = true` (most members) or an explicit
     /// `publish = true` for the small publishable-set documented in
     /// `release-automation-baseline.md` §10 deviation row 5.
@@ -172,7 +172,7 @@ pub(crate) struct MemberPackage {
 /// field is consulted by the audit (invariant 3.13).
 #[derive(Debug, Deserialize)]
 pub(crate) struct LibOrBin {
-    /// `name = "..."` — optional in Cargo (defaults to the package
+    /// `name = "..."` - optional in Cargo (defaults to the package
     /// name), but every ACMEX member sets it explicitly.
     pub(crate) name: Option<String>,
 }

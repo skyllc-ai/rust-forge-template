@@ -2,7 +2,7 @@
 # Copyright (c) 2025-2026 Acmex Placeholder LLC.
 #
 # ─────────────────────────────────────────────────────────────────────────────
-# CodeQL — static-analysis (SAST) for Rust
+# CodeQL - static-analysis (SAST) for Rust
 #
 # What this catches that the other gates don't:
 #
@@ -21,7 +21,7 @@
 #   CodeQL 2.22.1 (July 2025) brought Rust to **public preview**; CodeQL
 #   2.23.3 / 2.23.7 / 2.23.8 added additional queries; CodeQL 2.25.x
 #   (bundled with codeql-action v4.35.x) is the current baseline.  Rust
-#   support currently ONLY accepts `build-mode: none` — the CodeQL
+#   support currently ONLY accepts `build-mode: none` - the CodeQL
 #   bundle includes its own Rust parser / analyzer and resolves crate
 #   metadata without invoking cargo.  Treat failures as informational
 #   on first rollout; the query pack is still maturing, and the check
@@ -29,12 +29,12 @@
 #
 # Triggers:
 #
-#   * `schedule` — weekly baseline, independent of PR traffic.  Tuesday
+#   * `schedule` - weekly baseline, independent of PR traffic.  Tuesday
 #     06:30 UTC is a deliberate offset from the Monday 06:00 Tier 2 cron
 #     and the Monday 08:00 cargo-vet-refresh cron so the three weekly
 #     jobs don't share a runner queue.
-#   * `push: main` — capture the baseline on every merge.
-#   * `pull_request: main` — catches regressions before merge.  If the
+#   * `push: main` - capture the baseline on every merge.
+#   * `pull_request: main` - catches regressions before merge.  If the
 #     query pack gets noisy on a PR and blocks a human, the workflow
 #     can be re-run or temporarily disabled via `workflow_dispatch`; it
 #     is deliberately NOT added to required checks.
@@ -42,7 +42,7 @@
 # Cost:
 #
 #   ~5-10 min per run on ubuntu-22.04.  `build-mode: none` means no
-#   cargo build, no rust-cache, no debuginfo fetch — the Rust extractor
+#   cargo build, no rust-cache, no debuginfo fetch - the Rust extractor
 #   parses source directly and emits a small DB (hundreds of MB rather
 #   than the multi-GB DB a compiled-extraction language like C++ would
 #   produce).
@@ -71,7 +71,7 @@ on:
       - 'rust-toolchain.toml'
       - '.github/workflows/codeql.yml'
   schedule:
-    # Weekly baseline — Tuesday 06:30 UTC (offset from Monday Tier 2 +
+    # Weekly baseline - Tuesday 06:30 UTC (offset from Monday Tier 2 +
     # Monday cargo-vet refresh so they don't share a runner queue).
     - cron: '30 6 * * 2'
   workflow_dispatch:
@@ -96,14 +96,14 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 20
     # CodeQL is informational-only on ACMEX (Rust support is in public
-    # preview; we do not wire it into branch protection — see the
+    # preview; we do not wire it into branch protection - see the
     # header comment above for the rationale).  `continue-on-error:
     # true` codifies that intent at the workflow-engine level:
     #
-    #   * When the job fails — e.g. because `codeload.github.com`
+    #   * When the job fails - e.g. because `codeload.github.com`
     #     returned 429s for the `github/codeql-action` tarball during
     #     "Set up job", which is structurally un-retryable from inside
-    #     our steps — the workflow-level conclusion remains `success`.
+    #     our steps - the workflow-level conclusion remains `success`.
     #     The job itself still shows ❌ in the PR's check-runs panel
     #     so genuine analysis failures stay visible (and the Security
     #     tab continues to receive findings on green runs), but the
@@ -116,14 +116,14 @@ jobs:
     #     signatures (429 / ECONNRESET / etc.).  So 429-class failures
     #     are silently retried; only persistent failures stay red.
     #
-    # Reference: 2026-05-12 PR F (this PR) — auto-rerun-transient
+    # Reference: 2026-05-12 PR F (this PR) - auto-rerun-transient
     # workflow + this continue-on-error flag, landed together.
     #
     # Plan gate: uploading code-scanning results requires a PUBLIC repo
     # or GitHub Advanced Security. On a private free-plan repo the
     # analysis would succeed but the upload hard-fails ("Advanced
     # Security must be enabled"), so the job only runs when the repo is
-    # public — or when LANE_CODEQL is set after purchasing GHAS.
+    # public - or when LANE_CODEQL is set after purchasing GHAS.
     if: ${{ !github.event.repository.private || vars.LANE_CODEQL == 'true' }}
     continue-on-error: true
     strategy:
@@ -139,7 +139,7 @@ jobs:
           # merge commit that `actions/checkout` defaults to for PR
           # events).  For `push` / `schedule` / `workflow_dispatch`,
           # `pull_request.head.sha` is undefined and we fall back to
-          # `github.sha` — which is already the correct commit for
+          # `github.sha` - which is already the correct commit for
           # those triggers.  Net effect: CodeQL always analyses the
           # exact bytes pushed / proposed, never a synthetic merge.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -151,7 +151,7 @@ jobs:
           # Rust support (public preview) currently only accepts
           # `build-mode: none`.  In this mode the extractor parses the
           # source tree directly and resolves crate metadata via
-          # CodeQL's own bundled tooling — no cargo / rustc invocation,
+          # CodeQL's own bundled tooling - no cargo / rustc invocation,
           # no build cache required.
           build-mode: none
           # security-extended adds higher-recall queries at the cost of

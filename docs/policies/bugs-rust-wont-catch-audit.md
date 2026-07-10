@@ -3,15 +3,15 @@ SPDX-License-Identifier: MIT OR Apache-2.0
 Copyright (c) 2025-2026 Acmex Placeholder LLC.
 -->
 
-# "Bugs Rust Won't Catch" — Donor-Project Codebase Audit (worked example)
+# "Bugs Rust Won't Catch" - Donor-Project Codebase Audit (worked example)
 
-> **Provenance note — read this first.** This document is an
+> **Provenance note - read this first.** This document is an
 > **inherited donor-project artifact**, kept in the template as a
 > worked example of how to run a boundary-bug audit against a real
 > codebase.  Every file path, crate name, line number, and finding
 > below refers to the **donor project** (a Windows NTFS file-search
 > tool with a daemon, a privileged broker, and an on-disk encrypted
-> cache) — none of that code exists in this template.  What transfers
+> cache) - none of that code exists in this template.  What transfers
 > is the **method** (the eight article categories, the threat-model-
 > first severity calls, the pattern sweeps in Appendix A) and the
 > **remediation playbook** in [`bugs-rust-wont-catch-implementation.md`](bugs-rust-wont-catch-implementation.md).
@@ -19,7 +19,7 @@ Copyright (c) 2025-2026 Acmex Placeholder LLC.
 > auditing; replace this document with your findings.
 
 **Audit date:** 2026-06-04 (donor project)
-**Reference article:** *Bugs Rust Won't Catch* — Matthias Endler / corrode.dev
+**Reference article:** *Bugs Rust Won't Catch* - Matthias Endler / corrode.dev
 (<https://corrode.dev/blog/bugs-rust-wont-catch/>), derived from the April 2026
 Canonical/uutils audit (44 CVEs).
 
@@ -27,7 +27,7 @@ Canonical/uutils audit (44 CVEs).
 
 The article catalogues the classes of bug that survive Rust's borrow checker,
 Clippy, and `cargo audit` because they live at the **boundary between the
-program and the messy outside world** — paths, bytes, syscalls, and trust
+program and the messy outside world** - paths, bytes, syscalls, and trust
 boundaries. This document maps each of those categories onto the donor's source
 tree, points at concrete code, explains *why* each site is (or could become) a
 problem **given the donor's actual threat model**, and recommends fixes.
@@ -42,7 +42,7 @@ severity** than the uutils CVEs. Its relevant exposure surface was:
 
 1. **A long-running daemon** (`acmex-daemon`) that parses cache files and serves
    IPC requests. The release profile sets `panic = "abort"` (Cargo.toml:645), so
-   **any panic in any worker tears down the whole daemon for every client** — a
+   **any panic in any worker tears down the whole daemon for every client** - a
    panic is a clean denial-of-service.
 2. **A privileged Windows broker** (`acmex-broker`) that runs as a Service, holds
    `SeBackupPrivilege`, opens raw volume handles, and `DuplicateHandle`s them
@@ -50,14 +50,14 @@ severity** than the uutils CVEs. Its relevant exposure surface was:
    boundary.
 3. **On-disk secrets:** `acmex-security::keystore` stores the AES-256 cache key
    (`key.bin` on Unix, DPAPI blob on Windows). The cache itself
-   (`*_compact.acmex`) is an encrypted index of every filename on every volume —
+   (`*_compact.acmex`) is an encrypted index of every filename on every volume -
    sensitive metadata.
 4. **Untrusted-ish inputs:** raw MFT bytes (local, admin-read, semi-trusted) and
    cache/cursor files on disk (tamperable by anything with write access to the
    cache dir).
 
-The biggest *correctness* issue (not security) is that the tool's **core job —
-finding files by name — silently corrupts a class of real filenames**
+The biggest *correctness* issue (not security) is that the tool's **core job -
+finding files by name - silently corrupts a class of real filenames**
 (see §4).
 
 ## Summary table
@@ -77,7 +77,7 @@ finding files by name — silently corrupts a class of real filenames**
 
 ---
 
-## 1. TOCTOU — don't trust a path across two syscalls
+## 1. TOCTOU - don't trust a path across two syscalls
 
 > *Article rule: anchor on a file descriptor, not a path; if you act on the same
 > path twice, assume it's a TOCTOU bug.*
@@ -86,7 +86,7 @@ ACMEX's high-level file ops all take `&Path` and re-resolve on each call. ACMEX 
 not privileged the way `install`/`cp` are, but the cache directory is a
 shared-ish location and the broker is privileged, so the pattern still matters.
 
-### 1.1 `secure_remove` — `metadata()` then `open()` (check → use)
+### 1.1 `secure_remove` - `metadata()` then `open()` (check → use)
 
 `crates/acmex-security/src/fs.rs:250-288`
 
@@ -160,7 +160,7 @@ crate::fs::set_file_permissions_owner_only(&key_path)?; // chmod 0600 AFTER
   (commonly `0644`/`0664`) and only narrowed to `0600` afterward. Any local user
   who `open()`s it in that window keeps a readable fd even after the chmod.
 - `std::fs::write` also creates/truncates by path and follows symlinks (ties to
-  §1.2) — a pre-planted `key.bin` symlink redirects the key write.
+  §1.2) - a pre-planted `key.bin` symlink redirects the key write.
 - The Windows path (`dpapi_write_key`, keystore.rs:192-193) has the same
   write-then-chmod shape, but the blob is DPAPI-encrypted, so lower severity.
 - Severity **High** (Unix): direct exposure window on the master key.
@@ -168,7 +168,7 @@ crate::fs::set_file_permissions_owner_only(&key_path)?; // chmod 0600 AFTER
   .mode(0o600).open()` (Unix) so the key is *born* `0600`; never write the key by
   bare path.
 
-### 2.2 `create_secure_dir` — `create_dir_all` then `set_permissions`
+### 2.2 `create_secure_dir` - `create_dir_all` then `set_permissions`
 
 `crates/acmex-security/src/fs.rs:36-43`
 
@@ -181,7 +181,7 @@ This is the article's textbook example verbatim. The cache/runtime directory
 (which holds `key.bin`, the encrypted cache, the IPC socket, and the PID-file
 nonce that gates daemon connections) exists with default perms for a window
 before being narrowed to `0700`. `create_dir_all` also narrows *only the
-leaf* — intermediate components it creates are left at the umask default.
+leaf* - intermediate components it creates are left at the umask default.
 
 - **Fix:** use `std::os::unix::fs::DirBuilderExt::mode(0o700)` with
   `DirBuilder::recursive(true)` so each created component is born `0700`.
@@ -225,8 +225,8 @@ correctness (not safety) concern:
   match or miss depending on spelling. Acceptable for a search UX, but document
   it as "string scoping, not identity."
 - There is **no use of `std::fs::canonicalize` for identity comparison** anywhere
-  in scoping logic (the only `canonicalize` calls — `commands/load.rs`,
-  `commands/inspect.rs` — are cosmetic, for display, and even those fall back to
+  in scoping logic (the only `canonicalize` calls - `commands/load.rs`,
+  `commands/inspect.rs` - are cosmetic, for display, and even those fall back to
   the raw path with `unwrap_or_else`).
 
 Severity Low (no privileged action keys off these comparisons). If any future
@@ -258,7 +258,7 @@ with U+FFFD, at (non-exhaustive):
   `crates/acmex-mft/src/io/parser/unified.rs:23-72` (same U+FFFD semantics,
   just allocation-free)
 
-Consequences — all three are *active* bugs for a search tool:
+Consequences - all three are *active* bugs for a search tool:
 
 1. **Unfindable files.** A file whose name contains an unpaired surrogate (legal
    on NTFS, also producible by some apps/malware) is indexed as a string
@@ -268,7 +268,7 @@ Consequences — all three are *active* bugs for a search tool:
    so counts, dedup, and "go to file" become ambiguous.
 3. **Broken round-trips.** A path emitted by ACMEX (display, `--out`, MCP/JSON,
    "reveal in explorer") that contains U+FFFD **cannot be passed back to the OS**
-   to open the real file — the bytes no longer name anything.
+   to open the real file - the bytes no longer name anything.
 
 The root cause is architectural: the name column is a **Polars UTF-8 `String`
 column** (see `acmex-polars::columns`, deserialize requires UTF-8 at
@@ -280,12 +280,12 @@ The article's "pick the right type" rule argues the name should ride as
 surrogates as WTF-8.
 
 - Severity **High (correctness)**, Low (security). It does not crash; it quietly
-  returns wrong answers for a minority of files — which is the worst failure mode
+  returns wrong answers for a minority of files - which is the worst failure mode
   for a search engine.
 - **Realistic fix path:** at minimum, *flag/count* names that required
   replacement (so the corruption is observable, not silent), keep the raw UTF-16
   alongside for exact-open, and document the limitation. A full fix is a
-  bytes/WTF-8 name column — a large, deliberate refactor.
+  bytes/WTF-8 name column - a large, deliberate refactor.
 
 ### 4.2 `to_string_lossy()` on paths fed to child processes / wire
 
@@ -300,12 +300,12 @@ spawn argv or IPC payload, e.g.:
 If `data_local_dir()` or a user-supplied path is non-UTF-8 (possible on Linux;
 WTF-8 on Windows), `to_string_lossy` mangles it and the child daemon then operates
 on a **different path** than intended (cache written/read at the wrong location,
-or a hard failure). These are argv/OsStr boundaries — pass `OsString`
+or a hard failure). These are argv/OsStr boundaries - pass `OsString`
 (`Command::arg` takes `AsRef<OsStr>`) instead of round-tripping through `String`.
 
 ### 4.3 Lossy decode of subprocess stdout used for control decisions
 
-`from_utf8_lossy` on captured stdout drives logic in several places —
+`from_utf8_lossy` on captured stdout drives logic in several places -
 `acmex-broker/src/broker.rs:261`, `acmex-mcp/src/process.rs:500` (parses a PID),
 `acmex-client/src/verify.rs:309`. Lossy substitution there can corrupt a parsed
 PID/name and lead to a wrong process being trusted/targeted. Prefer strict parse
@@ -320,13 +320,13 @@ with explicit error handling on anything that feeds a decision.
 > `unwrap_used`, `expect_used`, `panic`, `indexing_slicing`,
 > `arithmetic_side_effects`.*
 
-ACMEX is **well ahead** of the uutils baseline here — and that deserves credit:
+ACMEX is **well ahead** of the uutils baseline here - and that deserves credit:
 
 - `Cargo.toml:328-330` denies `unwrap_used`, `expect_used`, `panic`.
 - `Cargo.toml:406` denies `indexing_slicing`.
 - `Cargo.toml` denies the whole `cast_*` family
   (`cast_possible_truncation`, `cast_possible_wrap`, `cast_sign_loss`,
-  `cast_precision_loss`, `cast_lossless`) — covering most of the article's
+  `cast_precision_loss`, `cast_lossless`) - covering most of the article's
   "`as` cast" concern.
 - `unreachable`, `todo`, `unimplemented`, `panic = "abort"` are all set.
 
@@ -343,7 +343,7 @@ length/offset fields drawn from the input, e.g.
 `name_bytes_offset + name_len * 2` at
 `crates/acmex-mft/src/io/parser/fragment.rs:138`. Those specific operands are
 narrowly bounded today (`file_name_length` is a `u8`, ≤255), so this is *latent*
-rather than exploited — but the guardrail the article recommends is off, so a
+rather than exploited - but the guardrail the article recommends is off, so a
 future widening or a different field can wrap past a `<= data.len()` bounds check
 and turn into an out-of-range slice (→ panic, see §5.2).
 
@@ -372,7 +372,7 @@ clients. That is a clean local DoS.
 ### 5.3 Strict `from_utf8` on cache-read paths
 
 `crates/acmex-mft/src/index/storage/deserialize.rs:379` (`String::from_utf8`) and
-`:574` (`core::str::from_utf8`) correctly return `Result` (no panic) — good. They
+`:574` (`core::str::from_utf8`) correctly return `Result` (no panic) - good. They
 do, however, *reject* a cache whose name bytes aren't UTF-8; since names were
 written via `from_utf16_lossy` they always are, so this is consistent with §4
 rather than a panic risk. Worth a comment tying the two invariants together.
@@ -388,7 +388,7 @@ rather than a panic risk. Worth a comment tying the two invariants together.
 ACMEX uses `drop(std::fs::remove_file(..))` / `let _ignore = ..` / `.ok()`
 liberally, but the overwhelming majority are **legitimate best-effort cleanup**
 (removing stale PID files, sockets, temp files on shutdown) where ignoring the
-error is correct — and many already carry an explanatory name (`_ignore`,
+error is correct - and many already carry an explanatory name (`_ignore`,
 `_mkdir_ignore`, `_cleanup`). Examples that are fine:
 `acmex-daemon/src/lifecycle.rs:269,286,303-335`, `acmex-mcp/src/process.rs:227-252`,
 `acmex-client/src/shmem.rs:402,597,659`.
@@ -402,13 +402,13 @@ Points worth a second look:
   log it) rather than a bare `drop`.
 - **Directory creation ignored before logging:** `log_init.rs:81`
   (`let _mkdir_ignore = create_dir_all(parent_dir)`) and
-  `acmex-mft/src/logging.rs:35` — if the dir can't be made, subsequent log writes
+  `acmex-mft/src/logging.rs:35` - if the dir can't be made, subsequent log writes
   fail silently and diagnostics vanish exactly when they're needed. Low severity,
   but log the failure to stderr once.
 - **Exit-code aggregation:** ACMEX is read-only, so the chmod/chown "return the
   last error instead of the worst" CVE has no direct analogue. The daemon's
   per-request handlers should still ensure a failure in one request can't be
-  reported to the client as success — spot-check
+  reported to the client as success - spot-check
   `acmex-daemon/src/handler*.rs` result plumbing if/when batch operations are
   added.
 
@@ -430,7 +430,7 @@ already takes seriously:
 - Case-insensitive matching is driven by the **live NTFS `$UpCase` table**
   (`acmex-mft/src/platform/upcase.rs`, `acmex-core/src/compact.rs:967-1014`
   compares the cached fold table against the live one), rather than ASCII
-  lowercasing — the correct, parity-preserving choice.
+  lowercasing - the correct, parity-preserving choice.
 - The §4 U+FFFD issue is, framed this way, a *parity* bug: Windows search / the
   shell can find a file that ACMEX cannot, because ACMEX changed the name.
 - Recommendation: keep a parity test corpus (the repo already has
@@ -477,7 +477,7 @@ The daemon↔client handshake relies on a PID file containing a **nonce** plus a
 `connect_sync.rs:523`, `daemon_ctl.rs:432`, `daemon/src/lifecycle.rs:658-662`).
 FNV-1a is a *non-cryptographic* hash: it provides an integrity/version tag, not
 authentication. The actual access control is **filesystem permissions on the
-runtime dir** that holds the nonce — which loops back to §2.2: if
+runtime dir** that holds the nonce - which loops back to §2.2: if
 `create_secure_dir` leaves that directory at default perms during its create→chmod
 window, the nonce (the connection capability) is briefly readable by other local
 users. Document that the security property is "the runtime dir is `0700` from
@@ -489,7 +489,7 @@ birth," and fix §2.2 so that's actually true.
 
 1. **(High) Birth secrets with correct perms.** Rewrite `keystore` key writes and
    `fs::atomic_write`/`create_secure_dir` to use `OpenOptions::mode()` /
-   `DirBuilderExt::mode()` + `create_new(true)` + randomised temp names — mirror
+   `DirBuilderExt::mode()` + `create_new(true)` + randomised temp names - mirror
    the existing `runtime_dir.rs` pattern. (§2, §1.2)
 2. **(High, correctness) Make name corruption observable, then eliminate it.**
    Count/flag U+FFFD substitutions during parse; preserve raw UTF-16 for exact
@@ -497,7 +497,7 @@ birth," and fix §2.2 so that's actually true.
 3. **(Med) Harden the parsers.** Turn `indexing_slicing` back on in the parser
    modules (or convert to `.get()`/`try_into`), enable
    `arithmetic_side_effects`/`checked_*`, set `overflow-checks = true` for `dist`,
-   and add `cargo-fuzz` targets for malformed records/cache files — the daemon's
+   and add `cargo-fuzz` targets for malformed records/cache files - the daemon's
    `panic = "abort"` turns any parser panic into full-daemon DoS. (§5)
 4. **(Med) Anchor file ops on fds.** Fix `secure_remove` to stat-and-write through
    one handle; avoid predictable temp names. (§1.1, §1.2)
@@ -513,14 +513,14 @@ As the article stresses, none of the above are memory-safety bugs. ACMEX parses
 raw, attacker-shaped MFT/cache bytes across tens of thousands of lines with
 `#![deny(unsafe_code)]` (`Cargo.toml:586`), `zerocopy`-based struct reads, and a
 genuinely strict Clippy posture (panic-family + `indexing_slicing` + `cast_*` all
-denied) — so the classic C failure modes (buffer overflows, UAF, OOB reads,
+denied) - so the classic C failure modes (buffer overflows, UAF, OOB reads,
 uninitialised memory) are absent by construction. The findings here are precisely
 the *residual* class the article is about: the boundary between safe Rust and the
 messy world of paths, bytes, permissions, and trust.
 
 ---
 
-## Appendix A — how this audit was performed
+## Appendix A - how this audit was performed
 
 Pattern sweeps across `crates/**/src/**/*.rs` (excluding tests) for: `File::create`
 / `OpenOptions` / `create_new` / `create_dir*`; `remove_file` / `metadata` /

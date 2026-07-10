@@ -3,9 +3,9 @@
 
 //! Version discovery helpers for the ACMEX ship pipeline.
 //!
-//! * [`get_current_version`] — read `[workspace.package].version` out of the
+//! * [`get_current_version`] - read `[workspace.package].version` out of the
 //!   root `Cargo.toml` (simple whole-file scan).
-//! * [`extract_version_from_cargo_toml`] — same, but strict: only considers the
+//! * [`extract_version_from_cargo_toml`] - same, but strict: only considers the
 //!   `[workspace.package]` section.
 
 use anyhow::{Context as _, Result, bail};
@@ -32,7 +32,7 @@ pub(crate) fn get_current_version() -> Result<String> {
 
 /// Bump the lockstep `[workspace.package].version` (plus the internal
 /// `[workspace.dependencies]` version requirements and the lockfile) by
-/// `level` — `"patch"`, `"minor"`, or `"major"` — via `cargo set-version`.
+/// `level` - `"patch"`, `"minor"`, or `"major"` - via `cargo set-version`.
 ///
 /// This restores the Phase-2 version-increment step retired in R5.  It shells
 /// out to `cargo-edit`'s `set-version` rather than re-implementing semver math
@@ -51,7 +51,7 @@ pub(crate) fn bump_workspace_version(level: &str) -> Result<()> {
         .is_ok_and(|out| out.status.success());
     if !available {
         bail!(
-            "`cargo set-version` not found — install it with `cargo install cargo-edit` \
+            "`cargo set-version` not found - install it with `cargo install cargo-edit` \
              (required by `just ship` to bump the release version)."
         );
     }
@@ -72,7 +72,7 @@ pub(crate) fn bump_workspace_version(level: &str) -> Result<()> {
 
 /// Parse `content` (the text of a workspace root `Cargo.toml`) and
 /// extract the `version = "..."` entry from the `[workspace.package]`
-/// table specifically — ignores any unrelated `version = ...` lines in
+/// table specifically - ignores any unrelated `version = ...` lines in
 /// `[dependencies]` or per-crate overrides.
 ///
 /// # Errors

@@ -3,10 +3,10 @@
 
 #![expect(
     clippy::print_stderr,
-    reason = "operational CLI tool — error/verbose output goes to stderr (issue #212)"
+    reason = "operational CLI tool - error/verbose output goes to stderr (issue #212)"
 )]
 
-//! `acmex-gen-hooks` — gate-manifest hook generator.
+//! `acmex-gen-hooks` - gate-manifest hook generator.
 //!
 //! Phase 2/3a of `docs/architecture/gates-manifest-plan.md`.  Reads
 //! `scripts/ci/gates.toml` and emits one of two hook files depending
@@ -40,7 +40,7 @@
 // visible (libraries get it for free via the 2024 edition's prelude).
 extern crate alloc;
 
-/// Per-target hook emission — turns a parsed manifest into the bash
+/// Per-target hook emission - turns a parsed manifest into the bash
 /// text of `_lint_pre_push.sh`.
 mod emit;
 /// Manifest schema model + lightweight invariant validation.
@@ -170,7 +170,7 @@ fn run(args: &Args) -> Result<ExitCode> {
             EmitTarget::PreCommit => "just gen-fast",
         };
         eprintln!(
-            "acmex-gen-hooks: --check FAILED — {} is out of sync with the manifest.\n\
+            "acmex-gen-hooks: --check FAILED - {} is out of sync with the manifest.\n\
              \n\
              Regenerate it with:\n    {recipe}\n\
              \n\
@@ -195,7 +195,7 @@ fn run(args: &Args) -> Result<ExitCode> {
 
 /// Print a human-readable dump of the parsed manifest to stderr.
 /// Used by `--verbose` to confirm what the generator saw before
-/// rendering — header metadata, the `[classification]` regex stack
+/// rendering - header metadata, the `[classification]` regex stack
 /// (Phase 3 will wire these into the preamble), and one line per
 /// gate that participates in `tier`, including the documentary
 /// `expected_runtime_secs` budget and the first line of `notes`.
@@ -236,7 +236,7 @@ fn emit_verbose_dump(manifest: &Manifest, manifest_path: &std::path::Path, tier:
             .unwrap_or("(no notes)");
         eprintln!(
             "  · [{tier}] {id} ({label}) bucket={bucket} when={when} hard={hard} \
-             ~{secs}s — {note}",
+             ~{secs}s - {note}",
             tier = tier,
             id = gate.id,
             label = gate.label,

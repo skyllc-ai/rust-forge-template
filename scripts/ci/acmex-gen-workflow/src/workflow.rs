@@ -69,9 +69,9 @@ pub(crate) struct Workflow {
 /// Per-job structural fields the validator inspects.
 #[derive(Debug, Default)]
 pub(crate) struct Job {
-    /// `name:` field — display text shown in the GitHub Checks UI.
+    /// `name:` field - display text shown in the GitHub Checks UI.
     /// Validator inspects this only on the `required` job (Property 4
-    /// — branch-protection guard).
+    /// - branch-protection guard).
     pub(crate) name: Option<String>,
 
     /// `if:` predicate (the YAML key is reserved-word-quoted as
@@ -79,12 +79,12 @@ pub(crate) struct Job {
     /// Mapped to a permissiveness score by the validator.
     pub(crate) if_expr: Option<String>,
 
-    /// `needs:` — flattened list of upstream job-ids regardless of
+    /// `needs:` - flattened list of upstream job-ids regardless of
     /// which of the three YAML shapes was used to express it.
     pub(crate) needs: Vec<String>,
 }
 
-/// Indentation step — every `pr-fast.yml` we ship uses two-space
+/// Indentation step - every `pr-fast.yml` we ship uses two-space
 /// indents, mirroring the GitHub Actions style guide.
 const INDENT_STEP: usize = 2;
 
@@ -162,7 +162,7 @@ fn job_key_at(line: &str, indent: usize) -> Option<&str> {
     Some(id)
 }
 
-/// Parse a job's body — the contiguous run of lines at
+/// Parse a job's body - the contiguous run of lines at
 /// indent ≥ 4 that follow a job-id line at indent 2.
 ///
 /// Returns the parsed [`Job`] and the number of input lines
@@ -196,7 +196,7 @@ fn parse_job_body(lines: &[&str], start: usize) -> Result<(Job, usize)> {
         } else if let Some(value) = strip_field(line, "if:") {
             job.if_expr = Some(unquote(value));
         } else if let Some(value) = strip_field(line, "needs:") {
-            // Three shapes — handled by [`parse_needs_value`].
+            // Three shapes - handled by [`parse_needs_value`].
             let (parsed, extra_consumed) = parse_needs_value(value, lines, idx + 1)?;
             job.needs = parsed;
             idx += 1 + extra_consumed;

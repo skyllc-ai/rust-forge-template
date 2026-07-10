@@ -1,13 +1,13 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2025-2026 Acmex Placeholder LLC.
 #
-# ACMEX — Gate-manifest workflow structural validator.
+# ACMEX - Gate-manifest workflow structural validator.
 #
 # Phase 3 deliverable from `docs/architecture/gates-manifest-plan.md`.
 # Reads `scripts/ci/gates.toml` AND `.github/workflows/pr-fast.yml`,
 # validates four structural properties (job presence, `if:` predicate
 # alignment, aggregator coverage, branch-protection guard), exits
-# non-zero on any drift.  This is a `--check`-only tool — it never
+# non-zero on any drift.  This is a `--check`-only tool - it never
 # mutates the workflow file.  See plan §4.2 for the full property
 # specification and the rationale for the structural-validator design
 # (vs. the originally-planned YAML emitter).
@@ -20,7 +20,7 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 description = "Gate-manifest workflow structural validator (gates-manifest-plan.md Phase 3)"
-# Posture: **permanently non-publishable** — internal workspace CI tooling.
+# Posture: **permanently non-publishable** - internal workspace CI tooling.
 # Distinct from the 8 Polars-blocked deferred-publishable crates: this
 # crate would remain non-publishable even if Polars upstream released,
 # because it is internal CI orchestration, not a reusable library.
@@ -29,7 +29,7 @@ publish.workspace = true
 # Phase R6 of `release-automation-plan.md` step 3: docs.rs build configuration.
 # This crate is `publish = false` (internal CI orchestration), so docs.rs will
 # never build it; this block is preserved for workspace-uniform manifest shape
-# (per Phase 1 follow-up F1.15 / issue #214).  Pure Rust CLI tooling — the
+# (per Phase 1 follow-up F1.15 / issue #214).  Pure Rust CLI tooling - the
 # docs.rs default (Linux x86_64) build is sufficient if it ever runs.
 [package.metadata.docs.rs]
 all-features = true

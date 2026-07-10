@@ -7,13 +7,13 @@
 # A template repository copies FILES only. This script (re)creates the
 # server-side state the machinery expects:
 #   * labels used by ci-failure-notify / auto-rerun
-#   * the dormant-lane repo variables (all "false" — flip via COMPONENTS.md)
+#   * the dormant-lane repo variables (all "false" - flip via COMPONENTS.md)
 #   * branch ruleset for main (required PR + required status checks +
-#     MERGE QUEUE — pr-fast.yml already subscribes to merge_group)
+#     MERGE QUEUE - pr-fast.yml already subscribes to merge_group)
 #
 # NOTE: rulesets (and therefore the merge queue) require a PUBLIC repo or
 # GitHub Pro/Team. On a private free-plan repo this section degrades to a
-# warning — re-run this script once the repo goes public.
+# warning - re-run this script once the repo goes public.
 #   * squash-merge + auto-merge repo settings
 #
 # Requires: gh CLI authenticated with admin on the repo.
@@ -37,7 +37,7 @@ for spec in \
 done
 
 # ── 2. Dormant-lane repo variables (all off; see COMPONENTS.md) ──────
-echo "── lane variables (all false — activation is a conscious flip)"
+echo "── lane variables (all false - activation is a conscious flip)"
 for lane in LANE_RELEASE LANE_RELEASE_PLZ LANE_CRATES LANE_WINGET LANE_CODECOV LANE_CODEQL LANE_SLSA; do
   gh variable set "${lane}" --body "false"
   echo "   ✅ ${lane}=false"
@@ -55,7 +55,7 @@ echo "   ✅ done"
 
 # ── 4. Branch ruleset for main ───────────────────────────────────────
 # Required status check name MUST match the aggregator job in pr-fast.yml
-# ("PR Fast CI / required") — the workflow-drift gate guards the yml side.
+# ("PR Fast CI / required") - the workflow-drift gate guards the yml side.
 # The signature requirement ships in "evaluate" (dry-run) mode: flip
 # enforcement to "active" once every committer signs (see `just doctor-signing`).
 echo "── ruleset: main-protection"
@@ -105,7 +105,7 @@ RULESET_JSON=$(cat <<'JSON'
 JSON
 )
 if gh api "repos/${REPO}/rulesets" --jq '.[].name' 2>/dev/null | grep -qx "main-protection"; then
-  echo "   ↷ ruleset main-protection already exists — skipping (edit in Settings → Rules)"
+  echo "   ↷ ruleset main-protection already exists - skipping (edit in Settings → Rules)"
 elif echo "${RULESET_JSON}" | gh api -X POST "repos/${REPO}/rulesets" --input - >/dev/null 2>&1; then
   echo "   ✅ created"
 else
@@ -129,7 +129,7 @@ TAG_RULESET_JSON=$(cat <<'JSON'
 JSON
 )
 if gh api "repos/${REPO}/rulesets" --jq '.[].name' 2>/dev/null | grep -qx "tag-protection-v-prefix"; then
-  echo "   ↷ already exists — skipping"
+  echo "   ↷ already exists - skipping"
 elif echo "${TAG_RULESET_JSON}" | gh api -X POST "repos/${REPO}/rulesets" --input - >/dev/null 2>&1; then
   echo "   ✅ created"
 else
@@ -145,7 +145,7 @@ cat <<'EOF'
    2. Secrets (only when the matching lane goes live):
       CODECOV_TOKEN (lane:codecov), CARGO_REGISTRY_TOKEN (lane:crates-publish),
       WINGET_TOKEN (lane:winget).
-   3. Dependabot: Settings → Code security — enable Dependabot alerts +
+   3. Dependabot: Settings → Code security - enable Dependabot alerts +
       security updates (dependabot.yml in-repo handles version updates).
    4. Mark the TEMPLATE repo (not this one) as "Template repository" if you
       have not already.

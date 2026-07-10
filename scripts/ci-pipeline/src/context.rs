@@ -9,7 +9,7 @@
 //!
 //! The boolean flags are extracted into [`PipelineFlags`] so the
 //! outer context struct stays under clippy's `struct_excessive_bools`
-//! threshold — see that struct's doc comment for the rationale.
+//! threshold - see that struct's doc comment for the rationale.
 //!
 //! This module also owns the small filesystem helpers the context
 //! construction needs (`get_cargo_target_dir`, `sccache_is_functional`,
@@ -80,7 +80,7 @@ fn parse_cargo_config_target_dir() -> Option<PathBuf> {
 /// but the daemon fails to start (sandbox, missing IPC socket, etc.),
 /// causing every cargo invocation that inherits `RUSTC_WRAPPER=sccache`
 /// to die with "Operation not permitted".  Running `sccache rustc -vV`
-/// — the exact call Cargo makes for every build — flushes that out.
+/// - the exact call Cargo makes for every build - flushes that out.
 ///
 /// Note that this probe is not perfect: on some macOS shells sccache
 /// can succeed at the top level yet still fail when invoked as a
@@ -99,7 +99,7 @@ pub(crate) fn sccache_is_functional() -> bool {
 /// Capture a stable identity string for the currently active `rustc`.
 ///
 /// Runs `rustc -vV`, whose output lists the release, commit-hash,
-/// commit-date, host triple, and LLVM version — a tuple that changes on
+/// commit-date, host triple, and LLVM version - a tuple that changes on
 /// every nightly bump.  The clean step uses this as a fingerprint: when
 /// the active toolchain differs from the one that built the cached
 /// `target` dir, Cargo's rustc-version-specific cross-crate metadata is
@@ -232,7 +232,7 @@ pub(crate) struct PipelineContext {
 /// auto-detection result.
 ///
 /// Lives in its own struct because clippy's `struct_excessive_bools`
-/// fires on any struct with more than three booleans — and the natural
+/// fires on any struct with more than three booleans - and the natural
 /// mitigation for a flags container is *more* flags, not fewer.
 /// Isolating them here keeps [`PipelineContext`] itself clean and lets
 /// the scoped `#[expect]` attach to its actual target (a flags bag,
@@ -268,7 +268,7 @@ impl PipelineContext {
     ///
     /// `validation_command` is forwarded from `main` so pipelines that
     /// never touch the release surface (`go` / `check-all` / `phase1`)
-    /// can opt out of sccache auto-detection — validation runs prefer a
+    /// can opt out of sccache auto-detection - validation runs prefer a
     /// warm cargo incremental cache over a cold sccache cache for lower
     /// per-run variance.
     pub(crate) fn new(cli: &Cli, validation_command: bool) -> Self {
@@ -309,14 +309,14 @@ impl PipelineContext {
         //
         // Consequence here: the pipeline only needs to set RUSTC_WRAPPER
         // for its subprocesses (e.g. `git`, whose pre-push hook shells
-        // out to cargo — we still inject the wrapper explicitly because
+        // out to cargo - we still inject the wrapper explicitly because
         // git itself reads no Cargo config).
         let disable_sccache = cli.no_sccache || validation_command;
         let sccache_available = !disable_sccache && sccache_is_functional();
         if sccache_available {
             global_env.push(("RUSTC_WRAPPER".into(), "sccache".into()));
         } else {
-            // Always clear RUSTC_WRAPPER when sccache is unavailable —
+            // Always clear RUSTC_WRAPPER when sccache is unavailable -
             // .cargo/config.toml hard-codes `build.rustc-wrapper = "sccache"`,
             // so subprocesses would otherwise inherit a broken wrapper and
             // every cargo invocation (even `cargo clean`) would die with

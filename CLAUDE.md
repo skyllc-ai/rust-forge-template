@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-**Read `AGENTS.md` first and follow it literally** — it is the single source
+**Read `AGENTS.md` first and follow it literally** - it is the single source
 of truth for agent behavior in this repo: state detection (initialized vs
 template), absolute prohibitions, the work loop, Rust rules, and the exact
 fix for every gate. Everything below is a thin Claude-specific supplement.
@@ -17,8 +17,8 @@ description after `just init`.
 
 ```
 crates/
-├── acmex-core/      Core library (placeholder greeting logic — replace me)
-├── acmex-cli/       CLI binary `acmex` (clap; placeholder — replace me)
+├── acmex-core/      Core library (placeholder greeting logic - replace me)
+├── acmex-cli/       CLI binary `acmex` (clap; placeholder - replace me)
 └── acmex-version/   Shared --version machinery
 scripts/
 ├── ci-pipeline/     acmex-ci-pipeline: the `just go` / `just ship` engine

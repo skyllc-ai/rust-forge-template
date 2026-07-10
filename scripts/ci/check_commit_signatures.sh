@@ -4,11 +4,11 @@
 #
 # Commit-signature validator.
 #
-# **Why this exists** — `main` is governed by a GitHub ruleset that
+# **Why this exists** - `main` is governed by a GitHub ruleset that
 # requires every commit to carry a *verified* signature (plus a merge
 # queue).  An unsigned commit pushes fine and passes every other local
 # gate, so the breakage only surfaces at the merge queue
-# ("Merging is blocked: Commits must have verified signatures") — a slow,
+# ("Merging is blocked: Commits must have verified signatures") - a slow,
 # maximally-late failure after a full CI round-trip.  This gate moves that
 # catch left: it fails the push in ~1 second when any commit in the pushed
 # range is unsigned, and points at the one-command self-heal.
@@ -21,7 +21,7 @@
 #                    range RANGE (e.g. `origin/main..HEAD`).  Empty /
 #                    merges-only ranges silently succeed.
 #
-# **What counts as signed** — `git log --format=%G?` status codes:
+# **What counts as signed** - `git log --format=%G?` status codes:
 #   G  good signature                              -> OK
 #   U  good signature, unknown validity            -> OK
 #   E  signature present, cannot verify (key not   -> OK (GitHub is the

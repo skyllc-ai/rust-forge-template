@@ -18,7 +18,7 @@
 
 /// Executable-name suffix for the compiled target.
 ///
-/// `.exe` on Windows, empty elsewhere — so the version macros print a name that
+/// `.exe` on Windows, empty elsewhere - so the version macros print a name that
 /// matches the actual on-disk filename.
 #[must_use]
 pub const fn exe_suffix() -> &'static str {

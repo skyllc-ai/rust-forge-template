@@ -11,7 +11,7 @@
 #
 # The implementation lives in `scripts/hooks/_lint_pre_push.sh` so the
 # same logic runs via `just lint-pre-push` (manual) and through the
-# git hook (automated) — single source of truth.
+# git hook (automated) - single source of truth.
 #
 # Install via: `just install-hooks` (sets core.hooksPath to scripts/hooks/).
 # Bypass once: `git push --no-verify`.
@@ -19,7 +19,7 @@
 #
 # Mirrors the CI lint gate in `.github/workflows/pr-fast.yml`.  The
 # Linux-only drift gate (`just lint-ci-linux`) is deliberately NOT
-# invoked here — that class of regression is caught by CI on push to
+# invoked here - that class of regression is caught by CI on push to
 # the remote.
 
 set -euo pipefail

@@ -7,9 +7,9 @@ heap-string operation is acceptable, *what shape* it must take, and *how* a
 contributor justifies one inline.
 
 The companion docs:
-- [`panic_policy.md`](panic_policy.md) — when panics / `unwrap` / `expect` are
+- [`panic_policy.md`](panic_policy.md) - when panics / `unwrap` / `expect` are
   acceptable.
-- [`lint-posture.md`](lint-posture.md) — full lint configuration (rustfmt,
+- [`lint-posture.md`](lint-posture.md) - full lint configuration (rustfmt,
   rustc, clippy, rustdoc, cargo-deny).
 
 > **Provenance note.** This policy was extracted from a donor project
@@ -35,13 +35,13 @@ The categories:
 
 | Category | Pattern | Verdict | Notes |
 |----------|---------|--------:|-------|
-| **α — Arc clone** | `Arc::clone(&x)` / `x.clone()` where `x: Arc<T>` | **KEEP** | Refcount bump for `tokio::spawn`, broadcast channels, fan-out of immutable data |
-| **β — Ownership fence** | Caller has `&T` but the called API needs `T` (stores / mutates / consumes) | **KEEP** | The only safe shape given the surrounding ownership graph |
-| **γ — Error / log context** | `String` / `PathBuf` carried into an error variant or log line | **KEEP** | Error paths are cold; allocation cost is dominated by the error itself |
-| **δ — Hot-path anti-pattern** | Clone of `String` / `Vec<T>` inside a per-record / per-query loop that could be eliminated by restructuring ownership | **FIX** | Refactor the call site; never suppress |
-| **ε — Test helper** | `#[cfg(test)]`-only allocation | **KEEP** | Out of scope; test code is exempt from the discipline |
+| **α - Arc clone** | `Arc::clone(&x)` / `x.clone()` where `x: Arc<T>` | **KEEP** | Refcount bump for `tokio::spawn`, broadcast channels, fan-out of immutable data |
+| **β - Ownership fence** | Caller has `&T` but the called API needs `T` (stores / mutates / consumes) | **KEEP** | The only safe shape given the surrounding ownership graph |
+| **γ - Error / log context** | `String` / `PathBuf` carried into an error variant or log line | **KEEP** | Error paths are cold; allocation cost is dominated by the error itself |
+| **δ - Hot-path anti-pattern** | Clone of `String` / `Vec<T>` inside a per-record / per-query loop that could be eliminated by restructuring ownership | **FIX** | Refactor the call site; never suppress |
+| **ε - Test helper** | `#[cfg(test)]`-only allocation | **KEEP** | Out of scope; test code is exempt from the discipline |
 
-Test code is exempt — see
+Test code is exempt - see
 [`clippy.toml`](../../clippy.toml) `allow-*-in-tests = true`.
 This split mirrors the panic-policy test/prod boundary described in
 [`panic_policy.md` §1](panic_policy.md) and
@@ -78,9 +78,9 @@ Release builds also set `opt-level = 3` + `lto = "fat"` (see the root
 
 ---
 
-## 3  The five categories — in depth
+## 3  The five categories - in depth
 
-### 3.1  Category α — Arc clone
+### 3.1  Category α - Arc clone
 
 **Pattern:**
 
@@ -98,28 +98,28 @@ cheaper than any structural alternative (channel, mutex, etc.).
 **Workspace convention:**
 - `clone_on_ref_ptr = "deny"` enforces the explicit `Arc::clone(&x)` form
   for clarity.  `x.clone()` on an `Arc<T>` is a Clippy error.
-- Spawned tasks may hold `Arc<T>` for an unbounded duration — the refcount
+- Spawned tasks may hold `Arc<T>` for an unbounded duration - the refcount
   decrements when the task drops the captured value.
 
 **Examples from the donor project:**
-- a multi-drive reader — `shared_callback.clone()` per spawned
+- a multi-drive reader - `shared_callback.clone()` per spawned
   per-drive worker task.
-- a parallel-parse pipeline — `rx.clone()`, `bitmap_arc.clone()` for
+- a parallel-parse pipeline - `rx.clone()`, `bitmap_arc.clone()` for
   worker channels.
-- a daemon pressure watcher — `sender.clone()` for the watcher spawn.
+- a daemon pressure watcher - `sender.clone()` for the watcher spawn.
 
 ---
 
-### 3.2  Category β — Ownership fence
+### 3.2  Category β - Ownership fence
 
-**Pattern** (example from the donor project — a copy-on-write index
+**Pattern** (example from the donor project - a copy-on-write index
 patch):
 
 ```rust
 fn apply_patch(body_arc: &Arc<Index>, changes: &[Change])
     -> Option<(Arc<Index>, PatchStats)>
 {
-    // Deep-clone the inner Index so the patch loop mutates the clone —
+    // Deep-clone the inner Index so the patch loop mutates the clone -
     // never the live Arc that concurrent readers are observing.
     let mut owned: Index = (**body_arc).clone();
     let stats = apply_changes(&mut owned, changes);
@@ -130,7 +130,7 @@ fn apply_patch(body_arc: &Arc<Index>, changes: &[Change])
 **Verdict:** KEEP.
 
 The caller has a shared reference (`&Arc<T>`).  Producing the new patched
-state requires owning a `T`.  Clone is the only safe path — alternatives
+state requires owning a `T`.  Clone is the only safe path - alternatives
 (unsafe transmute, atomic CAS on the inner pointer) sacrifice the
 copy-on-write semantics that lock-free readers rely on.
 
@@ -151,7 +151,7 @@ copy-on-write semantics that lock-free readers rely on.
 
 ---
 
-### 3.3  Category γ — Error / log context
+### 3.3  Category γ - Error / log context
 
 **Pattern:**
 
@@ -167,7 +167,7 @@ fn load_input(path: &Path) -> Result<...> {
 
 **Verdict:** KEEP.
 
-Error paths are cold by definition — they only fire when something has
+Error paths are cold by definition - they only fire when something has
 already gone wrong.  The cost of allocating a `PathBuf` / `String` for
 context is dominated by the cost of the failure itself (system call, lock
 release, retry logic).
@@ -175,7 +175,7 @@ release, retry logic).
 **Workspace convention:**
 - The clone / allocation must be inside an error-construction arm, a `log!`
   macro, or a `tracing!` event.
-- Reason text in the surrounding code can be brief — the *category* is
+- Reason text in the surrounding code can be brief - the *category* is
   self-evident from the error/log context.
 
 **Examples from the donor project:**
@@ -186,9 +186,9 @@ release, retry logic).
 
 ---
 
-### 3.4  Category δ — Hot-path anti-pattern
+### 3.4  Category δ - Hot-path anti-pattern
 
-**Pattern (anti-pattern — DO NOT WRITE):**
+**Pattern (anti-pattern - DO NOT WRITE):**
 
 ```rust
 for source in &sources {
@@ -204,7 +204,7 @@ for source in &sources {
 **Verdict:** FIX.
 
 If the inner loop body does not actually re-borrow the parent state, the
-clone is dead weight — a per-iteration allocation that the borrow checker
+clone is dead weight - a per-iteration allocation that the borrow checker
 would accept without it.  These are the only category that **must** be
 refactored, not suppressed.
 
@@ -237,7 +237,7 @@ refactored, not suppressed.
 
 ---
 
-### 3.5  Category ε — Test helper
+### 3.5  Category ε - Test helper
 
 **Pattern:**
 
@@ -268,7 +268,7 @@ helpers may clone freely so the test author can concentrate on the
 
 Every prod `.clone()` / `format!()` / `to_owned()` site must satisfy one of:
 
-1. **Self-evident category α (`Arc::clone(&x)` form):** no comment required —
+1. **Self-evident category α (`Arc::clone(&x)` form):** no comment required -
    the explicit `Arc::clone(&x)` syntax is its own annotation.
 2. **Category β / γ:** a 1–3 line `//` comment above (or trailing) the call
    site explaining *why* the alternative (`&T`, in-place mutation, etc.)
@@ -323,14 +323,14 @@ others to keep the contract auditable:
 This section is append-only.  Add new rows above the divider; do not edit
 existing rows (they document the *evolution* of the policy).  The rows
 below are inherited donor-project history, kept as a worked example of
-the log format — reset the table when you adopt this template.
+the log format - reset the table when you adopt this template.
 
 | Date | Decision | Rationale |
 |------|----------|-----------|
 | 2026-05-12 | `clone_on_ref_ptr = "deny"` adopted; explicit `Arc::clone(&x)` form mandatory | Pre-Phase-6 baseline; makes Arc refcount bumps visible at every call site |
 | 2026-05-12 | `redundant_clone = "deny"` / `inefficient_to_string = "deny"` / `cloned_instead_of_copied = "deny"` / `unnecessary_to_owned = "deny"` adopted | Mechanical guard against the most common cat-δ shapes |
 | 2026-05-19 | `clone_alloc_audit.sh` shipped as a standalone helper (Phase 6a, PR #281) | Reproducible workspace inventory; baselines the per-crate counts before any code change |
-| 2026-05-19 | Two cat-δ sites in `path_only_top_n` / `path_sorted_top_n` refactored (Phase 6c, PR #282) | Defensive `Vec<u16>::clone()` dropped — inner loop never re-borrows |
+| 2026-05-19 | Two cat-δ sites in `path_only_top_n` / `path_sorted_top_n` refactored (Phase 6c, PR #282) | Defensive `Vec<u16>::clone()` dropped - inner loop never re-borrows |
 | 2026-05-19 | Two cat-δ sites in `path_resolver::fast` / `search::dataframe_convert` refactored (Phase 6d, PR #283) | Per-row `format!` replaced with in-place `push_str` and `[&str; 26]` static lookup |
 | 2026-05-19 | `fold_needle` helper returning `Cow<'_, str>` extracted (Phase 6e, PR #284) | Case-sensitive query path now zero-alloc; case-insensitive path unchanged |
 | 2026-05-19 | This document created (Phase 6f) | Codifies the five-category decision tree and per-site annotation contract for future contributors |
@@ -339,11 +339,11 @@ the log format — reset the table when you adopt this template.
 
 ## 8  See also
 
-- [`panic_policy.md`](panic_policy.md) — panic / unwrap / expect rules
-- [`lint-posture.md`](lint-posture.md) — full lint configuration
+- [`panic_policy.md`](panic_policy.md) - panic / unwrap / expect rules
+- [`lint-posture.md`](lint-posture.md) - full lint configuration
   (rustfmt, rustc, clippy, rustdoc, cargo-deny)
-- [`../../SECURITY.md`](../../SECURITY.md) — cargo-deny + cargo-vet
+- [`../../SECURITY.md`](../../SECURITY.md) - cargo-deny + cargo-vet
   supply-chain posture
-- Root `Cargo.toml` `[workspace.lints]` — source of truth for the
+- Root `Cargo.toml` `[workspace.lints]` - source of truth for the
   deny-list
-- Root `clippy.toml` — clippy configuration source of truth
+- Root `clippy.toml` - clippy configuration source of truth

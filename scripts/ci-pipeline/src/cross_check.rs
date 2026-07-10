@@ -3,7 +3,7 @@
 
 #![expect(
     clippy::print_stdout,
-    reason = "operational CLI tool — progress + summary lines go to stdout (issue #212)"
+    reason = "operational CLI tool - progress + summary lines go to stdout (issue #212)"
 )]
 
 //! Cross-compilation syntax validation for the `cross-check`
@@ -84,7 +84,7 @@ pub(crate) async fn handle_cross_check(ctx: &PipelineContext) -> Result<()> {
         .context("Windows cross-compilation syntax check failed")?;
         println!("✅ Windows cross-compilation syntax check passed");
     } else {
-        println!("⚠️  cargo-xwin not available — skipping Windows cross-check");
+        println!("⚠️  cargo-xwin not available - skipping Windows cross-check");
         println!("   Install with: cargo install cargo-xwin");
     }
     Ok(())

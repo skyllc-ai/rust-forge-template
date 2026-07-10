@@ -7,7 +7,7 @@
 # Each case feeds a simulated tool-call payload to the guard and asserts the
 # exit code: 2 = blocked (gate-bypass invocation), 0 = allowed.  Prose that
 # merely *mentions* a bypass flag (PR bodies, commit messages, docs) must NOT
-# trip the guard — only actual git invocations carrying the flag.
+# trip the guard - only actual git invocations carrying the flag.
 #
 # Run directly: bash scripts/hooks/test_claude_no_bypass.sh
 

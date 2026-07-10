@@ -25,7 +25,7 @@ use clap::Parser;
 
 /// Command-line arguments for the `acmex` skeleton binary.
 #[derive(Debug, Parser)]
-#[command(name = "acmex", about = "acmex — template placeholder CLI", version)]
+#[command(name = "acmex", about = "acmex - template placeholder CLI", version)]
 struct Cli {
     /// Recipient to greet.
     #[arg(default_value = "world")]
@@ -44,7 +44,7 @@ fn run<W: std::io::Write>(cli: &Cli, writer: &mut W) -> Result<(), String> {
 /// CLI entry point: version banner, parse, run, translate to an exit code.
 #[expect(
     clippy::print_stderr,
-    reason = "operational CLI binary — the final error report goes to stderr; \
+    reason = "operational CLI binary - the final error report goes to stderr; \
               all other output flows through the injected writer in `run`"
 )]
 fn main() -> ExitCode {

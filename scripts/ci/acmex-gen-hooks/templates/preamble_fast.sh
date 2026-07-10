@@ -71,7 +71,7 @@ has_staged_toml_nonvet() { [[ -n "${STAGED_TOML_NONVET//[[:space:]]/}" ]]; }
 has_staged_vet()         { [[ -n "${STAGED_VET//[[:space:]]/}" ]]; }
 has_any_staged()         { [[ -n "${STAGED_ALL//[[:space:]]/}" ]]; }
 
-printf '%s🚦 lint-fast — staged-scoped parallel gate%s\n' "$C_BLUE" "$C_RESET"
+printf '%s🚦 lint-fast - staged-scoped parallel gate%s\n' "$C_BLUE" "$C_RESET"
 START=$(date +%s)
 
 TMP=$(mktemp -d)
