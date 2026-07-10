@@ -209,6 +209,11 @@ same applies to CodeQL uploads (auto-enables on public repos).
 
 ## Daily life (the vibe-coding loop)
 
+Your project's **living state doc is `GOTO.md`**: where you are in the
+flow, what the next weeks look like, and which dormant lane does what.
+Start there when returning after a break, and keep it updated as state
+changes.
+
 ```bash
 # 1. Make changes (you, or your AI assistant; CLAUDE.md is pre-wired)
 # 2. Quick feedback while working:
@@ -291,6 +296,7 @@ the same machine you do.
 | CI job "Analyze (rust)" skipped | CodeQL needs a public repo (or GHAS + `LANE_CODEQL=true`), by design |
 | No merge queue on PRs | Rulesets need a public repo or GitHub Pro/Team; re-run `bootstrap-github.sh` once eligible |
 | `just: command not found` on Windows | Use `winget install Casey.Just`; hooks run under Git-Bash |
+| Managed/corporate device (MDM) blocks a tool install (LLVM/clang, zig, ...) | By design the core flow never needs them: bootstrap + gates run on rustup and the platform compiler prerequisites alone. Blocked tools belong to optional lanes (e.g. `lane:cross-lint`), whose recipes soft-skip when tooling is absent. Check your employer's acceptable-use policy before requesting exceptions; personal projects belong on personal hardware |
 
 Still stuck? `just` (no arguments) lists every available command with a
 one-line description.

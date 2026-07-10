@@ -176,6 +176,7 @@ gate name it prints, fix per section 6, retry the same command.
 | `scripts/ci-pipeline/` | The `just go` / `just ship` engine |
 | `COMPONENTS.md` | Runbooks for growing the project (crates, lanes) |
 | `GETTING-STARTED.md` | Human onboarding guide (send users here) |
+| `GOTO.md` | The living project-state doc: where the flow stands, what's next, which dormant lane does what. Read it at session start; update it in the same PR whenever project state changes (lane enabled, milestone done, decision made) |
 | `.config/nextest.toml` | Test-runner profiles |
 | `docs/policies/` | The reasoning behind the lint rules |
 
@@ -207,5 +208,7 @@ capability: the prohibitions in section 3, and reporting honestly.
   are required; you cannot do this for them; it needs their passphrase).
 - After you finish any task: report the actual `just go` result, including
   failures. Never say "done" with a red gate.
+- If your change flips project state (a lane enabled, a milestone reached,
+  an external action completed), update `GOTO.md` in the same PR.
 - If they ask to skip a check: refuse, explain the gate is the point, and
   show the section-6 fix instead.

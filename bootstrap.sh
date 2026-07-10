@@ -409,5 +409,18 @@ fi
 
 echo
 printf "${C_GREEN}🎉 Bootstrap complete. Daily driving: edit -> just check -> commit -> push -> PR.${C_OFF}\n"
+printf "${C_CYAN}   Where you are + what's next: GOTO.md (the living state doc - keep it updated).${C_OFF}\n"
 printf "${C_CYAN}   Next reads: GETTING-STARTED.md (daily loop + gate fix-it table), COMPONENTS.md (growing the project).${C_OFF}\n"
 printf "${C_CYAN}   GitHub-side state (labels, lane variables, rulesets): bash scripts/ci/bootstrap-github.sh${C_OFF}\n"
+
+# Land the user on "what's next" instead of a wall of files. Prefer THEIR
+# repo's GOTO.md (personalized by init); if it is not on the default branch
+# yet (init PR still in flight), fall back to the template's copy.
+if confirm "Open GOTO.md 'What's next: your first weeks' in the browser?"; then
+    repo_slug="$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)"
+    if [[ -n "$repo_slug" ]] && gh api "repos/${repo_slug}/contents/GOTO.md" -q .name >/dev/null 2>&1; then
+        open_url "https://github.com/${repo_slug}/blob/HEAD/GOTO.md#3-whats-next-your-first-weeks"
+    else
+        open_url "https://github.com/${TEMPLATE}/blob/main/GOTO.md#3-whats-next-your-first-weeks"
+    fi
+fi
