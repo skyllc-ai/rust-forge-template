@@ -99,7 +99,7 @@ MACHINERY=(
     .github/workflows .github/dependabot.yml
     deny.toml .taplo.toml .typos.toml clippy.toml rustfmt.toml
     rust-toolchain.toml supply-chain/config.toml
-    crates/acmex-version just/adopt.just AGENTS.md docs/policies ADOPTING.md
+    crates/acmex-version AGENTS.md docs/policies ADOPTING.md
 )
 SUGGESTED=()
 copied=0
@@ -398,6 +398,9 @@ else
     warn "automatic wiring hit a wall; your files were reverted, nothing is broken."
     warn "forge-adopt-snippets.md has the manual blocks for the parts that failed."
 fi
+# Resolve + commit the lockfile with the trial (committed-lock policy; also
+# keeps the tree clean after your first build, so adopt-undo stays one command)
+cargo generate-lockfile >/dev/null 2>&1 && ok "Cargo.lock resolved (committed with the trial)" || warn "could not resolve Cargo.lock; it will appear on first build"
 
 # ---- Phase 6: commit the trial on the adopt branch --------------------------
 # A plain commit: if YOUR pre-existing hooks reject it, that is your policy

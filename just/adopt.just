@@ -44,7 +44,9 @@ adopt-undo:
         exit 1
     fi
     if [[ -n "$(git status --porcelain)" ]]; then
-        printf "\033[1;33muncommitted changes present; commit or stash them first (undo must not eat work)\033[0m\n"
+        printf "\033[1;33muncommitted changes present; undo must not eat work:\033[0m\n"
+        git status --short | sed 's/^/    /'
+        printf "\033[1;33mcommit or stash them (or delete throwaway artifacts), then re-run\033[0m\n"
         exit 1
     fi
     printf "\033[0;34mundoing the adoption trial: returning to '%s'\033[0m\n" "$base"
