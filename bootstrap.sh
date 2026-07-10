@@ -239,7 +239,7 @@ fi
 say "4/7 Rust (rustup)"
 if command -v rustup >/dev/null 2>&1; then
     ok "rustup present ($(rustc --version 2>/dev/null || echo 'toolchain pending'))"
-    if [[ $YES -eq 0 ]] && confirm "Run 'rustup update' now?" N; then rustup update; fi
+    if [[ $YES -eq 0 ]] && confirm "Update your system Rust toolchains now? (optional; unrelated to this project, which pins its own)" N; then rustup update; fi
 else
     confirm "Install Rust via rustup (official installer, default settings)?" || die "required - aborting"
     curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs | sh -s -- -y
@@ -375,6 +375,33 @@ elif confirm "Set up commit signing (required before your first push)?"; then
     just setup-signing || warn "signing setup incomplete - run 'just setup-signing' again later"
 fi
 if confirm "Prove the machine with a full validation run (just go)?"; then just go; fi
+
+# The init state is sitting uncommitted; finish the job the repo's own way
+# (branch, commit, PR, auto-merge) so the user is not left with a 150-file
+# `git status`. Needs working signing (the pre-push gate requires it).
+if [[ -n "$(git status --porcelain)" ]]; then
+    pslug="$(basename "$(pwd)")"
+    if just doctor-signing >/dev/null 2>&1; then
+        if confirm "Commit the init state and open the first PR (auto-merge)?"; then
+            git switch -c "chore/init-${pslug}"
+            git add -A
+            if git commit -m "chore: init ${pslug} from rust-forge-template"; then
+                git push -u origin "chore/init-${pslug}"                     && gh pr create --fill --base "$(git config forge.adoptBase 2>/dev/null || echo main)" >/dev/null                     && gh pr merge "chore/init-${pslug}" --auto                     && ok "PR opened with auto-merge armed; it lands when CI is green"                     || warn "commit made; push/PR needs a manual retry (see git output above)"
+            else
+                warn "your hooks rejected the init commit; fix what they printed, then commit manually"
+            fi
+        fi
+    else
+        warn "init state left uncommitted: signing is not configured, and the pre-push"
+        warn "gate would reject the push. Run 'just setup-signing', then:"
+        note "  git switch -c chore/init-${pslug} && git add -A && git commit -m 'chore: init ${pslug}' && git push -u origin chore/init-${pslug} && gh pr create --fill && gh pr merge chore/init-${pslug} --auto"
+    fi
+fi
+
+# Server-side state is one script; offer it here instead of leaving a pointer.
+if confirm "Create the GitHub-side state now (labels, lane variables, merge settings, rulesets)?"; then
+    bash scripts/ci/bootstrap-github.sh || warn "bootstrap-github reported issues; re-run it any time (idempotent)"
+fi
 
 echo
 printf "${C_GREEN}🎉 Bootstrap complete. Daily driving: edit -> just check -> commit -> push -> PR.${C_OFF}\n"

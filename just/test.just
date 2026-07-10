@@ -495,7 +495,7 @@ install-hooks:
     printf "   \033[0;36mpre-commit\033[0m → just lint-fast       (staged-scoped, sub-2 s)\n"
     printf "   \033[0;36mcommit-msg\033[0m → Conventional Commits  (subject-line, instant)\n"
     printf "   \033[0;36mpre-push\033[0m   → just lint-pre-push    (workspace parallel)\n"
-    printf "   \033[0;33mBypass once\033[0m with \`git commit --no-verify\` / \`git push --no-verify\`.\n"
+    printf "   \033[0;33mGate failing?\033[0m Fix the cause (GETTING-STARTED has a fix-it table); bypassing is against policy.\n"
     printf "   \033[0;33mInstall optional tools\033[0m with \`just install-dev-tools\`.\n"
 
 # Uninstall the tracked git hooks (resets to .git/hooks/ default).
