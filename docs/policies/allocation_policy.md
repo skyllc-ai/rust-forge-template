@@ -312,7 +312,7 @@ others to keep the contract auditable:
   clone-family lint pointing at this file.
 - `clippy.toml` carries a doc comment pointing at this file and at
   `panic_policy.md`.
-- `CONTRIBUTING.md §Allocation policy` summarises the rule and links here.
+- `docs/CONTRIBUTING.md §Allocation policy` summarises the rule and links here.
 - `panic_policy.md §1` covers the test/prod split that this doc inherits.
 - `lint-posture.md §4` covers the broader test-vs-prod split.
 

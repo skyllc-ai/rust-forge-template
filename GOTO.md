@@ -6,7 +6,7 @@ Copyright (c) 2026 SKY, LLC.
 # GOTO.md: where we are, what's next, which switch does what
 
 The **living state doc** for this project. `AGENTS.md` holds the rules and
-`GETTING-STARTED.md` the how-to; this file holds the *state*: where the
+`docs/forge/GETTING-STARTED.md` the how-to; this file holds the *state*: where the
 project stands in the flow, the rhythm for daily work, what the coming weeks
 look like, and the exact runbook for every dormant capability (release
 artifacts, publishing, coverage, ...).
@@ -60,7 +60,7 @@ git push -u origin feat/<topic>           # gate battery, ~20-60s
 gh pr create --fill && gh pr merge <branch> --auto
 ```
 
-- Gate fails? `GETTING-STARTED.md` has the human fix-it table; `AGENTS.md` §6
+- Gate fails? `docs/forge/GETTING-STARTED.md` has the human fix-it table; `AGENTS.md` §6
   the agent version. Fix the cause, never bypass.
 - Conventional Commits enforced (`feat: fix: docs: refactor: test: chore:`).
 - Weekly, automatic: the tier-2 deep suite (miri, cargo-careful, mutation
@@ -83,7 +83,7 @@ canonical first moves for any project born from this template:
 2. **Write the state you know into this file**: what the project is, the
    first milestone, its done-when criterion.
 3. **Grow structure by recipe**, never by improvisation: new crates, fuzz
-   targets, benches are `COMPONENTS.md` → `component:*` recipes; every one
+   targets, benches are `docs/forge/COMPONENTS.md` → `component:*` recipes; every one
    ends in `just go`.
 4. **Cross-platform product?** Enable `lane:cross-lint` in week one (see
    §4): catching Windows/Linux target drift is cheap on day 1 and expensive
@@ -98,7 +98,7 @@ canonical first moves for any project born from this template:
 
 Everything below is **already installed and dormant**; enabling is a repo
 variable plus, at most, a TOML flag. Full runbooks with verify steps:
-`COMPONENTS.md`. This table is the quick map plus guidance on *when*.
+`docs/forge/COMPONENTS.md`. This table is the quick map plus guidance on *when*.
 
 | Lane | Turns on | How (short form) | When |
 |---|---|---|---|
@@ -119,9 +119,9 @@ variable plus, at most, a TOML flag. Full runbooks with verify steps:
 | Question | Doc |
 |---|---|
 | What are the rules? (agents) | `AGENTS.md` (`CLAUDE.md` is the thin supplement) |
-| How do I onboard a human / fix a gate? | `GETTING-STARTED.md` |
+| How do I onboard a human / fix a gate? | `docs/forge/GETTING-STARTED.md` |
 | Where are we, what's next, which switch? | **this file** |
-| How do I grow the project (crates/lanes)? | `COMPONENTS.md` |
+| How do I grow the project (crates/lanes)? | `docs/forge/COMPONENTS.md` |
 | Why is this lint/panic/dep rule strict? | `docs/policies/*.md` |
 | Release mechanics internals | `scripts/ci-pipeline/src/` + `release-plz.toml` |
-| Bringing this machinery to an existing repo | `ADOPTING.md` |
+| Bringing this machinery to an existing repo | `docs/forge/ADOPTING.md` |

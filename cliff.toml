@@ -15,7 +15,7 @@
 # hand-maintained `CHANGELOG.md` shape that pre-dates this plan.
 #
 # Type → section mapping (kept in sync with both
-# `.github/workflows/commitlint.yml` and `CONTRIBUTING.md` →
+# `.github/workflows/commitlint.yml` and `docs/CONTRIBUTING.md` →
 # "Commit message conventions"):
 #
 #   * `feat:`              → ### Added
@@ -32,7 +32,7 @@
 # Adding or removing a type means updating BOTH this file's
 # `commit_parsers` array AND the regex in
 # `.github/workflows/commitlint.yml` AND the table in
-# `CONTRIBUTING.md` in the SAME PR - the three are a tightly-
+# `docs/CONTRIBUTING.md` in the SAME PR - the three are a tightly-
 # coupled trio.
 
 [changelog]
@@ -170,7 +170,7 @@ commit_parsers = [
   # already groups supply-chain hardening commits, and aligns with
   # the commit-msg hook + commitlint workflow which only accept the
   # 11 standard CC types (`security` is NOT a top-level type - see
-  # `CONTRIBUTING.md` → "Commit message conventions").
+  # `docs/CONTRIBUTING.md` → "Commit message conventions").
   #
   # The historical carve-out for top-level `security:` / `security(<scope>):`
   # subjects (PRs #31, #33, #34 - see `release-automation-baseline.md` §4)

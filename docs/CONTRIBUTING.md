@@ -7,7 +7,7 @@ Copyright (c) 2026 Acmex Placeholder LLC
 
 Thanks for helping improve ACMEX.
 
-> By contributing you agree your contribution is dual-licensed under [MIT OR Apache-2.0](LICENSE) and that the ACMEX name and logo remain governed by [TRADEMARK.md](TRADEMARK.md).
+> By contributing you agree your contribution is dual-licensed under [MIT OR Apache-2.0](../LICENSE) and that the ACMEX name and logo remain governed by [TRADEMARK.md](../TRADEMARK.md).
 
 ## Contact
 
@@ -75,7 +75,7 @@ ACMEX uses a shift-left pipeline: cheap checks fire close to the keystroke, expe
 | **pre-commit** | `git commit` | `just lint-fast` | sub-2 s (docs-only) / 15–25 s warm (`*.rs` staged) | `fmt --check`, **`lint-prod`** (ultra-strict: pedantic + nursery + cargo + unwrap_used + missing_docs_in_private_items), **`lint-tests`** (same base + unwrap allowed), **`lint-ci`** (CI-mirror `-D warnings --all-targets`), all when `*.rs` staged; plus `taplo fmt --check` (if `*.toml` staged), `typos`, `reuse lint`, file-size policy, all in parallel; missing optional tools soft-skip.  Windows xwin lint lives at pre-push, not pre-commit (its cold cost violates the pre-commit budget). |
 | **pre-push** | `git push` | `just lint-pre-push` | 25–60 s warm | Same three ultra-strict clippy passes + **Windows `cargo xwin clippy -- -D warnings`** (`lint-ci-windows`) + `fmt --check` + `rustdoc -D warnings` + `cargo deny check` + `nextest run --no-run` (test-binary link check) + file-size policy + `typos` + `reuse lint`, all in parallel.  Full parity with the ship-lane lint surface plus cross-platform Windows clippy coverage; only the full test runtime (`nextest run`) is deferred to CI. |
 | **PR CI** | on PR to `main` | `.github/workflows/pr-fast.yml` | minutes | PR-blocking matrix (classify → file-size, drift checks, fmt, sanity, clippy, docs, test-build, tests, security, **windows-lint**, required).  The `classify` job short-circuits docs-only / dep-only / infra-only PRs so heavy jobs only run when code actually changed.  **`windows-lint`** runs `cargo clippy -- -D warnings` natively on `windows-latest` so both `#[cfg(windows)]` compile errors and lint regressions surface at PR time.  The Tier 2 weekly workflow (`.github/workflows/tier-2.yml`) runs coverage + udeps + miri out of the critical path. |
-| **Release** | `just ship` / release-plz | `just ship` | minutes | version bump + `release/vX.Y.Z` PR + signed commit + auto-tag + binary build via `release.yml`.  The release lanes are dormant until enabled; see `COMPONENTS.md`. |
+| **Release** | `just ship` / release-plz | `just ship` | minutes | version bump + `release/vX.Y.Z` PR + signed commit + auto-tag + binary build via `release.yml`.  The release lanes are dormant until enabled; see `docs/forge/COMPONENTS.md`. |
 
 The ultra-strict flag stack (`common_flags` / `prod_flags` / `test_flags`) is defined in `just/shared.just` and pulled in identically by the local hooks and by the ship lane, so **the rules a commit is checked against locally are the exact rules CI enforces**.
 
@@ -126,7 +126,7 @@ Use them for work-in-progress commits on a feature branch. CI will still enforce
 
 ### Keeping hook output fast
 
-The hook budgets assume a warm `./target`. An optional user-level sccache setup (see GETTING-STARTED.md § "Performance tuning") speeds cold rebuilds further; if you use one, verify:
+The hook budgets assume a warm `./target`. An optional user-level sccache setup (see docs/forge/GETTING-STARTED.md § "Performance tuning") speeds cold rebuilds further; if you use one, verify:
 
 - `rustc-wrapper = "sccache"` is set in your own `~/.cargo/config.toml` (the repo config deliberately sets no wrapper).
 - `sccache --show-stats` shows a healthy cache-hit rate after a few rebuilds.
@@ -219,7 +219,7 @@ Every surviving prod `unwrap` / `expect` / `panic!` fits exactly one of five cat
 - **D**: Bootstrap (one-time process startup, crash-correct): keep as `expect("BOOT INVARIANT: <condition>")` with `#[expect(...)]`.
 - **E**: Programmer bug at use site: keep as `panic!` with documented invariant in the enclosing function's `# Panics` doc section.
 
-Full taxonomy, anti-patterns, per-crate posture, and the per-site annotation contract live in [`docs/policies/panic_policy.md`](docs/policies/panic_policy.md).  Library crates do not return `anyhow::Error` from public APIs and do not return `Result<_, String>` (banned workspace-wide); use a typed `thiserror::Error` enum with `#[non_exhaustive]` instead.
+Full taxonomy, anti-patterns, per-crate posture, and the per-site annotation contract live in [`docs/policies/panic_policy.md`](policies/panic_policy.md).  Library crates do not return `anyhow::Error` from public APIs and do not return `Result<_, String>` (banned workspace-wide); use a typed `thiserror::Error` enum with `#[non_exhaustive]` instead.
 
 ## Allocation policy
 
@@ -235,7 +235,7 @@ Every surviving prod `.clone()` / `format!()` / `to_owned()` fits exactly one of
 - **δ: Hot-path anti-pattern** (clone of `String` / `Vec<T>` inside a per-record loop that could be eliminated): **FIX, do not suppress.**  Refactor the call site with a comment documenting the new (correct) borrow invariant.
 - **ε: Test helper** (`#[cfg(test)]`-only allocation): out of scope; test code is exempt.
 
-Full taxonomy and the per-site annotation contract live in [`docs/policies/allocation_policy.md`](docs/policies/allocation_policy.md).
+Full taxonomy and the per-site annotation contract live in [`docs/policies/allocation_policy.md`](policies/allocation_policy.md).
 
 ## Trait, generic, and dispatch policy
 
@@ -252,7 +252,7 @@ Trait justification four-criterion taxonomy:
 
 A trait satisfying **none** of J1–J4 → demote to a concrete type and replace usages.
 
-Generic-function categories (G1-LOCAL / G2-USEFUL / G3-SPREAD / G4-CASCADING / G5-CLOSURE), the dispatch matrix (D1-PLUGIN / D2-HETERO / D3-NOOP / D4-VTBL-COST), and the seal-vs-open decision tree live in [`docs/policies/trait_policy.md`](docs/policies/trait_policy.md).
+Generic-function categories (G1-LOCAL / G2-USEFUL / G3-SPREAD / G4-CASCADING / G5-CLOSURE), the dispatch matrix (D1-PLUGIN / D2-HETERO / D3-NOOP / D4-VTBL-COST), and the seal-vs-open decision tree live in [`docs/policies/trait_policy.md`](policies/trait_policy.md).
 
 ## Feature flag and dependency policy
 
@@ -267,7 +267,7 @@ Every feature added to the workspace must document the four-line contract in **b
 - **API shape impact**: additive (default) | subtractive (forbidden).
 - **Semver claim**: adding items behind it is non-breaking; removing items behind it is breaking.
 
-The feature taxonomy (F1-additive-default-on / F2-additive-default-off / F3-orthogonal / F4-subtractive-FORBIDDEN / F5-feature-on-feature) and the cross-version duplicate acceptance inventory live in [`docs/policies/dependency_policy.md`](docs/policies/dependency_policy.md).
+The feature taxonomy (F1-additive-default-on / F2-additive-default-off / F3-orthogonal / F4-subtractive-FORBIDDEN / F5-feature-on-feature) and the cross-version duplicate acceptance inventory live in [`docs/policies/dependency_policy.md`](policies/dependency_policy.md).
 
 ## Build, codegen, and env-var policy
 
@@ -282,7 +282,7 @@ Current template posture:
 - **0 `macro_rules!` declarations** in the skeleton crates.
 - **3 codegen binaries**: `acmex-gen-hooks`, `acmex-gen-workflow` (emitter/validators, drift-detected) and `acmex-manifest-audit` (auditor), all under `scripts/ci/`.
 
-The `build.rs` / proc-macro / `macro_rules!` / codegen / env-var per-class contracts and the env-var registry live in [`docs/policies/build_codegen_policy.md`](docs/policies/build_codegen_policy.md).
+The `build.rs` / proc-macro / `macro_rules!` / codegen / env-var per-class contracts and the env-var registry live in [`docs/policies/build_codegen_policy.md`](policies/build_codegen_policy.md).
 
 ## Concurrency policy
 
@@ -298,12 +298,12 @@ Five dimensions, each with a taxonomy contributors quote inline:
 - **Timeout policy** (`W1` named const / `W2` env-overridable / `W3` cooperatively-cancelled forever-loop / `W4` inline literal; `W5` unbounded cross-process await is forbidden).
 - **Blocking-IO rule** (`B1` `spawn_blocking` / `B2` `block_in_place` / `B3` sync helper / `B4` startup/Drop/CLI one-shot; `B5` unbounded sync I/O on runtime worker is forbidden).
 
-Full taxonomy and per-site annotation templates live in [`docs/policies/concurrency_policy.md`](docs/policies/concurrency_policy.md).
+Full taxonomy and per-site annotation templates live in [`docs/policies/concurrency_policy.md`](policies/concurrency_policy.md).
 
 ## Docs map
 
 - Root overview: `README.md`
-- Growth catalog (dormant lanes, add-a-component recipes): `COMPONENTS.md`
+- Growth catalog (dormant lanes, add-a-component recipes): `docs/forge/COMPONENTS.md`
 - Policy docs (lint posture, panic, allocation, trait, dependency, build/codegen, concurrency): `docs/policies/`
 - Security policy: `SECURITY.md`
 - Trademark policy (template placeholder): `TRADEMARK.md`

@@ -263,7 +263,7 @@ others to keep the contract auditable:
   pointing at this file.
 - `clippy.toml` carries a doc comment pointing at this file and at
   `lint-posture.md`.
-- `CONTRIBUTING.md §Panic policy` summarises the rule and links here.
+- `docs/CONTRIBUTING.md §Panic policy` summarises the rule and links here.
 - `lint-posture.md §4` covers the broader test-vs-prod split.
 
 ---

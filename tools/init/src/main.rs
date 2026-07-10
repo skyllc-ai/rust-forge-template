@@ -390,7 +390,7 @@ fn ceremony() -> Result<(), String> {
     println!("   3. bash scripts/ci/bootstrap-github.sh   (rulesets, labels, lane variables)");
     println!("   4. git add -A && git commit -m 'chore: init {} from rust-forge-template'", id.slug);
     println!();
-    println!("   Review README.md for the stable-downgrade appendix and COMPONENTS.md");
+    println!("   Review README.md for the stable-downgrade appendix and docs/forge/COMPONENTS.md");
     println!("   for enabling dormant lanes (release, crates.io, winget, ...).");
     Ok(())
 }

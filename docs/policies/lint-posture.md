@@ -33,7 +33,7 @@ explicitly *declined*, so future contributors do not re-litigate
 them.
 
 For the broader CI/CD context (where each gate runs), see
-[`../../CONTRIBUTING.md`](../../CONTRIBUTING.md) §"Four-layer quality
+[`../CONTRIBUTING.md`](../CONTRIBUTING.md) §"Four-layer quality
 gates".  For supply-chain hygiene (which uses many of the same
 enforcement surfaces), see [`../../SECURITY.md`](../../SECURITY.md).
 

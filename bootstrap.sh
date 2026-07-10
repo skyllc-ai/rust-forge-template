@@ -150,7 +150,7 @@ if [[ $YES -eq 0 && $IN_REPO -eq 0 ]]; then
     note "  * GETTING-STARTED - what the whole journey looks like"
     if confirm "Open both on GitHub in your browser now?" N; then
         open_url "https://github.com/${TEMPLATE}#is-this-template-for-you"
-        open_url "https://github.com/${TEMPLATE}/blob/main/GETTING-STARTED.md"
+        open_url "https://github.com/${TEMPLATE}/blob/main/docs/forge/GETTING-STARTED.md"
     fi
     confirm "Read enough - continue with the setup?" || die "no problem - re-run me when ready"
 fi
@@ -410,7 +410,7 @@ fi
 echo
 printf "${C_GREEN}🎉 Bootstrap complete. Daily driving: edit -> just check -> commit -> push -> PR.${C_OFF}\n"
 printf "${C_CYAN}   Where you are + what's next: GOTO.md (the living state doc - keep it updated).${C_OFF}\n"
-printf "${C_CYAN}   Next reads: GETTING-STARTED.md (daily loop + gate fix-it table), COMPONENTS.md (growing the project).${C_OFF}\n"
+printf "${C_CYAN}   Next reads: docs/forge/GETTING-STARTED.md (daily loop + gate fix-it table), docs/forge/COMPONENTS.md (growing the project).${C_OFF}\n"
 printf "${C_CYAN}   GitHub-side state (labels, lane variables, rulesets): bash scripts/ci/bootstrap-github.sh${C_OFF}\n"
 
 # Land the user on "what's next" instead of a wall of files. Prefer THEIR

@@ -513,7 +513,7 @@ jobs:
   # The template workspace has no parser / deserializer that consumes
   # untrusted external bytes, so there is nothing worth fuzzing yet.
   # Fuzzing arrives via the fuzz-target component recipe (see
-  # COMPONENTS.md) once such a surface exists: add libfuzzer-sys
+  # docs/forge/COMPONENTS.md) once such a surface exists: add libfuzzer-sys
   # harnesses under the owning crate's `fuzz/` directory, then wire an
   # advisory (`continue-on-error: true`) time-budgeted
   # `cargo +nightly fuzz run <target> -- -max_total_time=900` job here.

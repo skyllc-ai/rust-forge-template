@@ -7,7 +7,7 @@
 # A template repository copies FILES only. This script (re)creates the
 # server-side state the machinery expects:
 #   * labels used by ci-failure-notify / auto-rerun
-#   * the dormant-lane repo variables (all "false" - flip via COMPONENTS.md)
+#   * the dormant-lane repo variables (all "false" - flip via docs/forge/COMPONENTS.md)
 #   * branch ruleset for main (required PR + required status checks +
 #     MERGE QUEUE - pr-fast.yml already subscribes to merge_group)
 #
@@ -36,7 +36,16 @@ for spec in \
   echo "   ✅ ${name}"
 done
 
-# ── 2. Dormant-lane repo variables (all off; see COMPONENTS.md) ──────
+# ── 1b. Provenance topic: the breadcrumb that makes children findable
+#        (`topic:rust-forge-template`; pairs with docs/forge/FORGE-STAMP.toml)
+echo "── provenance topic"
+if gh repo edit "${REPO}" --add-topic rust-forge-template >/dev/null 2>&1; then
+  echo "   ✅ topic rust-forge-template"
+else
+  echo "   ⚠  could not add topic (add manually: gh repo edit --add-topic rust-forge-template)"
+fi
+
+# ── 2. Dormant-lane repo variables (all off; see docs/forge/COMPONENTS.md) ──────
 echo "── lane variables (all false - activation is a conscious flip)"
 for lane in LANE_RELEASE LANE_RELEASE_PLZ LANE_CRATES LANE_WINGET LANE_CODECOV LANE_CODEQL LANE_SLSA; do
   gh variable set "${lane}" --body "false"
