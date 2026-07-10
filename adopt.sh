@@ -10,11 +10,15 @@
 # ADOPTING.md first; it explains the staged ladder this script starts.
 #
 # Contract (the never-erase rules):
-#   * runs only in a clean git worktree, and only on a fresh branch it creates
+#   * runs only in a clean git worktree, on a fresh branch it creates, and
+#     COMMITS the whole trial there: keep = merge the branch, undo =
+#     `just adopt-undo` (bit-for-bit restoration)
 #   * copies ONLY files you do not have; where a file exists, the template's
 #     version is written alongside as <name>.forge-suggested and listed
-#   * never edits your Cargo.toml, your crates, or your lint levels; the
-#     exact blocks to paste land in forge-adopt-snippets.md, lints at WARN
+#     (exception: missing artifact entries are APPENDED to your .gitignore)
+#   * wires your workspace automatically, but every edit is validated with
+#     `cargo metadata` and reverted on failure; lints land at ALLOW (inert);
+#     forge-adopt-snippets.md records what was done + manual fallbacks
 #
 # Usage, from the ROOT of your repository:
 #   curl -fsSL https://raw.githubusercontent.com/skyllc-ai/rust-forge-template/main/adopt.sh | bash
