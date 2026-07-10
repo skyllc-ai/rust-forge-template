@@ -202,6 +202,7 @@ run_seq() {
 # contention.  See gates.toml for the canonical gate set.
 spawn_bg "fmt" cargo fmt --all -- --check
 spawn_bg "file-size" bash scripts/ci/check_file_size_policy.sh
+spawn_bg "forge-stamp" bash scripts/ci/check_forge_stamp.sh
 spawn_bg "gates-drift" bash scripts/ci/check_gates_drift.sh
 spawn_bg "hooks-drift" cargo run -q --release -p acmex-gen-hooks -- --check
 spawn_bg "workflow-drift" cargo run -q --release -p acmex-gen-workflow -- --check

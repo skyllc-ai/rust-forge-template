@@ -65,6 +65,24 @@ and pr-fast call it `fmt`.  Phase 2/3 codegen will normalise.
 """
 
 [[gate]]
+id = "forge-stamp"
+label = "forge-stamp drift"
+command = ["bash", "scripts/ci/check_forge_stamp.sh"]
+tiers = ["pre-commit", "pre-push"]
+gate_when = "always"
+hard = true
+tool = "bash"
+expected_runtime_secs = 1
+bucket = "bg"
+order = 21
+notes = """
+docs/forge/TEMPLATE_VERSION and FORGE-STAMP.toml's template-version are
+two records of the template baseline; a bump must move both together.
+Frozen (and therefore always green) in forged repos; local-tier only,
+so pr-fast.yml needs no change.
+"""
+
+[[gate]]
 id = "file-size"
 label = "file-size policy"
 command = ["bash", "scripts/ci/check_file_size_policy.sh"]

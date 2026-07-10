@@ -114,6 +114,8 @@ fi
 
 spawn "file-size" bash scripts/ci/check_file_size_policy.sh
 
+spawn "forge-stamp" bash scripts/ci/check_forge_stamp.sh
+
 if command -v typos >/dev/null 2>&1; then
     spawn "typos" typos .
 fi
