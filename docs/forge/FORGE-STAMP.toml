@@ -1,16 +1,9 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 SKY, LLC.
 #
-# Provenance breadcrumb. This repository was scaffolded by rust-forge-template.
-#
-# Find every repo born from the forge:
-#   GitHub code search:  path:docs/forge/FORGE-STAMP.toml
-#   or search the string: forged-from = "skyllc-ai/rust-forge-template"
-#   or by repo topic:     topic:rust-forge-template
-#
-# `project` is rewritten by `just init`; `template-version` mirrors
-# docs/forge/TEMPLATE_VERSION at scaffold time. Do not delete this file:
-# it is how fleet-wide template updates find their children.
+# Provenance record: which template baseline this repository started from.
+# Used by template-update tooling to diff against a known baseline.
+# `project` is rewritten by `just init`. Do not delete this file.
 
 forged-from = "skyllc-ai/rust-forge-template"
 template-version = "1.0.0"
