@@ -10,7 +10,7 @@
 #   member that is publishable (i.e. doesn't have `publish = false`
 #   set in its Cargo.toml):
 #
-#     1. `cargo semver-checks check-release -p <crate>` — diffs the
+#     1. `cargo semver-checks check-release -p <crate>` - diffs the
 #        crate's current rustdoc JSON against the latest version on
 #        crates.io.  Surfaces SemVer-breaking changes (removed pub
 #        items, signature changes, new required generic params, etc.)
@@ -19,7 +19,7 @@
 #        compare against), so this guard is informational until the
 #        first publish lands, then activates automatically.
 #
-#     2. `cargo publish --dry-run -p <crate>` — full per-crate
+#     2. `cargo publish --dry-run -p <crate>` - full per-crate
 #        compile + manifest validation against crates.io's accept
 #        rules.  A successful dry-run for a crate proves that its
 #        metadata (`description`, `keywords`, `categories`, `readme`,
@@ -29,13 +29,13 @@
 #
 # Template state (advisory mode, workflow always exits 0):
 #
-#   The template workspace currently has NO publishable crates — every
+#   The template workspace currently has NO publishable crates - every
 #   member inherits the workspace-level `publish = false` default.  The
 #   enumeration step below derives the publishable set from `cargo
 #   metadata` at run time, so today it yields an empty list and both
 #   guard loops no-op cleanly.  The moment a crate opts in to
 #   publishing (sets `publish = true` or a registry list in its
-#   Cargo.toml), it joins the enumerated set automatically — no
+#   Cargo.toml), it joins the enumerated set automatically - no
 #   workflow change needed.  Once real publishes begin, flip
 #   `FAIL_ON_DRY_RUN_ERROR` / `FAIL_ON_SEMVER_BREAK` in the env block
 #   below to convert advisory mode into a hard gate.
@@ -56,7 +56,7 @@ name: "📦 crates.io dry-run + semver-checks"
 
 on:
   schedule:
-    # Mondays 06:00 UTC — chosen to land before maintainers' typical
+    # Mondays 06:00 UTC - chosen to land before maintainers' typical
     # work-week start so any drift surfaced over the weekend is visible
     # in the workflow summary by the time someone looks.
     - cron: '0 6 * * 1'
@@ -96,7 +96,7 @@ jobs:
       # on crates.io to compare against.  Until then,
       # cargo-semver-checks's `check-release` subcommand exits
       # successfully for crates without a published baseline (nothing
-      # to compare against), so this flag is informational anyway —
+      # to compare against), so this flag is informational anyway -
       # the gate activates automatically as soon as the first publish
       # lands.
       FAIL_ON_SEMVER_BREAK: 'false'
@@ -121,7 +121,7 @@ jobs:
       - name: Cache cargo dependencies
         uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
         with:
-          # Dedicated cache key — dry-run's compile output is small
+          # Dedicated cache key - dry-run's compile output is small
           # (per-crate package verifications) and disjoint from the
           # main CI compile, so a separate key prevents the two from
           # evicting each other.
@@ -188,13 +188,13 @@ jobs:
             # `check-release` compares the current source against the
             # latest version on crates.io for that crate.  For a
             # crate that has never been published, it exits zero with
-            # a "no baseline to compare against" notice — the right
+            # a "no baseline to compare against" notice - the right
             # behaviour while nothing is published yet.  Once the
             # first version of a crate lands on crates.io, subsequent
             # runs start producing real comparisons without any
             # workflow edits.
             #
-            # `--baseline-version` is intentionally OMITTED — we want
+            # `--baseline-version` is intentionally OMITTED - we want
             # whichever version is latest on crates.io.  With an
             # active publish cadence you may revisit and pin to a
             # specific stable baseline.
@@ -317,7 +317,7 @@ jobs:
               echo "following class of failure is expected and does NOT"
               echo "indicate a regression:"
               echo ""
-              echo "- \`no matching package named \\\`<crate>\\\` found\` —"
+              echo "- \`no matching package named \\\`<crate>\\\` found\` -"
               echo "  fixed by publishing stub 0.0.0 versions first."
               echo ""
               echo "Failures of unrelated metadata (missing description,"
@@ -330,7 +330,7 @@ jobs:
               echo ""
               echo "Before the first publish the gate runs in ADVISORY"
               echo "mode because no crate has a baseline on crates.io to"
-              echo "compare against — \`cargo semver-checks check-release\`"
+              echo "compare against - \`cargo semver-checks check-release\`"
               echo "exits success for un-published crates, so a"
               echo "non-success status above indicates either an"
               echo "installation issue or a rustdoc-JSON regression worth"

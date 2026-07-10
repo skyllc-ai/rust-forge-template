@@ -2,15 +2,15 @@
 # Copyright (c) 2025-2026 Acmex Placeholder LLC.
 #
 # ─────────────────────────────────────────────────────────────────────────────
-# Dependabot auto-merge — narrowly-scoped reviewer-time reclaim
+# Dependabot auto-merge - narrowly-scoped reviewer-time reclaim
 #
-# Enables GitHub's native "auto-merge" on a Dependabot PR if — and ONLY
-# if — EVERY one of the following is true:
+# Enables GitHub's native "auto-merge" on a Dependabot PR if - and ONLY
+# if - EVERY one of the following is true:
 #
 #   1. The PR author is `dependabot[bot]`.
 #   2. `dependabot/fetch-metadata` reports
 #        update-type = `version-update:semver-patch`
-#      (patch-level bumps only — no minor, no major).
+#      (patch-level bumps only - no minor, no major).
 #   3. The change is NOT a security update that would need human
 #      review for its advisory notes (severity `high` / `critical`).
 #   4. The `Dependabot Review / Cargo.lock crate-count delta` annotation
@@ -30,7 +30,7 @@
 #     requires a human approval.  If the repo's "allow Dependabot to
 #     bypass required reviews" setting is off (default), a maintainer
 #     still has to click Approve.  What this saves is the "merge when
-#     green" clickwork — GitHub queues the merge and executes as soon
+#     green" clickwork - GitHub queues the merge and executes as soon
 #     as checks pass AND reviews are satisfied.
 #
 #   * It does NOT touch minor / major bumps.  Those continue the
@@ -39,7 +39,7 @@
 #
 #   * It does NOT bypass `cargo vet check`.  If the bumped version is
 #     not covered by an imported audit or an exemption, CI goes red
-#     and auto-merge is blocked — exactly the same gate as a manual
+#     and auto-merge is blocked - exactly the same gate as a manual
 #     Dependabot review.
 #
 # Policy rationale:
@@ -47,7 +47,7 @@
 #   This change narrows (but does not abolish) the previous policy of
 #   "every Dependabot PR is human-reviewed and human-merged."  Patch-
 #   level bumps covered by the existing audit trail are the lowest-
-#   risk, highest-volume category — they pile up without delivering
+#   risk, highest-volume category - they pile up without delivering
 #   any net security signal that the automated gates have not already
 #   checked.  Reclaiming the reviewer time for minor / major bumps is
 #   a net-positive shift; see the supply-chain posture in
@@ -57,7 +57,7 @@
 #
 #   If ANY condition fails, the workflow finishes successfully without
 #   calling `gh pr merge --auto`.  The PR sits open for manual review
-#   exactly like today — zero regression in the default path.
+#   exactly like today - zero regression in the default path.
 
 name: "🤖 Dependabot auto-merge (patch-level)"
 

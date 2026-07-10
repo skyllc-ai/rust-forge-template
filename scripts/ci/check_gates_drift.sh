@@ -16,12 +16,12 @@
 #
 # Exit codes:
 #   0  manifest and consumers agree on the gate set
-#   1  drift detected — one or more gates missing on either side
+#   1  drift detected - one or more gates missing on either side
 #   2  manifest schema error (unparseable, missing required fields)
 #
 # Bypass: `BYPASS_GATES_DRIFT=1 git push` skips the pre-push step
 # (mirrors the existing `COMMIT_SUBJECT_BYPASS=1` pattern).  No CI
-# bypass — drift on `main` is a deliberate "fix-me-now" signal.
+# bypass - drift on `main` is a deliberate "fix-me-now" signal.
 
 set -euo pipefail
 
@@ -56,7 +56,7 @@ if [[ "${BYPASS_GATES_DRIFT:-0}" == "1" ]]; then
     exit 0
 fi
 
-printf '%s🔎 gates-drift — manifest vs consumers%s\n' "$C_BLUE" "$C_RESET"
+printf '%s🔎 gates-drift - manifest vs consumers%s\n' "$C_BLUE" "$C_RESET"
 
 # ── Sanity: required files exist ───────────────────────────────────────
 for f in "$MANIFEST" "$HOOK_FAST" "$HOOK_PUSH" "$WORKFLOW"; do
@@ -67,7 +67,7 @@ for f in "$MANIFEST" "$HOOK_FAST" "$HOOK_PUSH" "$WORKFLOW"; do
 done
 
 # ── Manifest parsing (minimal TOML) ────────────────────────────────────
-# We deliberately do NOT shell out to `taplo`/`dasel` — the manifest
+# We deliberately do NOT shell out to `taplo`/`dasel` - the manifest
 # uses a small, regular subset of TOML and a grep-based parser keeps
 # this script self-contained.  Schema enforced by the awk below; any
 # manifest that doesn't fit gets a schema error (exit 2).
@@ -194,7 +194,7 @@ scrape_pr_fast() {
 }
 
 # Jobs in pr-fast.yml that exist for orchestration / branch protection,
-# NOT for an individual gate.  These are EXEMPT from the manifest —
+# NOT for an individual gate.  These are EXEMPT from the manifest -
 # they have no matching `[[gate]]` entry.
 #
 # `notify-failure` was removed in the Design C refactor for #209

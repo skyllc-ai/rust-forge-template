@@ -323,7 +323,7 @@ fn ceremony() -> Result<(), String> {
 
     // Refuse to run twice.
     if !Path::new("crates/acmex-core").exists() {
-        return Err("crates/acmex-core not found — already initialized?".to_string());
+        return Err("crates/acmex-core not found - already initialized?".to_string());
     }
 
     // 1. Content rewrite.
@@ -343,7 +343,7 @@ fn ceremony() -> Result<(), String> {
     println!("📁 renamed {renamed} paths");
 
     // 2b. Version reset: the template's own release version must not leak
-    //     into new projects — every project starts at 0.1.0.
+    //     into new projects - every project starts at 0.1.0.
     reset_version()?;
 
     // 2c. Changelog reset: the template's release history is not yours.
@@ -362,10 +362,10 @@ fn ceremony() -> Result<(), String> {
     assert_clean(&id.slug)?;
 
     // 5b. Custom license: the identifiers are rewritten, but the license
-    //     TEXTS are the user's job — and the reuse gate enforces it.
+    //     TEXTS are the user's job - and the reuse gate enforces it.
     if id.license != DEFAULT_LICENSE {
         println!();
-        println!("⚖️  license set to `{}` — finish the relicense:", id.license);
+        println!("⚖️  license set to `{}` - finish the relicense:", id.license);
         println!("   * add LICENSES/<id>.txt for each id in the expression");
         println!("     (texts: https://spdx.org/licenses/) and remove the");
         println!("     MIT/Apache-2.0 texts if no longer used");
@@ -376,7 +376,7 @@ fn ceremony() -> Result<(), String> {
     // 6. Self-delete (best effort; on failure print the manual step).
     match std::fs::remove_dir_all("tools/init") {
         Ok(()) => println!("🧹 removed tools/init"),
-        Err(error) => println!("⚠️  could not remove tools/init ({error}) — delete it manually"),
+        Err(error) => println!("⚠️  could not remove tools/init ({error}) - delete it manually"),
     }
 
     println!();

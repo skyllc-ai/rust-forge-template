@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2025-2026 Acmex Placeholder LLC.
 #
-# PR Fast CI — the *required* merge-blocking lane.
+# PR Fast CI - the *required* merge-blocking lane.
 #
 # Architecture (dev-flow-implementation-plan.md § 1 / § 2.5):
 #
@@ -64,7 +64,7 @@ env:
   RUST_BACKTRACE: 1
   CARGO_TARGET_DIR: target
   CARGO_BUILD_JOBS: 2
-  # Stable CPU baseline — avoids SIGILL under LLVM mis-detection on
+  # Stable CPU baseline - avoids SIGILL under LLVM mis-detection on
   # some Azure/KVM runners.  Never `target-cpu=native`: a binary
   # compiled on today's runner can trap on a runner migrated to a
   # narrower ISA tomorrow.  Matches the baselines used in release.yml.
@@ -72,7 +72,7 @@ env:
 
 jobs:
   # ─────────────────────────────────────────────────────────────────────
-  # classify — emits file-class outputs consumed by every downstream
+  # classify - emits file-class outputs consumed by every downstream
   # job's `if:` condition.  MUST be in `required`'s needs so a classify
   # failure cannot silently green-light the PR via skipped downstreams.
   # ─────────────────────────────────────────────────────────────────────
@@ -117,7 +117,7 @@ jobs:
               ;;
             push)
               if [[ -z "${PUSH_BEFORE}" || "${PUSH_BEFORE}" == "$ZERO" ]]; then
-                # New branch — no predecessor on origin.  Diff against
+                # New branch - no predecessor on origin.  Diff against
                 # main to classify changes vs mainline.
                 BASE=$(git merge-base "${GITHUB_SHA}" origin/main 2>/dev/null \
                     || git rev-list --max-parents=0 "${GITHUB_SHA}" | tail -n1)
@@ -134,7 +134,7 @@ jobs:
 
           echo "::notice::classify: BASE=${BASE} HEAD=${HEAD} event=${EVENT_NAME}"
 
-          # Fetch base if missing (common on shallow clones — but we
+          # Fetch base if missing (common on shallow clones - but we
           # already fetched depth 0 so this should be a no-op).
           git cat-file -e "${BASE}" 2>/dev/null || git fetch --depth=1 origin "${BASE}" 2>/dev/null || true
 
@@ -169,7 +169,7 @@ jobs:
             DOCS_ONLY=false
           fi
           # Truly empty change set (nothing matched anything) stays
-          # docs_only=true AND code=false — nothing runs.
+          # docs_only=true AND code=false - nothing runs.
 
           {
             echo "rust=$RUST"
@@ -182,7 +182,7 @@ jobs:
           echo "::notice::classify: rust=$RUST dep=$DEP infra=$INFRA code=$CODE docs_only=$DOCS_ONLY"
 
   # ─────────────────────────────────────────────────────────────────────
-  # file-size — always runs (cheap).  No needs:, no if:.
+  # file-size - always runs (cheap).  No needs:, no if:.
   # ─────────────────────────────────────────────────────────────────────
   file-size:
     name: File size policy
@@ -195,12 +195,12 @@ jobs:
       - run: bash scripts/ci/check_file_size_policy.sh
 
   # ─────────────────────────────────────────────────────────────────────
-  # gates-drift — Phase 1 of `docs/architecture/gates-manifest-plan.md`.
+  # gates-drift - Phase 1 of `docs/architecture/gates-manifest-plan.md`.
   # Verifies `scripts/ci/gates.toml` stays in lockstep with the gate
   # set actually defined in `_lint_fast.sh`, `_lint_pre_push.sh`, and
   # this file.  Always-on; sub-second; no classify gating (a manifest
   # / consumer mismatch is meaningful regardless of which files
-  # changed in the PR).  Bypass not supported in CI — drift on `main`
+  # changed in the PR).  Bypass not supported in CI - drift on `main`
   # is a deliberate "fix-me-now" signal.
   # ─────────────────────────────────────────────────────────────────────
   gates-drift:
@@ -214,7 +214,7 @@ jobs:
       - run: bash scripts/ci/check_gates_drift.sh
 
   # ─────────────────────────────────────────────────────────────────────
-  # hooks-drift — Phase 2 of `docs/architecture/gates-manifest-plan.md`.
+  # hooks-drift - Phase 2 of `docs/architecture/gates-manifest-plan.md`.
   # Verifies the on-disk `scripts/hooks/_lint_pre_push.sh` is
   # byte-for-byte equal to what `acmex-gen-hooks` would emit from the
   # canonical `scripts/ci/gates.toml`.  Always-on; bypass not
@@ -237,13 +237,13 @@ jobs:
       - run: cargo run -q --release -p acmex-gen-hooks -- --check
 
   # ─────────────────────────────────────────────────────────────────────
-  # workflow-drift — Phase 3 of `docs/architecture/gates-manifest-plan.md`.
+  # workflow-drift - Phase 3 of `docs/architecture/gates-manifest-plan.md`.
   # Validates four structural properties of THIS workflow file against
   # the canonical `scripts/ci/gates.toml`: per-gate job presence,
   # `if:` predicate alignment, aggregator coverage (`required.needs:` +
   # `declare -A R=(...)` table + `notify-failure.needs:`), and the
   # branch-protection guard string `PR Fast CI / required`.  Read-only
-  # — never mutates the workflow file; risk profile matches Phase 1's
+  # - never mutates the workflow file; risk profile matches Phase 1's
   # `gates-drift`.  Cache key shared with `sanity` so the acmex-gen-workflow
   # binary build piggybacks on the existing rust-cache.
   # ─────────────────────────────────────────────────────────────────────
@@ -263,11 +263,11 @@ jobs:
       - run: cargo run -q --release -p acmex-gen-workflow -- --check
 
   # ─────────────────────────────────────────────────────────────────────
-  # fast-drift — Phase 3a of `docs/architecture/gates-manifest-plan.md`.
+  # fast-drift - Phase 3a of `docs/architecture/gates-manifest-plan.md`.
   # Verifies the on-disk `scripts/hooks/_lint_fast.sh` is byte-for-byte
   # equal to what `acmex-gen-hooks --target pre-commit` would emit from the
   # canonical `scripts/ci/gates.toml`.  Sibling of `hooks-drift` for
-  # the pre-commit tier — same binary, different `--target`.  Cache
+  # the pre-commit tier - same binary, different `--target`.  Cache
   # key shared with `sanity` so the acmex-gen-hooks binary build piggybacks
   # on the existing rust-cache.
   # ─────────────────────────────────────────────────────────────────────
@@ -287,9 +287,9 @@ jobs:
       - run: cargo run -q --release -p acmex-gen-hooks -- --target pre-commit --check
 
   # ─────────────────────────────────────────────────────────────────────
-  # manifest-drift — Phase 1 follow-up from
+  # manifest-drift - Phase 1 follow-up from
   # `docs/dev/architecture/code_clean/phase_1_manifest_implementation_plan.md`
-  # (local-only) — issue #211.  Encodes the 15 Phase-1 manifest
+  # (local-only) - issue #211.  Encodes the 15 Phase-1 manifest
   # invariants as machine-checkable assertions and runs them against
   # every member `Cargo.toml`.  Catches the drift class the manual
   # Phase-1 audit can only detect on the annual cadence (a new crate
@@ -316,7 +316,7 @@ jobs:
       - run: cargo run -q --release -p acmex-manifest-audit -- --check
 
   # ─────────────────────────────────────────────────────────────────────
-  # fmt — rustfmt check.  Gates on rust_changed (pure TOML / config /
+  # fmt - rustfmt check.  Gates on rust_changed (pure TOML / config /
   # docs edits don't need rustfmt).
   # ─────────────────────────────────────────────────────────────────────
   fmt:
@@ -333,7 +333,7 @@ jobs:
       - run: cargo fmt --all -- --check
 
   # ─────────────────────────────────────────────────────────────────────
-  # sanity — `cargo check` + `cargo-vet`.  The fastest compile gate;
+  # sanity - `cargo check` + `cargo-vet`.  The fastest compile gate;
   # downstream heavy jobs `needs: sanity` so a type error aborts before
   # paying for clippy / tests / Windows.
   #
@@ -342,7 +342,7 @@ jobs:
   # so they run ONLY on `merge_group` (the merge queue) and `push` (main),
   # not on the PR itself.  Rationale: the merge queue revalidates every PR
   # against current `main` before merging, so a `pull_request` run is a
-  # redundant second pass — the contributor's local `lint-pre-push` gate
+  # redundant second pass - the contributor's local `lint-pre-push` gate
   # already ran the same full suite before the push.  Running heavy CI once,
   # in the queue, halves Rust-PR CI without losing safety.  The `required`
   # aggregator below treats these jobs' `skipped` (on PRs) as a pass, so a
@@ -390,7 +390,7 @@ jobs:
         run: cargo vet check --locked
 
   # ─────────────────────────────────────────────────────────────────────
-  # clippy — CI-mirror baseline (`--all-targets --all-features -D warnings`).
+  # clippy - CI-mirror baseline (`--all-targets --all-features -D warnings`).
   # ─────────────────────────────────────────────────────────────────────
   clippy:
     name: Clippy
@@ -417,7 +417,7 @@ jobs:
       - run: cargo clippy --workspace --all-targets --all-features --locked --no-deps -- -D warnings
 
   # ─────────────────────────────────────────────────────────────────────
-  # clippy-no-default — Phase 8e regression guard (issue #295).  Same
+  # clippy-no-default - Phase 8e regression guard (issue #295).  Same
   # strict clippy flag stack as `clippy` above but with
   # `--no-default-features` instead of `--all-features`, catching items
   # reachable only when a feature is enabled but not themselves
@@ -449,8 +449,8 @@ jobs:
       - run: cargo clippy --workspace --all-targets --no-default-features --locked --no-deps -- -D warnings
 
   # ─────────────────────────────────────────────────────────────────────
-  # docs — rustdoc with `-Dwarnings` PLUS doctest execution.  Catches
-  # the exact class of bug Phase 1 / Phase 2 locally catch too — keeping
+  # docs - rustdoc with `-Dwarnings` PLUS doctest execution.  Catches
+  # the exact class of bug Phase 1 / Phase 2 locally catch too - keeping
   # the gate at CI gives belt-and-suspenders if a contributor bypasses
   # the local hook with `--no-verify`.
   # ─────────────────────────────────────────────────────────────────────
@@ -483,7 +483,7 @@ jobs:
       - run: cargo test --doc --workspace --all-features --locked
 
   # ─────────────────────────────────────────────────────────────────────
-  # test-build — compile test binaries once; `tests` consumes the
+  # test-build - compile test binaries once; `tests` consumes the
   # shared cache to run them.  Splitting keeps the expensive link step
   # out of the retry loop.
   # ─────────────────────────────────────────────────────────────────────
@@ -524,7 +524,7 @@ jobs:
         run: du -sh target/ || true
 
   # ─────────────────────────────────────────────────────────────────────
-  # tests — run the pre-built binaries via nextest's `ci` profile.
+  # tests - run the pre-built binaries via nextest's `ci` profile.
   # ─────────────────────────────────────────────────────────────────────
   tests:
     name: Tests
@@ -559,7 +559,7 @@ jobs:
       - run: cargo nextest run --workspace --all-features --lib --tests --profile ci --locked
 
   # ─────────────────────────────────────────────────────────────────────
-  # security — cargo-deny + cargo-vet + cargo-vet audit-discipline +
+  # security - cargo-deny + cargo-vet + cargo-vet audit-discipline +
   # cargo-machete.  Bundles every supply-chain-hygiene check into a
   # single Linux job.  Re-runs `vet` here (also runs in `sanity` when
   # dep changed) because external observers (branch protection
@@ -567,7 +567,7 @@ jobs:
   # check in the check-runs list.  Display name kept stable as
   # "Security (deny + vet)" to preserve historical check-run identity
   # across additions to the job (audit-discipline landed in PR #172,
-  # cargo-machete in this PR — both bundled without renaming).
+  # cargo-machete in this PR - both bundled without renaming).
   # Cheap on warm cache (~10 s wall).
   # ─────────────────────────────────────────────────────────────────────
   security:
@@ -620,8 +620,8 @@ jobs:
         # Fast (~1 s) AST-based unused-dependency detector.  Complements
         # `cargo-udeps` in Tier 2 weekly (which actually compiles to
         # detect, more accurate but multi-minute, nightly-only).
-        # cargo-machete catches the common case — a `[dependencies]`
-        # entry whose crate is no longer `use`d anywhere — at PR time
+        # cargo-machete catches the common case - a `[dependencies]`
+        # entry whose crate is no longer `use`d anywhere - at PR time
         # instead of a week later.  `--skip-target-dir` mirrors the
         # local `just/analysis_ci.just::machete` recipe so identical
         # output is reproducible on both surfaces.  pr-fast bundles
@@ -631,7 +631,7 @@ jobs:
         # Invocation form: `cargo-machete` (direct binary) rather
         # than `cargo machete` (cargo subcommand dispatch).  cargo
         # 1.97-nightly + cargo-machete v0.9.1 interact badly when
-        # invoked via the cargo subcommand wrapper — cargo passes
+        # invoked via the cargo subcommand wrapper - cargo passes
         # the subcommand name `machete` as argv[1], and cargo-
         # machete's gumdrop CLI parser treats it as a positional
         # path and stops parsing flags (so `--skip-target-dir` lands
@@ -640,8 +640,8 @@ jobs:
         run: cargo-machete --skip-target-dir
 
   # ─────────────────────────────────────────────────────────────────────
-  # windows-lint — native Windows clippy gate on `windows-latest`.
-  # Authoritative cross-target lint gate (local xwin is advisory — see
+  # windows-lint - native Windows clippy gate on `windows-latest`.
+  # Authoritative cross-target lint gate (local xwin is advisory - see
   # dev-flow-implementation-plan.md § 1.3.3).  Replaces the weekly
   # Tier 2 Windows job; Tier 2 drops that job in the same PR as Phase
   # 4b housekeeping.
@@ -660,7 +660,7 @@ jobs:
     timeout-minutes: 25
     env:
       # Windows-appropriate target-cpu baseline (same as release.yml's
-      # Windows matrix rows).  DO NOT use target-cpu=native here — it
+      # Windows matrix rows).  DO NOT use target-cpu=native here - it
       # breaks cross-compilation semantics and can SIGILL on some runner
       # VMs.
       RUSTFLAGS: "-C target-cpu=x86-64-v3"
@@ -680,7 +680,7 @@ jobs:
       - run: cargo clippy --workspace --all-targets --all-features --locked --no-deps -- -D warnings
 
   # ─────────────────────────────────────────────────────────────────────
-  # required — sole branch-protection target (post-2026-04-23 cutover).
+  # required - sole branch-protection target (post-2026-04-23 cutover).
   # Aggregates the result of every job above.  MUST depend on
   # `classify` explicitly so that a failed classify (whose downstream
   # jobs therefore `skipped`) cannot green-light the PR via GitHub
@@ -756,7 +756,7 @@ jobs:
           exit "$fail"
 
   # ─────────────────────────────────────────────────────────────────────
-  # notify-failure was REMOVED in the Design C refactor for #209 — it
+  # notify-failure was REMOVED in the Design C refactor for #209 - it
   # is now handled by `.github/workflows/ci-failure-notify.yml`, which
   # triggers off `workflow_run [completed]` AFTER `auto-rerun-transient.yml`
   # has had its 60-second window to retry transient flakes.  See the

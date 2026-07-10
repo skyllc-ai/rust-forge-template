@@ -2,14 +2,14 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 
 # ─────────────────────────────────────────────────────────────────────────────
-# ci-failure-notify — file a tracking issue when a watched workflow
+# ci-failure-notify - file a tracking issue when a watched workflow
 # concludes in failure AFTER `auto-rerun-transient.yml` has had its
 # chance to retry transient flakes.
 #
 # Why this lives outside `pr-fast.yml` / `tier-2.yml`:
 #
 #   The previous in-workflow `notify-failure` jobs fired synchronously
-#   as soon as any gate job failed — BEFORE the cross-workflow
+#   as soon as any gate job failed - BEFORE the cross-workflow
 #   `auto-rerun-transient` listener could observe the failure and
 #   dispatch a retry.  Transient failures (HTTP 429, network blips,
 #   runner-setup faults) thus generated false-positive `ci-failure-*`
@@ -40,7 +40,7 @@
 #
 #   * "PR Fast CI"               → label `ci-failure-pr-fast`
 #   * "🌙 ACMEX Tier 2 Nightly CI" → label `ci-failure-tier-2`
-#   * "🔍 CodeQL (Rust SAST)" is intentionally NOT covered — it uses
+#   * "🔍 CodeQL (Rust SAST)" is intentionally NOT covered - it uses
 #     `continue-on-error: true` (advisory job) and its transient
 #     failures are absorbed by `auto-rerun-transient.yml` without
 #     ever surfacing as `conclusion == 'failure'`.
@@ -49,16 +49,16 @@
 # notify-failure job because:
 #
 #   1. It's not in `auto-rerun-transient.yml`'s watched list (release
-#      failures are not transient-retryable by design — every step
+#      failures are not transient-retryable by design - every step
 #      mutates published state).
 #   2. Release failures need immediate human attention; a 60s delay
 #      is unwanted.
 #
 # Permissions:
 #
-#   * `actions: read`  — required to call GET /repos/.../actions/runs/<id>.
-#   * `contents: read` — implicit (issue body links to commits).
-#   * `issues: write`  — required to create / comment on / update issues.
+#   * `actions: read`  - required to call GET /repos/.../actions/runs/<id>.
+#   * `contents: read` - implicit (issue body links to commits).
+#   * `issues: write`  - required to create / comment on / update issues.
 
 name: 🔔 CI Failure Notify
 
@@ -134,7 +134,7 @@ jobs:
           status="$(printf '%s' "$run_json" | jq -r '.status')"
           conclusion="$(printf '%s' "$run_json" | jq -r '.conclusion // "null"')"
 
-          printf 'Run %s — attempt=%s status=%s conclusion=%s\n' \
+          printf 'Run %s - attempt=%s status=%s conclusion=%s\n' \
             "${RUN_ID}" "${attempt}" "${status}" "${conclusion}"
 
           {
@@ -201,11 +201,11 @@ jobs:
             let label, title, extraBody;
             if (wf === 'PR Fast CI') {
               label = 'ci-failure-pr-fast';
-              title = `🔴 CI Failure: PR Fast CI — ${shortSha}`;
+              title = `🔴 CI Failure: PR Fast CI - ${shortSha}`;
               extraBody = [];
             } else if (wf === '🌙 ACMEX Tier 2 Nightly CI') {
               label = 'ci-failure-tier-2';
-              title = `🔴 CI Failure: Tier 2 Nightly CI — ${shortSha}`;
+              title = `🔴 CI Failure: Tier 2 Nightly CI - ${shortSha}`;
               extraBody = [
                 '',
                 '📧 Notification sent to: cifail@acmex.example',
@@ -213,13 +213,13 @@ jobs:
             } else if (wf === '🐤 Nightly Canary') {
               // Early-warning probe against the LATEST floating nightly
               // (NOT the pinned toolchain).  A failure here means an
-              // upcoming nightly will break the workspace — triage
+              // upcoming nightly will break the workspace - triage
               // before the next `just toolchain-sync` pin bump, not
               // during it.  This is advisory: the canary is never a
               // required merge check, so this issue tracks future risk,
               // not a broken main.
               label = 'ci-failure-nightly-canary';
-              title = `🐤 Nightly Canary: upcoming-toolchain regression — ${shortSha}`;
+              title = `🐤 Nightly Canary: upcoming-toolchain regression - ${shortSha}`;
               extraBody = [
                 '',
                 '⚠️ This is an **early-warning** signal from the floating-nightly canary, ' +

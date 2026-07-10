@@ -17,7 +17,7 @@
 //!    lines of struct definitions.
 //! 2. Serde's default `deserialize_unknown_fields = false` means additive
 //!    changes to the manifest schema (new fields in `[[gate]]`) are silently
-//!    absorbed by both deserializers — the common drift mode (acmex-gen-hooks
+//!    absorbed by both deserializers - the common drift mode (acmex-gen-hooks
 //!    gains a field, acmex-gen-workflow stays blissfully unaware) is safe.
 //!    Removal of a field acmex-gen-workflow uses fails noisily on first parse;
 //!    loud regression beats silent corruption every time.
@@ -29,12 +29,12 @@
 //! # Schema subset
 //!
 //! acmex-gen-workflow only needs:
-//! - `id` — gate's stable identifier
-//! - `label` — human-readable string (used in error messages)
-//! - `tiers` — to filter to `pr-fast`
-//! - `gate_when` — the change-classification predicate, mapped to the
+//! - `id` - gate's stable identifier
+//! - `label` - human-readable string (used in error messages)
+//! - `tiers` - to filter to `pr-fast`
+//! - `gate_when` - the change-classification predicate, mapped to the
 //!   workflow's `if:` field
-//! - `consumer_names` — per-tier job-id override (e.g. `lint-ci` appears as job
+//! - `consumer_names` - per-tier job-id override (e.g. `lint-ci` appears as job
 //!   `clippy` in pr-fast.yml)
 //!
 //! Every other field (`command`, `bucket`, `notes`, etc.) is
@@ -58,7 +58,7 @@ pub(crate) struct Manifest {
     pub(crate) gates: Vec<Gate>,
 }
 
-/// A single gate entry — minimal subset.  Field ordering matches the
+/// A single gate entry - minimal subset.  Field ordering matches the
 /// canonical schema in `acmex-gen-hooks/src/manifest.rs::Gate` so a
 /// reviewer comparing the two structs sees them line up.
 #[derive(Debug, Deserialize)]
@@ -186,7 +186,7 @@ gate_when = "rust_changed"
     #[test]
     fn gate_when_field_rename_round_trips() {
         // Regression-guards the `serde(rename = "gate_when")` directive
-        // — if someone removed it, this would fail to parse.
+        // - if someone removed it, this would fail to parse.
         let manifest = parse(FIXTURE).unwrap();
         assert!(manifest.gates.iter().all(|g| g.when == "rust_changed"));
     }

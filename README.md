@@ -10,19 +10,19 @@ workspace under the placeholder identity `acmex`, carrying a complete quality
 machine from day one. Create a copy, run the init ceremony, and start working
 inside a fully armed pipeline instead of assembling one.
 
-Extracted from the production workspace of **[UFFS — Ultra Fast File
+Extracted from the production workspace of **[UFFS - Ultra Fast File
 Search](https://uffs.io)**, and battle-tested there first. Built and
 maintained by [Robert S.A. Nio](https://www.linkedin.com/in/robert-nio-46029a/).
 
 ## Is this template for you?
 
-> **Vibe-code a serious Rust project without it turning into slop — the
+> **Vibe-code a serious Rust project without it turning into slop: the
 > guardrails catch what you and the AI miss.**
 
 Thirty seconds of honesty before you invest an hour. The axis is **intent,
-not experience** — you do not need to be a veteran.
+not experience** - you do not need to be a veteran.
 
-**Skip it — use `cargo new` instead** — if:
+**Skip it - use `cargo new` instead** - if:
 
 - *learning the language itself* is the goal right now (a tutorial, book
   chapter, Rustlings, Advent of Code): the machinery enforces engineering
@@ -31,20 +31,20 @@ not experience** — you do not need to be a veteran.
 - you are writing a throwaway script, a one-evening experiment, or a quick
   prototype whose whole point is speed over rigor
 - you are allergic to process: this repo rejects commits, rejects pushes,
-  and argues back — by design
+  and argues back - by design
 
-**Use it if you are building something meant to live** — a tool, service, or
-library that others (including future-you) will depend on — at any level:
+**Use it if you are building something meant to live** - a tool, service, or
+library that others (including future-you) will depend on - at any level:
 
 - **Newer to Rust but serious?** This is a safety net that lets you build
   above your raw skill level: the guardrails plus your AI assistant carry
   the rigor you could not yet set up or enforce yourself. Fair warning,
-  stated plainly: the guardrails are a two-way street — they WILL reject
+  stated plainly: the guardrails are a two-way street - they WILL reject
   your (and your AI's) first draft, and satisfying them is exactly how the
   leveling-up happens. This is not zero-effort "vibe and ship"; it is
   vibe-coding with a spotter.
 - **Veteran?** You are skipping roughly two days of wiring lints, hooks,
-  CI, supply-chain checks, and release plumbing — arriving at the posture
+  CI, supply-chain checks, and release plumbing - arriving at the posture
   you would have built anyway.
 
 Either profile, the same reasons apply:
@@ -58,7 +58,7 @@ Either profile, the same reasons apply:
   license compliance, and release/publishing lanes that already exist and
   switch on with a variable when you are ready
 - you know **strictness is only affordable on day one**: the donor project
-  measured what retrofitting costs — a single lint had ~1,766 violations by
+  measured what retrofitting costs - a single lint had ~1,766 violations by
   the time it was considered, and 341 supply-chain exemptions had to be
   grandfathered; starting strict costs nothing
 - you code **with an AI assistant** and want guardrails that make generated
@@ -69,16 +69,16 @@ Either profile, the same reasons apply:
 
 | Resource | What you need |
 | --- | --- |
-| **Machine** | 8 GB RAM minimum (16 GB comfortable once the project grows — fat-LTO release builds are hungry); a few CPU cores (gates run parallel); SSD strongly recommended |
-| **Disk** | ~2 GB pinned toolchain + ~1 GB gate tools + 1-2 GB build dir for the skeleton, growing with your code — plan for **10 GB+** per project over time |
+| **Machine** | 8 GB RAM minimum (16 GB comfortable once the project grows - fat-LTO release builds are hungry); a few CPU cores (gates run parallel); SSD strongly recommended |
+| **Disk** | ~2 GB pinned toolchain + ~1 GB gate tools + 1-2 GB build dir for the skeleton, growing with your code - plan for **10 GB+** per project over time |
 | **Network** | First setup downloads roughly 3-4 GB (toolchain, tools, crate index) |
-| **Accounts & keys** | A GitHub account, `gh` CLI authenticated, and a **commit-signing key (SSH or GPG)** — the pre-push gate requires every commit signed, and it is a hard gate: no key, no push |
+| **Accounts & keys** | A GitHub account, `gh` CLI authenticated, and a **commit-signing key (SSH or GPG)** - the pre-push gate requires every commit signed, and it is a hard gate: no key, no push |
 | **Time** | ~30-45 minutes from empty machine to first green `just go` (mostly downloads/compiles); afterwards 2-15 s per commit, 20-60 s per push (warm) |
 | **Platform** | macOS and Linux are first-class; Windows works with Git-Bash for the hooks |
 
 ### The CI bill (measured, not estimated)
 
-Numbers from a real PR through this repo itself — the hello-world floor
+Numbers from a real PR through this repo itself - the hello-world floor
 (`acmex-core` + the `acmex` binary), so this is the **minimum**; your code
 grows it:
 
@@ -89,25 +89,25 @@ grows it:
 | Merge-queue pass (the full battery again, on the queued state) | 15 | ~3.5 min | ~14 |
 
 So a code change pays roughly **~6-7 minutes wall clock and ~28 compute
-minutes** from "PR opened" to "merged through the queue" — industrial-strength
+minutes** from "PR opened" to "merged through the queue" - industrial-strength
 processing, and that is its time price. On top: the weekly tier-2 deep suite
-(miri, mutation testing, coverage — tens of compute minutes) and the nightly
+(miri, mutation testing, coverage - tens of compute minutes) and the nightly
 canary.
 
-**The money:** on a **public** repo, GitHub-hosted runners are **free** —
+**The money:** on a **public** repo, GitHub-hosted runners are **free** -
 the whole machine costs $0. On a private repo at GitHub's list rates
 (Linux $0.008/min, Windows $0.016/min), the full battery is ~$0.13 per run,
-~$0.26 per queued code change — a few dollars a month for an active
+~$0.26 per queued code change - a few dollars a month for an active
 project, before the free-tier minutes that most plans include.
 
 ### The commitment
 
-Once you are in, **the machine does not allow shortcuts — for you or for
+Once you are in, **the machine does not allow shortcuts - for you or for
 your AI assistant**. Hooks reject bad commits, the push gate rejects
 unsigned or failing work, CI re-checks everything, and the bypass
 (`--no-verify`) is mechanically blocked for AI sessions and treated as an
 incident for humans. That is the deal: you give up the ability to cut
-corners, and in return every green build actually means something — the
+corners, and in return every green build actually means something - the
 discipline you would need to impose on yourself (and on generated code) is
 enforced by the repo instead.
 
@@ -118,7 +118,7 @@ reject code that would compile fine. That price is the product.
 
 Rule of thumb: **if the project deserves a README, tests, and a version
 number, it deserves this template. If it is a sketch, `cargo new` is the
-right tool** — come back when the sketch becomes a plan.
+right tool** - come back when the sketch becomes a plan.
 
 ## What you get on day one
 
@@ -130,20 +130,20 @@ right tool** — come back when the sketch becomes a plan.
 | **CI** | `pr-fast.yml` tier-1 required gate (validated against gates.toml by `acmex-gen-workflow`), weekly tier-2 (miri, careful, mutants, udeps, hack, coverage), CodeQL, commitlint, nightly canary, dependabot triage + auto-merge, CI-failure notify + auto-rerun |
 | **Supply chain** | cargo-vet (5 community audit-set imports, zero exemption debt), cargo-deny, SHA-pinned actions, committed `Cargo.lock` |
 | **Licensing** | REUSE/SPDX compliance (checked at commit time), per-file headers, LICENSES/ store |
-| **Release lanes (dormant)** | Multi-target release build, crates.io publish (release-plz), winget, SLSA attestation — all present, all inert until you flip a repo variable (see `COMPONENTS.md`) |
-| **Skeleton** | `acmex-core` (lib), `acmex-cli` (bin `acmex`), `acmex-version` (shared `--version` machinery) — hello-world code that exercises every gate honestly |
+| **Release lanes (dormant)** | Multi-target release build, crates.io publish (release-plz), winget, SLSA attestation - all present, all inert until you flip a repo variable (see `COMPONENTS.md`) |
+| **Skeleton** | `acmex-core` (lib), `acmex-cli` (bin `acmex`), `acmex-version` (shared `--version` machinery) - hello-world code that exercises every gate honestly |
 
 ## Quickstart
 
 > New to Rust, `just`, or any of this? **[GETTING-STARTED.md](GETTING-STARTED.md)**
-> is the zero-knowledge runbook — from empty machine to green pipeline,
+> is the zero-knowledge runbook - from empty machine to green pipeline,
 > including the daily loop and a fix-it table for every gate.
 >
-> 🤖 **AI agents:** read **[AGENTS.md](AGENTS.md)** before touching anything —
+> 🤖 **AI agents:** read **[AGENTS.md](AGENTS.md)** before touching anything -
 > state detection, hard prohibitions, and the exact fix for every gate.
 > (Claude Code is routed there automatically via CLAUDE.md.)
 >
-> **Day zero — no project yet?** Paste this into your AI and let it drive:
+> **Day zero - no project yet?** Paste this into your AI and let it drive:
 >
 > ```text
 > Read https://raw.githubusercontent.com/skyllc-ai/rust-forge-template/main/AGENTS.md and guide me from nothing to a green pipeline: help me create my own project from this template.
@@ -155,10 +155,10 @@ right tool** — come back when the sketch becomes a plan.
 > Read and follow: https://raw.githubusercontent.com/acmex-org/acmex/main/AGENTS.md
 > ```
 >
-> (That second URL is this repository's own copy — `just init` rewrites it
+> (That second URL is this repository's own copy - `just init` rewrites it
 > to your project's address.)
 
-**Guided (recommended)** — one script drives the whole journey with a
+**Guided (recommended)** - one script drives the whole journey with a
 consent prompt at every step: docs gate → tools → GitHub auth → create/clone
 the repo → init ceremony → gate tools + hooks → commit signing → first green
 validation run:
@@ -168,10 +168,10 @@ curl -fsSL https://raw.githubusercontent.com/skyllc-ai/rust-forge-template/main/
 ```
 
 For unattended machines (fleet/CI) there is a separate `--yes` lane that
-never generates signing keys — see GETTING-STARTED's
+never generates signing keys - see GETTING-STARTED's
 "Unattended / fleet provisioning" section.
 
-**Manual** — the same journey as individual commands, for people who want
+**Manual** - the same journey as individual commands, for people who want
 to see every move (this is also exactly what the script runs):
 
 ```bash
@@ -192,7 +192,7 @@ just go
 bash scripts/ci/bootstrap-github.sh
 ```
 
-After init, `rg -i acmex` returns nothing — that emptiness is the proof the
+After init, `rg -i acmex` returns nothing - that emptiness is the proof the
 rename ceremony completed.
 
 ## Growing the project
@@ -202,7 +202,7 @@ The machinery ships at 100% and idles; the product grows through recipes.
 
 - **Lanes** (machinery you switch ON): crates.io publishing, winget, codecov,
   SLSA, the release pipeline. Dormant behind repo variables (`LANE_*`) and
-  `release-plz.toml` flags — activation is a data change, never a new file.
+  `release-plz.toml` flags - activation is a data change, never a new file.
 - **Components** (structure you ADD): new crates, fuzz targets, benches.
   Each entry documents prerequisites, tooling, files touched, and a verify
   command that always ends in `just go`.
@@ -259,5 +259,5 @@ Dual-licensed **MIT OR Apache-2.0** (the Rust-ecosystem default), so projects
 of any license can adopt the scaffolding. Keep the dual license or pass
 `license=<SPDX-id>` to `just init`: the ceremony rewrites every SPDX header,
 `Cargo.toml`, `REUSE.toml`, and the `LICENSE` pointer, then the `reuse` gate
-holds the build red until you drop the matching text into `LICENSES/` —
+holds the build red until you drop the matching text into `LICENSES/` -
 the machine itself enforces a complete relicense.

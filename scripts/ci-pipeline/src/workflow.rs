@@ -4,18 +4,18 @@
 #![expect(
     clippy::print_stdout,
     clippy::use_debug,
-    reason = "operational CLI tool — workflow status + phase enum (Debug-formatted) go to stdout (issue #212)"
+    reason = "operational CLI tool - workflow status + phase enum (Debug-formatted) go to stdout (issue #212)"
 )]
 
 //! Resumable-workflow state machine for the ACMEX ship pipeline.
 //!
-//! * [`WorkflowPhase`] — coarse-grained pipeline phase (what we're doing).
-//! * [`StepTracker`]   — fine-grained set of completed / failed step ids.
-//! * [`WorkflowState`] — the whole thing, persisted atomically to
+//! * [`WorkflowPhase`] - coarse-grained pipeline phase (what we're doing).
+//! * [`StepTracker`]   - fine-grained set of completed / failed step ids.
+//! * [`WorkflowState`] - the whole thing, persisted atomically to
 //!   `build/.acmex-workflow-state.json` between runs so `just ship` can resume
 //!   from the first non-completed step after a CI-class failure.
 //!
-//! [`STEP_*`](ALL_STEPS) constants are the step-id source of truth — they
+//! [`STEP_*`](ALL_STEPS) constants are the step-id source of truth - they
 //! are embedded in the on-disk JSON, so renaming one is a
 //! backwards-incompatible change to the resumable-state format.
 
@@ -29,7 +29,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Step id constants — embedded in the on-disk resumable-state file.
+// Step id constants - embedded in the on-disk resumable-state file.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Ensure the pinned nightly (per `rust-toolchain.toml`) is installed.
@@ -75,7 +75,7 @@ pub(crate) const ALL_STEPS: &[&str] = &[
     STEP_COVERAGE_TESTS,
     STEP_PARALLEL_VALIDATION,
     STEP_FORMAT_CHECK,
-    // STEP_VERSION_INCREMENT retired — release-plz handles version bumps
+    // STEP_VERSION_INCREMENT retired - release-plz handles version bumps
     STEP_GIT_COMMIT,
     STEP_GIT_PUSH,
 ];
@@ -92,7 +92,7 @@ pub(crate) enum WorkflowPhase {
     /// No pipeline in flight.
     Clean,
     /// Phase 2 step 07: bumping `[workspace.package].version`.
-    /// **RETIRED in Phase R5** — version bumping now handled by release-plz.
+    /// **RETIRED in Phase R5** - version bumping now handled by release-plz.
     /// Preserved for backwards compatibility with existing resumable-state
     /// files.
     VersionIncrementing,
@@ -123,7 +123,7 @@ pub(crate) struct StepTracker {
     pub current_step: Option<String>,
 }
 
-/// Full resumable workflow state — persisted to
+/// Full resumable workflow state - persisted to
 /// `build/.acmex-workflow-state.json` between `just ship` runs.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub(crate) struct WorkflowState {
@@ -137,7 +137,7 @@ pub(crate) struct WorkflowState {
     pub started_at: DateTime<Utc>,
     /// When this workflow finished (only set on transition to `Completed`).
     pub completed_at: Option<DateTime<Utc>>,
-    /// Last `current_version` that actually shipped — rolled forward
+    /// Last `current_version` that actually shipped - rolled forward
     /// on `Completed`.
     pub last_successful_version: String,
     /// Total failures observed across this workflow's lifetime.

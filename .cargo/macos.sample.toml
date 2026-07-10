@@ -2,17 +2,17 @@
 # Copyright (c) 2026 Acmex Placeholder LLC
 #
 # =============================================================================
-# SAMPLE user-level Cargo config — macOS (Apple Silicon + Intel)
+# SAMPLE user-level Cargo config - macOS (Apple Silicon + Intel)
 # =============================================================================
 # This file is INERT where it sits. To use it:
 #
 #   1. Copy the parts you want into  ~/.cargo/config.toml  (your HOME, not
-#      this repo — the repo ships stock Cargo behavior on purpose; see
+#      this repo - the repo ships stock Cargo behavior on purpose; see
 #      .cargo/config.toml for the rationale).
 #   2. Uncomment selectively. Everything here is optional tuning.
 #
 # A local repo-level override also works (git-ignored): copy to
-# .cargo/macos.toml and merge into .cargo/config.toml locally — but prefer
+# .cargo/macos.toml and merge into .cargo/config.toml locally - but prefer
 # HOME so every workspace on your machine benefits.
 # =============================================================================
 
@@ -40,7 +40,7 @@
 [target.aarch64-apple-darwin]
 linker = "clang"
 rustflags = [
-  # Optimize for YOUR CPU — user-level only; in a repo this bakes the build
+  # Optimize for YOUR CPU - user-level only; in a repo this bakes the build
   # machine's CPU into everyone's binaries and breaks cross-compilation.
   "-C",
   "target-cpu=native",

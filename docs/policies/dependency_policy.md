@@ -9,8 +9,8 @@
 > **Provenance note.** This policy was extracted from a donor project
 > (a Windows NTFS file-search tool).  The rules and tooling apply to
 > this workspace as-is; the feature registry, duplicate inventory, and
-> decisions log below are **illustrative donor examples** — the
-> template skeleton currently declares no feature flags — kept to show
+> decisions log below are **illustrative donor examples** - the
+> template skeleton currently declares no feature flags - kept to show
 > what a mature project's version of this document looks like.
 
 ACMEX keeps **feature behavior additive** and **dependency duplication
@@ -39,13 +39,13 @@ The categories:
 
 | Category | Pattern | Verdict | Notes |
 |---|---|---:|---|
-| **F1 — additive, default-on** | Adds modules / items / deps; the default consumer keeps the historical surface | **KEEP** | Disabling is the consumer's deliberate "shrink the surface" choice (donor example: a client crate's `async` feature) |
-| **F2 — additive, default-off** | Adds modules / items / deps; opt-in chooses to accept a cost (binary size, syscall surface, build time) | **KEEP** | Default-off only when the cost is observable to a *thin* consumer (donor example: an HTTP-probe feature that keeps a network DLL unlinked) |
-| **F3 — orthogonal capability** | Two features compose without interaction (no `&&` cfg, no feature-on-feature ladder) | **KEEP** | Currently none — preserved as a category for future capability splits |
-| **F4 — subtractive** | Disabling removes items the default consumer *had* | **FORBIDDEN** | Breaks Cargo's "feature unification" guarantee.  **Fix:** invert the polarity — make the *new* behavior the feature and the *legacy* behavior the default. |
-| **F5 — feature-on-feature stack** | `foo = ["bar"]` where `bar` itself gates non-trivial deps | **REVIEW** | Document the cascade in each gated feature's rustdoc; verify no surprise dep activation |
+| **F1 - additive, default-on** | Adds modules / items / deps; the default consumer keeps the historical surface | **KEEP** | Disabling is the consumer's deliberate "shrink the surface" choice (donor example: a client crate's `async` feature) |
+| **F2 - additive, default-off** | Adds modules / items / deps; opt-in chooses to accept a cost (binary size, syscall surface, build time) | **KEEP** | Default-off only when the cost is observable to a *thin* consumer (donor example: an HTTP-probe feature that keeps a network DLL unlinked) |
+| **F3 - orthogonal capability** | Two features compose without interaction (no `&&` cfg, no feature-on-feature ladder) | **KEEP** | Currently none - preserved as a category for future capability splits |
+| **F4 - subtractive** | Disabling removes items the default consumer *had* | **FORBIDDEN** | Breaks Cargo's "feature unification" guarantee.  **Fix:** invert the polarity - make the *new* behavior the feature and the *legacy* behavior the default. |
+| **F5 - feature-on-feature stack** | `foo = ["bar"]` where `bar` itself gates non-trivial deps | **REVIEW** | Document the cascade in each gated feature's rustdoc; verify no surprise dep activation |
 
-Test code is exempt from the additivity rule — see
+Test code is exempt from the additivity rule - see
 [`clippy.toml`](../../clippy.toml) `allow-*-in-tests = true` and the
 test-substitution boundary documented in
 [`panic_policy.md` §1](panic_policy.md).
@@ -65,9 +65,9 @@ pre-push gate and CI:
 | `cargo vet` | Unaudited crate-versions in the dep graph | `supply-chain/{config,audits,imports.lock}.toml` + `pr-fast.yml::security` |
 | `cargo tree --workspace -d` | Cross-version duplicate inventory | Run manually when re-baselining; no hard gate (workspace runs `multiple-versions = "warn"`) |
 | `cargo doc --no-deps --all-features` | Broken intra-doc links inside `# Features` sections | Pre-push gate (`rustdoc`) + `pr-fast.yml::docs` |
-| `cargo clippy --workspace --all-targets --no-default-features --no-deps -- -D warnings` | **Feature-additivity regressions** — `pub`/`pub(crate)` items reachable only when feature X is on but not themselves `#[cfg(feature = "X")]`-gated (manifests as `dead_code` warnings + unfulfilled `expect` warnings when feature X is off) | Pre-push gate (`lint-ci-no-default` — Phase 8e) + `pr-fast.yml::clippy-no-default` |
+| `cargo clippy --workspace --all-targets --no-default-features --no-deps -- -D warnings` | **Feature-additivity regressions** - `pub`/`pub(crate)` items reachable only when feature X is on but not themselves `#[cfg(feature = "X")]`-gated (manifests as `dead_code` warnings + unfulfilled `expect` warnings when feature X is off) | Pre-push gate (`lint-ci-no-default` - Phase 8e) + `pr-fast.yml::clippy-no-default` |
 
-The sixth tool — `lint-ci-no-default` — is the feature-additivity
+The sixth tool - `lint-ci-no-default` - is the feature-additivity
 regression guard.  It mirrors the existing `lint-ci` gate
 (`--all-features -D warnings`) but swaps in `--no-default-features`,
 so the pair establishes the **additivity invariant**: every item
@@ -80,7 +80,7 @@ emits, and additivity regresses silently.
 
 ```toml
 [bans]
-multiple-versions = "warn"  # NOT "deny" — see §5 for rationale
+multiple-versions = "warn"  # NOT "deny" - see §5 for rationale
 wildcards         = "allow"
 skip-tree         = [ … ]   # see §5
 ```
@@ -101,10 +101,10 @@ contract in **both** the crate's root rustdoc (`# Features` section)
 `Cargo.toml`:
 
 ```text
-1. What it enables  — which module / item / subcommand / binary
-2. What deps it adds — `dep:<name>` gating + transitive feature pulls
-3. API shape impact — additive (default) | subtractive (forbidden)
-4. Semver claim     — adding items behind it is non-breaking;
+1. What it enables  - which module / item / subcommand / binary
+2. What deps it adds - `dep:<name>` gating + transitive feature pulls
+3. API shape impact - additive (default) | subtractive (forbidden)
+4. Semver claim     - adding items behind it is non-breaking;
                       removing items behind it is breaking
 ```
 
@@ -138,7 +138,7 @@ Every direct dep in a crate's `[dependencies]` table must be referenced
 by at least one source file in that crate's `src/` tree.  `cargo
 machete` enforces this on every push.  A crate that only uses a dep
 transitively (e.g. for trait imports re-exported from another internal
-crate) must *not* list it as a direct dep — that creates a cycle hazard
+crate) must *not* list it as a direct dep - that creates a cycle hazard
 during dep upgrades.
 
 ### 4.2  Workspace pinning
@@ -150,11 +150,11 @@ impossible.  The two exceptions:
 
 - **Path-with-version overrides** (e.g. a binary crate depending on an
   internal library with `{ path = "../acmex-core", version = "0.1",
-  default-features = false }`) — workspace inheritance cannot override
+  default-features = false }`) - workspace inheritance cannot override
   `default-features`, so the consumer crate must spell out the override
   explicitly.  Justified inline in the consumer Cargo.toml.
 - **Internal crate path-with-version pins** for `cargo package`
-  validation — required by the crates.io publish lane.
+  validation - required by the crates.io publish lane.
 
 ### 4.3  Optional deps
 
@@ -198,7 +198,7 @@ deliberately.  The donor project's three reasons generalize:
    donor's case, polars) rotates which foundational crates land at
    which version on every bump (hashbrown, foldhash, getrandom, …).  A
    `deny`-level multiple-versions ban would force a skip-tree entry on
-   every such bump — a maintenance hazard the warn-level posture
+   every such bump - a maintenance hazard the warn-level posture
    sidesteps cleanly.
 2. **Crate-family fragmentation.**  Related crates (e.g. the RustCrypto
    family) frequently straddle a coordinated major-version bump;
@@ -208,15 +208,15 @@ deliberately.  The donor project's three reasons generalize:
    versions; absent an upstream coordination signal, accepting both
    versions is cheaper than forking.
 
-The `deny.toml [bans].skip-tree` is the **opt-in** acceptance list —
+The `deny.toml [bans].skip-tree` is the **opt-in** acceptance list -
 entries documented inline with a one-line reason.  Crates surfaced by
 `cargo tree -d` but absent from skip-tree are accepted by the
 workspace-wide warn posture; the accepted inventory is documented here.
 
 ### 5.1  Inventory (donor-project example)
 
-The donor project's close-of-audit inventory — 12 distinct
-duplicate-version groups — is kept as a worked example of the format.
+The donor project's close-of-audit inventory - 12 distinct
+duplicate-version groups - is kept as a worked example of the format.
 Reset this table against your own `cargo tree --workspace -d` output:
 
 | Group | Versions | Skip-tree status | Source |
@@ -243,19 +243,19 @@ fix).
 
 ## 6  Per-crate feature registry
 
-The template skeleton declares **zero feature flags** — this registry
+The template skeleton declares **zero feature flags** - this registry
 starts empty for a new project.  The donor project's registry is kept
 below as a worked example of the format:
 
 | Crate | Feature | Default? | Activates | Optional deps gated | Use-sites |
 |---|---|:---:|---|---|---:|
-| `acmex-cli` | `mcp-http-probe` | no | `commands::system_status` probe path | — | 4 |
+| `acmex-cli` | `mcp-http-probe` | no | `commands::system_status` probe path | - | 4 |
 | `acmex-client` | `async` | yes | `connect::*` modules + async tests | `dep:tokio` | 6 |
 | `acmex-mcp` | `streamable-http` | yes | `pub mod http` + `acmex-mcp-http` binary + `mcp_serve` helper | `dep:axum`, `dep:tower-service`, `rmcp/transport-streamable-http-server` | 5 |
 
 **Total active (donor):** 3 feature flags across 3 of its 14 crates.
 
-The donor's other 11 crates were intentionally feature-less — every
+The donor's other 11 crates were intentionally feature-less - every
 `pub` item unconditionally available.  Keeping most crates feature-less
 keeps the cross-crate dep graph simple and the publishable-leaf surface
 deterministic.
@@ -266,43 +266,43 @@ deterministic.
 
 The audit explicitly checks for and rejects:
 
-- **Subtractive feature** — disabling removes a `pub` item the default
+- **Subtractive feature** - disabling removes a `pub` item the default
   consumer had.  Breaks Cargo feature unification (any other workspace
   consumer that enables the feature wins; the "disabled" consumer
-  silently re-acquires the item).  **Fix:** invert polarity — default
+  silently re-acquires the item).  **Fix:** invert polarity - default
   is the *legacy* shape; the feature gates the *new* shape.
-- **Default-on without justification** — a `default = ["foo"]` line
+- **Default-on without justification** - a `default = ["foo"]` line
   without an explanatory rustdoc + Cargo.toml comment.  **Fix:** write
   the four-line contract (§3 above) or remove the default.
-- **Optional dep without a `dep:` reference** — `optional = true` in
+- **Optional dep without a `dep:` reference** - `optional = true` in
   `[dependencies]` but no feature carries `dep:<name>`.  Dead weight;
   the dep compiles into every consumer's lockfile but never participates
   in the build graph.  **Fix:** add the `dep:` gating, or remove the
   `optional` and the dep itself.
-- **Feature-on-feature without rustdoc cascade** — `foo = ["bar"]`
+- **Feature-on-feature without rustdoc cascade** - `foo = ["bar"]`
   where `bar` itself pulls non-trivial deps, without a rustdoc note
   explaining what enabling `foo` transitively activates.  **Fix:**
   expand the `# Features` section to list the cascade.
-- **Cross-version duplicate not in §5.1** — a `cargo tree -d` row not
+- **Cross-version duplicate not in §5.1** - a `cargo tree -d` row not
   matching any group in the inventory above.  **Fix:** add a skip-tree
   entry with a one-line rationale, OR upstream a coordination fix, OR
   document the warn-only acceptance in §5.1 of this doc.
-- **Direct dep without a use-site** — fails `cargo machete` at
+- **Direct dep without a use-site** - fails `cargo machete` at
   pre-push.  **Fix:** add the use-site, or remove the dep.
 
 ---
 
 ## 8  Audit cadence
 
-- **On every workspace-wide refactor sweep** — re-run
+- **On every workspace-wide refactor sweep** - re-run
   `cargo tree --workspace -d` + `cargo machete` and confirm the
   per-crate registry in §6 and the dup inventory in §5.1 are current.
-- **On every new feature flag** — open a design review: justify F1/F2,
+- **On every new feature flag** - open a design review: justify F1/F2,
   write the four-line contract in rustdoc + Cargo.toml, add a row to
   §6, append to §10.
-- **On every new `dep:<name>` activation** — verify `cargo machete`
+- **On every new `dep:<name>` activation** - verify `cargo machete`
   stays green and the use-site count is non-zero before merge.
-- **On every heavy-dependency bump** — rerun the audit; expect
+- **On every heavy-dependency bump** - rerun the audit; expect
   duplicate-version churn in foundational crates; update §5.1 if a new
   group surfaces or an existing one goes away.
 - **Annually** as part of the workspace-health review.
@@ -329,7 +329,7 @@ The audit explicitly checks for and rejects:
 
 Append-only.  Each entry: date, sub-phase, decision, PR.  The rows
 below are inherited donor-project history, kept as a worked example of
-the log format — reset the table when you adopt this template.
+the log format - reset the table when you adopt this template.
 
 | Date | Phase | Decision | PR |
 |---|---|---|---|

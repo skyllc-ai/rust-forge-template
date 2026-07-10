@@ -40,7 +40,7 @@ phase1-test:
     @printf "\033[0;36m📝 Note: Linux-specific code paths (cfg target_os = linux) are validated by CI on push.\033[0m\n"
     @printf "\033[0;34m💡 Next: Run 'just phase2-ship' only when ready to commit/push (version via release-plz)\033[0m\n"
 
-# Phase 2: commit and push (version bump retired — release-plz handles it).
+# Phase 2: commit and push (version bump retired - release-plz handles it).
 phase2-ship:
     @printf "\033[0;34m🚀 PHASE 2: Explicit Ship Lane\033[0m\n"
     @printf "\033[1;33mThis lane performs commit and push. Version bumping now handled by release-plz on `main`.\033[0m\n"
@@ -55,7 +55,7 @@ phase2-commit: phase2-ship
 go:
     @printf "\033[0;34m🚀 Safe-by-Default Validation Workflow (RUST OPTIMIZED)\033[0m\n"
     @printf "\033[1;33mNo version bump, deploy, commit, or push in this default lane.\033[0m\n"
-    @printf "\033[0;36m📝 Lints macOS code paths — Linux cfg() paths validated by CI on push.\033[0m\n"
+    @printf "\033[0;36m📝 Lints macOS code paths - Linux cfg() paths validated by CI on push.\033[0m\n"
     @echo "========================================================"
     cargo run -q --release --target-dir target/ci-bootstrap -p acmex-ci-pipeline -- go
 
@@ -66,7 +66,7 @@ go:
 ship *ARGS:
     @printf "\033[0;34m🚢 Full Ship Pipeline (Phase 1 + Phase 2, Resumable)\033[0m\n"
     @printf "\033[1;33mValidates and ships. Re-runs skip completed steps.\033[0m\n"
-    @printf "\033[0;36m📝 Lints macOS code paths — Linux cfg() paths validated by CI on push.\033[0m\n"
+    @printf "\033[0;36m📝 Lints macOS code paths - Linux cfg() paths validated by CI on push.\033[0m\n"
     @echo "========================================================"
     cargo run -q --release --target-dir target/ci-bootstrap -p acmex-ci-pipeline -- ship {{ ARGS }}
 
@@ -79,7 +79,7 @@ ship-fresh *ARGS:
     cargo run -q --release --target-dir target/ci-bootstrap -p acmex-ci-pipeline -- ship --fresh {{ ARGS }}
 
 # Draft CHANGELOG [Unreleased] from the Conventional-Commit subjects since the
-# last release tag — a placeholder to polish before shipping. Never overwrites
+# last release tag - a placeholder to polish before shipping. Never overwrites
 # hand-authored notes (the ship flow also auto-drafts if [Unreleased] is empty).
 changelog-draft:
     @printf "\033[0;34m📝 Drafting CHANGELOG [Unreleased] from commits since the last release\033[0m\n"
@@ -115,13 +115,13 @@ go-justfile:
 #
 # `main` uses a GitHub merge queue, so `gh pr merge <PR> --squash` is
 # silently rejected ("the merge strategy for main is set by the merge
-# queue") and does NOT enroll the PR.  This wrapper uses the right form —
+# queue") and does NOT enroll the PR.  This wrapper uses the right form -
 # `gh pr merge <PR> --auto` with NO method flag (the queue owns the
-# squash) — so the PR enters the queue and merges once its checks pass.
+# squash) - so the PR enters the queue and merges once its checks pass.
 merge PR:
     @printf "\033[0;34m🔀 Enrolling PR #{{ PR }} into main's merge queue...\033[0m\n"
     gh pr merge {{ PR }} --auto
-    @printf "\033[0;32m✅ PR #{{ PR }} queued — it merges when checks pass (watch: gh pr view {{ PR }}).\033[0m\n"
+    @printf "\033[0;32m✅ PR #{{ PR }} queued - it merges when checks pass (watch: gh pr view {{ PR }}).\033[0m\n"
 
 # Self-heal: re-sign every commit on the current branch, then re-push.
 #
@@ -137,7 +137,7 @@ sign-branch:
     set -euo pipefail
     branch=$(git rev-parse --abbrev-ref HEAD)
     if [[ "$branch" == "main" ]]; then
-        printf "\033[0;31m❌ refusing to rewrite main — run this on a feature branch.\033[0m\n" >&2
+        printf "\033[0;31m❌ refusing to rewrite main - run this on a feature branch.\033[0m\n" >&2
         exit 1
     fi
     base=$(git merge-base origin/main HEAD)
@@ -146,19 +146,19 @@ sign-branch:
     git rebase --exec 'git commit --amend --no-edit -S' "$base"
     printf "\033[0;34m⬆️  Force-pushing (with lease)...\033[0m\n"
     git push --force-with-lease
-    printf "\033[0;32m✅ Branch re-signed and pushed — every commit now carries a signature.\033[0m\n"
+    printf "\033[0;32m✅ Branch re-signed and pushed - every commit now carries a signature.\033[0m\n"
 
 # One-command commit-signing setup (SSH format, the low-friction path).
 #
 # Does everything that CAN be automated: creates an ed25519 key if you have
 # none (you choose the passphrase), points git at it (global config, SSH
 # signing format, sign commits + tags), registers the key on GitHub as a
-# SIGNING key via the API, and finishes with the doctor. Idempotent — safe
+# SIGNING key via the API, and finishes with the doctor. Idempotent - safe
 # to re-run; never overwrites an existing key. GPG users: configure
 # manually and run `just doctor-signing` instead.
 #
 # Fleet / unattended machines: this recipe never GENERATES a key without a
-# human (key issuance is an identity decision — pre-provision
+# human (key issuance is an identity decision - pre-provision
 # ~/.ssh/id_ed25519 via your fleet tooling instead; with a key already in
 # place, this recipe is fully non-interactive: config + registration + doctor).
 setup-signing:
@@ -168,10 +168,10 @@ setup-signing:
     printf "\033[0;34m🔏 Commit-signing setup (SSH format)\033[0m\n"
     # 0. NEVER clobber an existing setup. Working signing (any format):
     #    nothing to do. Configured-but-broken GPG: that is the user's
-    #    setup to repair (or consciously replace) — refuse to silently
+    #    setup to repair (or consciously replace) - refuse to silently
     #    rewrite their global git config to SSH.
     if just doctor-signing >/dev/null 2>&1; then
-        printf "  \033[0;32m✅ commit signing already configured and working — nothing to change\033[0m\n"
+        printf "  \033[0;32m✅ commit signing already configured and working - nothing to change\033[0m\n"
         exit 0
     fi
     existing_format=$(git config --get gpg.format || echo openpgp)
@@ -187,7 +187,7 @@ setup-signing:
     if [[ -f "$KEYFILE" ]]; then
         printf "  \033[0;32m✅ SSH key exists: %s\033[0m\n" "$KEYFILE"
     else
-        printf "  \033[0;36m→ No SSH key found — generating one (choose a passphrase when asked)\033[0m\n"
+        printf "  \033[0;36m→ No SSH key found - generating one (choose a passphrase when asked)\033[0m\n"
         ssh-keygen -t ed25519 -f "$KEYFILE"
     fi
     # 2. Point git at it (global: every repo on this machine signs)
@@ -201,7 +201,7 @@ setup-signing:
     if gh ssh-key add "$KEYFILE.pub" --type signing --title "$(hostname) signing" 2>/dev/null; then
         printf "  \033[0;32m✅ key registered on GitHub as a signing key\033[0m\n"
     else
-        printf "  \033[0;36mℹ️  GitHub registration skipped (already registered, or token lacks admin:ssh_signing_key scope —\033[0m\n"
+        printf "  \033[0;36mℹ️  GitHub registration skipped (already registered, or token lacks admin:ssh_signing_key scope -\033[0m\n"
         printf "  \033[0;36m   run: gh auth refresh -h github.com -s admin:ssh_signing_key   then re-run this recipe)\033[0m\n"
     fi
     # 4. Prove it
@@ -226,14 +226,14 @@ doctor-signing:
     if [[ "$(git config --get commit.gpgsign || echo false)" == "true" ]]; then
         ok "commit.gpgsign = true"
     else
-        bad "commit.gpgsign is not true — run: git config commit.gpgsign true"
+        bad "commit.gpgsign is not true - run: git config commit.gpgsign true"
     fi
 
     key=$(git config --get user.signingkey || true)
     if [[ -n "$key" ]]; then
         ok "user.signingkey = $key"
     else
-        bad "no user.signingkey — set it: git config user.signingkey <KEYID>"
+        bad "no user.signingkey - set it: git config user.signingkey <KEYID>"
     fi
 
     format=$(git config --get gpg.format || echo openpgp)
@@ -244,7 +244,7 @@ doctor-signing:
             if printf 'test' | ssh-keygen -Y sign -n git -f "$sigkey" >/dev/null 2>&1; then
                 ok "SSH signing works with the configured key"
             else
-                bad "ssh-keygen cannot sign with '$key' — is the private key present and unlocked?"
+                bad "ssh-keygen cannot sign with '$key' - is the private key present and unlocked?"
             fi
         else
             bad "gpg.format=ssh but user.signingkey does not point at a key file: $key"
@@ -252,7 +252,7 @@ doctor-signing:
     elif printf 'test' | gpg ${key:+--local-user "$key"} --clearsign >/dev/null 2>&1; then
         ok "GPG can sign with the configured key"
     else
-        bad "GPG cannot sign (broken agent / locked key) — check 'gpg --list-secret-keys'"
+        bad "GPG cannot sign (broken agent / locked key) - check 'gpg --list-secret-keys'"
     fi
 
     # GitHub-registration check is ADVISORY: listing GPG keys needs the
@@ -268,18 +268,18 @@ doctor-signing:
             if printf '%s\n' "$keys" | grep -qiF "${key: -16}"; then
                 ok "signing key is registered on GitHub (commits will verify)"
             else
-                info "configured key not found among your GitHub GPG keys — if commits show 'Unverified', add it: https://github.com/settings/keys"
+                info "configured key not found among your GitHub GPG keys - if commits show 'Unverified', add it: https://github.com/settings/keys"
             fi
         else
-            info "could not list GitHub GPG keys (gh token lacks admin:gpg_key scope) — skipped; GitHub still verifies signatures at push time"
+            info "could not list GitHub GPG keys (gh token lacks admin:gpg_key scope) - skipped; GitHub still verifies signatures at push time"
         fi
     fi
 
     if (( fail )); then
-        printf "\033[0;31m❌ signing setup incomplete — commits may be rejected by main's ruleset.\033[0m\n" >&2
+        printf "\033[0;31m❌ signing setup incomplete - commits may be rejected by main's ruleset.\033[0m\n" >&2
         exit 1
     fi
-    printf "\033[0;32m✅ local signing is set up — commits will be signed.\033[0m\n"
+    printf "\033[0;32m✅ local signing is set up - commits will be signed.\033[0m\n"
 
 # Comprehensive validation (Rust optimized).
 check-all:

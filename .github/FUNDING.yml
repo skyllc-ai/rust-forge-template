@@ -1,10 +1,10 @@
-# ACMEX — Sponsor Channels
+# ACMEX - Sponsor Channels
 #
 # This file controls the "Sponsor this project" button that GitHub renders
 # in the repository sidebar and on the org profile.
 #
 # Channels are shown in the order listed.  Uncomment each line the moment
-# the corresponding account is live — the button updates on the next page
+# the corresponding account is live - the button updates on the next page
 # load, no release or deploy needed.
 #
 # Docs: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository
@@ -25,16 +25,16 @@ open_collective: acmex-search
 
 # ── Ko-fi ───────────────────────────────────────────────────────────────────
 # Low-friction one-time tips.  Takes ~20 min to set up.
-# Create at: https://ko-fi.com  (handle: acmexsearch — 4-char "acmex" is paywalled).
+# Create at: https://ko-fi.com  (handle: acmexsearch - 4-char "acmex" is paywalled).
 # Live:
 ko_fi: acmexsearch
 
 # ── Patreon ─────────────────────────────────────────────────────────────────
-# Not used — Patreon is optimised for creative content, not developer tooling.
+# Not used - Patreon is optimised for creative content, not developer tooling.
 # Our audience lives on GitHub; GitHub Sponsors converts better here.
 
 # ── Tidelift ────────────────────────────────────────────────────────────────
-# Not used at this stage — Tidelift is for packages published to registries
+# Not used at this stage - Tidelift is for packages published to registries
 # (crates.io, npm, PyPI).  Revisit when acmex-* crates are published.
 
 # ── Custom ──────────────────────────────────────────────────────────────────

@@ -7,10 +7,10 @@
 # documented in `docs/architecture/security/supply-chain-posture.md`
 # §"Mandating audits over blanket bumps".
 #
-#   Layer 1 — `just vet-discipline`        (the CI gate, locally invokable)
-#   Layer 2 — `just vet-bump <crate>`      (the guided audit driver)
-#   Layer 3 — CODEOWNERS line on supply-chain/  (no recipe)
-#   Layer 4 — `Vet-Reviewed-Diff:` commit trailer (enforced by Layer 1)
+#   Layer 1 - `just vet-discipline`        (the CI gate, locally invokable)
+#   Layer 2 - `just vet-bump <crate>`      (the guided audit driver)
+#   Layer 3 - CODEOWNERS line on supply-chain/  (no recipe)
+#   Layer 4 - `Vet-Reviewed-Diff:` commit trailer (enforced by Layer 1)
 
 # Run the cargo-vet audit-discipline gate locally against
 # origin/main..HEAD (the same range the pre-push hook and pr-fast CI
@@ -27,7 +27,7 @@ vet-discipline:
 audit-gate:
     bash scripts/ci/anti_pattern_gate.sh
 
-# Guided cargo-vet exemption bump — prints a step-by-step recipe to
+# Guided cargo-vet exemption bump - prints a step-by-step recipe to
 # replace a "lazy" exemption version bump (the PR #166 anti-pattern)
 # with a proper delta audit anchored on the existing exemption.
 #

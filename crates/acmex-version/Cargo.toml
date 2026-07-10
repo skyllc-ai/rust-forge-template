@@ -23,7 +23,7 @@ authors.workspace = true
 readme.workspace = true
 keywords.workspace = true
 categories.workspace = true
-# Internal foundation crate — inherits the workspace `publish = false` default.
+# Internal foundation crate - inherits the workspace `publish = false` default.
 publish.workspace = true
 
 [package.metadata.docs.rs]

@@ -28,8 +28,8 @@ on:
 # Serialise release dispatches so two version bumps landing in quick
 # succession (or a tag-push colliding with an auto-tag-release dispatch)
 # queue cleanly.  `cancel-in-progress: false` because a half-finished
-# release must either complete or fail with an attestation — never be
-# killed mid-upload — so the SLSA provenance in the Attestations API
+# release must either complete or fail with an attestation - never be
+# killed mid-upload - so the SLSA provenance in the Attestations API
 # can never claim an artifact that was not actually published.
 concurrency:
   group: release-${{ inputs.version || github.ref_name }}
@@ -69,7 +69,7 @@ env:
   RUSTC_WRAPPER: ""
   # NOTE: no workflow-level RUSTFLAGS here.  Each matrix row carries its own
   # `rustflags` field so every target gets a stable CPU baseline appropriate
-  # for its ISA — never `target-cpu=native`, because a release binary built
+  # for its ISA - never `target-cpu=native`, because a release binary built
   # on today's GitHub runner would SIGILL on any end-user CPU missing the
   # runner's detected feature set (observed previously with `target-cpu=native`
   # → proc-macro dylib SIGILL on nightly-2026-04-21; same rationale noted
@@ -94,7 +94,7 @@ jobs:
     # Explicit per-job scopes so this job does NOT inherit the
     # workflow-level `actions: write` (granted only for the
     # `submit-winget` dispatch).  This job needs `contents: write` for
-    # its `gh release create --draft` preflight; `actions` stays read —
+    # its `gh release create --draft` preflight; `actions` stays read -
     # the rollback-attack guard below deliberately must NOT run with
     # `actions: write`.
     permissions:
@@ -139,7 +139,7 @@ jobs:
           echo "🏷️ Tag: $VERSION"
           echo "🚀 Triggered by: ${{ inputs.triggered_by || 'tag-push' }}"
 
-      - name: Pre-flight — verify Actions token can create releases
+      - name: Pre-flight - verify Actions token can create releases
         # Belt-and-suspenders guard against a silent repo-level
         # permissions clamp.
         #
@@ -154,10 +154,10 @@ jobs:
         # matrix burns ~30 minutes and then `create-github-release`
         # dies with the cryptic:
         #
-        #   HTTP 403 — Resource not accessible by integration
+        #   HTTP 403 - Resource not accessible by integration
         #
         # The failure mode is silent until that step is reached.
-        # See release pipeline #98 / v0.5.99 — three platforms built
+        # See release pipeline #98 / v0.5.99 - three platforms built
         # for 32 min each, then the publish step failed in 1 s with
         # the 403, and we had to drop the run and re-dispatch after
         # flipping the setting.
@@ -179,7 +179,7 @@ jobs:
         #
         # Draft releases do not create the underlying git tag (only
         # published releases do), so cleanup is just the release-row
-        # delete — no orphaned tags can leak even if the cleanup
+        # delete - no orphaned tags can leak even if the cleanup
         # step itself fails.  The throwaway tag name includes both
         # `run_id` and `run_attempt` so concurrent / retried
         # invocations cannot collide.
@@ -198,7 +198,7 @@ jobs:
                  --notes "Preflight permissions check; auto-deleted within seconds." \
                  --title "permcheck (auto-deleted)" 2>/tmp/perm-err.log; then
               ERR=$(cat /tmp/perm-err.log)
-              echo "::error title=Workflow permissions block release publish::Failed to create a draft release as a preflight permissions probe — see annotation below."
+              echo "::error title=Workflow permissions block release publish::Failed to create a draft release as a preflight permissions probe - see annotation below."
               cat <<EOF
           ❌ Pre-flight permissions probe FAILED.
 
@@ -235,7 +235,7 @@ jobs:
               exit 1
           fi
 
-          # Cleanup: delete the draft release row.  Best-effort — if
+          # Cleanup: delete the draft release row.  Best-effort - if
           # delete fails, the draft is orphaned but harmless (drafts
           # do not create git tags, are not surfaced on the public
           # /releases page, and the unique tag name per
@@ -254,7 +254,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.validate.outputs.tag }}
         run: |
-          # Guard 1 — git tag.  The release workflow creates the tag via
+          # Guard 1 - git tag.  The release workflow creates the tag via
           # action-gh-release's REST path; a colliding tag would be
           # silently treated as "already created" and the build would
           # publish over the existing one.
@@ -263,7 +263,7 @@ jobs:
             exit 1
           fi
 
-          # Guard 2 — GitHub release row.  Since 2025-Q4 GitHub publishes
+          # Guard 2 - GitHub release row.  Since 2025-Q4 GitHub publishes
           # releases as immutable by default.  When a release row exists
           # for $TAG but the git tag has been rolled back (e.g. a previous
           # release attempt failed AFTER the release was created but
@@ -291,8 +291,8 @@ jobs:
           # Rollback-attack guard.  An attacker with `actions: write`
           # (e.g. a compromised bot token) could otherwise invoke this
           # workflow with a `commit_sha` pointing at an ARBITRARY
-          # commit — including one from an unreviewed feature branch,
-          # or a commit prior to a security fix — and have the
+          # commit - including one from an unreviewed feature branch,
+          # or a commit prior to a security fix - and have the
           # release assets built from that code.  This step rejects
           # any commit_sha that isn't on main's history.
           #
@@ -315,20 +315,20 @@ jobs:
   # Target matrix
   #
   # Three targets, each earning its slot:
-  #   - x86_64-pc-windows-msvc   — Windows x64
-  #   - aarch64-apple-darwin     — macOS Apple Silicon
-  #   - x86_64-unknown-linux-musl — Linux x64 (servers, Docker, CI
+  #   - x86_64-pc-windows-msvc   - Windows x64
+  #   - aarch64-apple-darwin     - macOS Apple Silicon
+  #   - x86_64-unknown-linux-musl - Linux x64 (servers, Docker, CI
   #                                 harnesses).  STATIC (no glibc floor)
   #                                 → runs on every Linux incl. old
   #                                 LTS / WSL / Alpine.
   #
   # Dropped vs previous iterations:
-  #   - x86_64-apple-darwin (Intel Mac) — Apple deprecated the platform;
+  #   - x86_64-apple-darwin (Intel Mac) - Apple deprecated the platform;
   #     Apple Silicon ARM64 build runs under Rosetta 2 if absolutely needed.
   #
   # Per-target `rustflags` (stable baselines, never `native`):
-  #   - x86_64 Linux/Windows: `target-cpu=x86-64-v3` — Haswell+/Zen+ ISA.
-  #   - aarch64 macOS:         `target-cpu=apple-m1` — M1 baseline forwards-
+  #   - x86_64 Linux/Windows: `target-cpu=x86-64-v3` - Haswell+/Zen+ ISA.
+  #   - aarch64 macOS:         `target-cpu=apple-m1` - M1 baseline forwards-
   #     compatible with M2/M3/M4 while avoiding config.toml's `native`
   #     override which would bake in runner-specific chip detection.
   # ─────────────────────────────────────────────────────────────────────────
@@ -341,7 +341,7 @@ jobs:
     timeout-minutes: ${{ matrix.timeout }}
     # Explicit read-only scope so this job does NOT inherit the
     # workflow-level `actions: write` (granted only for `submit-winget`).
-    # The build only checks out + compiles + uploads artifacts — no
+    # The build only checks out + compiles + uploads artifacts - no
     # write scope is needed.
     permissions:
       contents: read
@@ -353,7 +353,7 @@ jobs:
         include:
           # Timeouts are sized for a COLD build (empty rust-cache).
           # LTO=fat + codegen-units=1 + Polars-heavy workspace is slow on
-          # 2-core GitHub-hosted runners — especially ubuntu-22.04.  Warm
+          # 2-core GitHub-hosted runners - especially ubuntu-22.04.  Warm
           # subsequent runs are roughly 1/3 of these numbers.
           - target: x86_64-pc-windows-msvc
             os: windows-latest
@@ -419,7 +419,7 @@ jobs:
           # repair is *also* re-applied after the Swatinem/rust-cache
           # restore (next step), because the cache itself can hold a
           # poisoned `~/.cargo/bin/cargo` that overwrites the freshly
-          # repaired proxy — see "Repair rustup proxy after cache
+          # repaired proxy - see "Repair rustup proxy after cache
           # restore" below.
           rustup default "$(rustup show active-toolchain | awk '{print $1}')"
 
@@ -448,7 +448,7 @@ jobs:
           # pattern; the divergence here was unintentional.
           #
           # The cache this step restores is kept warm by
-          # `release-cache-warm.yml` — that workflow runs the same
+          # `release-cache-warm.yml` - that workflow runs the same
           # `shared-key` build on every Cargo-affecting `main` push
           # plus a weekly cron, so the cache's last-access timestamp
           # is refreshed often enough to survive GitHub's 7-day TTL +
@@ -498,7 +498,7 @@ jobs:
           # Pinned zig via the `ziglang` PyPI wheel (no marketplace action).
           # Pinned to the exact zig + cargo-zigbuild the maintainer validated
           # the static-musl build with locally (this workflow leg only runs at
-          # release time, so it cannot drift-test itself — pin what is proven).
+          # release time, so it cannot drift-test itself - pin what is proven).
           rustup target add ${{ matrix.target }}
           python3 -m pip install --user "ziglang==0.14.1"
           # cargo-zigbuild finds zig via `python3 -m ziglang`; expose it on PATH
@@ -521,14 +521,14 @@ jobs:
 
           # Build all workspace binaries for the target.  Profile settings
           # (LTO=fat, codegen-units=1, strip=symbols, panic=abort) come from
-          # [profile.release] in Cargo.toml — do NOT override them here.
+          # [profile.release] in Cargo.toml - do NOT override them here.
           # The previous `CARGO_PROFILE_RELEASE_LTO=false` override silently
           # disabled LTO in release artifacts; removed so users get the
           # perf the profile was designed for.
           #
           # --locked per §2.8 policy.  Release builds MUST resolve
           # through the committed Cargo.lock or the binaries we ship
-          # may differ from what the tests validated — worst-case a
+          # may differ from what the tests validated - worst-case a
           # silent dep drift ships to end-users.  CI fails loudly
           # instead.
           # musl → cargo-zigbuild (static C toolchain via zig); everything else
@@ -597,7 +597,7 @@ jobs:
         run: |
           mkdir -p release-artifacts
 
-          # Shipping set — the template builds exactly one binary today.
+          # Shipping set - the template builds exactly one binary today.
           # Add additional workspace binaries here as the project grows.
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             for binary in acmex.exe; do
@@ -674,7 +674,7 @@ jobs:
             echo "📦 ${zipbase}.zip:"; ls -la "release-artifacts/${zipbase}.zip"
           }
 
-          # Single (normal) tier — the bare `${ARTIFACT}.zip` name keeps the
+          # Single (normal) tier - the bare `${ARTIFACT}.zip` name keeps the
           # winget installers-regex and download URLs stable.
           stage_bundle "${ARTIFACT}"
 
@@ -705,27 +705,27 @@ jobs:
     # Explicit per-job permissions matrix.  Documents the intent at the
     # point of use rather than relying on inheritance from the workflow-
     # level `permissions:` block ~520 lines up.  Note: a per-job block
-    # only NARROWS the workflow-level grant — it cannot grant a scope
+    # only NARROWS the workflow-level grant - it cannot grant a scope
     # the workflow level didn't already declare.  More importantly, BOTH
     # are still clamped at runtime by the repo-level "Settings → Actions
     # → General → Workflow permissions" toggle.  If that toggle is set
     # to "Read repository contents and packages permissions", every
     # scope below is silently downgraded to read regardless of what is
-    # written here.  The `Pre-flight — verify Actions token …` step in
+    # written here.  The `Pre-flight - verify Actions token …` step in
     # `release-preparation` fails fast in that case so we don't burn
     # ~30 min of build time before discovering it.
     #
-    #   contents: write       — softprops/action-gh-release creates the
+    #   contents: write       - softprops/action-gh-release creates the
     #                            v* git tag AND the release row via the
     #                            REST API.  Without this scope, the
     #                            create-release step fails with HTTP
     #                            403 "Resource not accessible by
     #                            integration" (see release pipeline
     #                            #98 / v0.5.99 for the regression).
-    #   id-token: write       — OIDC token issuance for the SLSA
+    #   id-token: write       - OIDC token issuance for the SLSA
     #                            build-provenance attestation via
     #                            Sigstore Fulcio.
-    #   attestations: write   — posts the resulting attestation to
+    #   attestations: write   - posts the resulting attestation to
     #                            this repo via GitHub's Attestations
     #                            API.
     permissions:
@@ -790,7 +790,7 @@ jobs:
       # Emits one `sbom-<crate>.cdx.json` per workspace crate into
       # `final-release/` so every shipped binary has a machine-readable
       # inventory of its resolved transitive dependencies.  cargo-cyclonedx
-      # reads `Cargo.lock` — which is committed — so the SBOMs are
+      # reads `Cargo.lock` - which is committed - so the SBOMs are
       # deterministic for (commit, features) and bit-identical across
       # re-runs.
       #
@@ -847,7 +847,7 @@ jobs:
           done < <(find crates -name '*.cdx.json' -type f)
 
           if (( count == 0 )); then
-            echo "::error::cargo-cyclonedx produced no SBOMs — investigate the log above"
+            echo "::error::cargo-cyclonedx produced no SBOMs - investigate the log above"
             exit 1
           fi
 
@@ -865,7 +865,7 @@ jobs:
           # that could be parsed as options by sha256sum (SC2035).
           sha256sum ./* > CHECKSUMS.txt
 
-          # SHA256SUMS — a conventionally-named copy of CHECKSUMS.txt that
+          # SHA256SUMS - a conventionally-named copy of CHECKSUMS.txt that
           # tooling (e.g. a future self-update helper) can fetch by exact
           # name.  It lists every raw per-binary asset by its platform-
           # suffixed name (e.g. `acmex-windows-x64.exe`).  Identical
@@ -919,16 +919,16 @@ jobs:
           `wget`s a single file.
 
           ### 🟦 Windows x86_64
-          - **`acmex-windows-x64.zip`** — recommended.
+          - **`acmex-windows-x64.zip`** - recommended.
           - Raw binary: `acmex-windows-x64.exe`.
 
           ### 🍏 macOS Apple Silicon
-          - **`acmex-macos-arm64.zip`** — recommended.
+          - **`acmex-macos-arm64.zip`** - recommended.
           - Raw binary: `acmex-macos-arm64`.
           - Intel Macs: run the arm64 build under Rosetta 2.
 
           ### 🐧 Linux x86_64 (static musl)
-          - **`acmex-linux-x64.zip`** — recommended.
+          - **`acmex-linux-x64.zip`** - recommended.
           - Raw binary: `acmex-linux-x64` (fully static; runs on any Linux
             including old LTS, WSL, and Alpine).
 
@@ -967,7 +967,7 @@ jobs:
           1. Download `acmex-<platform>.zip` for your platform.
           2. Unzip anywhere.
           3. **Windows**: the `.exe` is ready to run; place it on `PATH`.
-          4. **macOS**: move the `acmex` binary into `/usr/local/bin/`.  First launch: Gatekeeper warns because the binary is unsigned — right-click → Open to confirm, or run `xattr -d com.apple.quarantine acmex`.
+          4. **macOS**: move the `acmex` binary into `/usr/local/bin/`.  First launch: Gatekeeper warns because the binary is unsigned - right-click → Open to confirm, or run `xattr -d com.apple.quarantine acmex`.
           5. **Linux**: `chmod +x acmex` then move it onto `PATH` (e.g. `/usr/local/bin/`).
 
           ### Raw-binary path (automation)
@@ -980,7 +980,7 @@ jobs:
           - **Triggered by**: ${{ inputs.triggered_by || 'tag-push' }}
           - **Commit**: ${{ inputs.commit_sha || github.sha }}
           - **Toolchain**: pinned nightly from `rust-toolchain.toml`
-          - **Profile**: `[profile.release]` — LTO=fat, codegen-units=1, strip=symbols
+          - **Profile**: `[profile.release]` - LTO=fat, codegen-units=1, strip=symbols
           - **CPU baselines**: x86_64 = `x86-64-v3` (Haswell+/Zen+); macOS ARM64 = `apple-m1` (M1+)
 
           ---
@@ -997,11 +997,11 @@ jobs:
       #    the tagged commit's `.github/workflows/*` differ from the
       #    default branch HEAD: "refusing to allow a GitHub App to
       #    create or update workflow ... without `workflows` permission"
-      #    (run #24795626228, v99.98.99 — fires when a workflow PR merges
+      #    (run #24795626228, v99.98.99 - fires when a workflow PR merges
       #    while a release is in flight).  So we do NOT git-push the tag.
       #
       # 2. `action-gh-release` with a commit-SHA `target_commitish` makes
-      #    `POST /releases` create the tag atomically — and under the
+      #    `POST /releases` create the tag atomically - and under the
       #    GITHUB_TOKEN integration that now returns 403 "Resource not
       #    accessible by integration" (cli/cli#9514; began ~2026-06 on the
       #    integration token, PATs unaffected; broke v0.6.14 run #135).
@@ -1009,7 +1009,7 @@ jobs:
       #
       # The path that clears BOTH guards: create the tag ref ourselves
       # via `POST /git/refs` (not subject to the workflow-file guard, and
-      # a plain contents:write op — not the release-with-target endpoint),
+      # a plain contents:write op - not the release-with-target endpoint),
       # then have action-gh-release attach the release to the now-EXISTING
       # tag with no target.  Result: exact build-commit pinning, no PAT to
       # mint/rotate, least-privilege GITHUB_TOKEN, and a GITHUB_TOKEN-
@@ -1025,7 +1025,7 @@ jobs:
         run: |
           set -euo pipefail
           if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG}" >/dev/null 2>&1; then
-            echo "::notice::tag ${TAG} already exists — leaving it untouched"
+            echo "::notice::tag ${TAG} already exists - leaving it untouched"
           else
             gh api -X POST "repos/${GITHUB_REPOSITORY}/git/refs" \
               -f ref="refs/tags/${TAG}" \
@@ -1036,7 +1036,7 @@ jobs:
       - name: Create GitHub Release (attaches to the pre-created tag)
         # No `target_commitish`: the tag was just created at the built
         # commit by the step above, so the release simply references the
-        # existing tag — sidestepping the commit-SHA-target 403 entirely.
+        # existing tag - sidestepping the commit-SHA-target 403 entirely.
         uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3
         with:
           tag_name: ${{ needs.release-preparation.outputs.tag }}
@@ -1075,12 +1075,12 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   # ═══════════════════════════════════════════════════════════════════════════
-  # WinGet submission — dispatch winget-publish.yml after the release lands
+  # WinGet submission - dispatch winget-publish.yml after the release lands
   # ═══════════════════════════════════════════════════════════════════════════
   #
   # Why dispatch instead of relying on `on: release` in winget-publish.yml:
   # the Release above is created with the default GITHUB_TOKEN, and GitHub
-  # suppresses event cascades from GITHUB_TOKEN-authored actions — so a
+  # suppresses event cascades from GITHUB_TOKEN-authored actions - so a
   # `release: released` trigger would never fire.  Triggering another
   # workflow via `gh workflow run` (workflow_dispatch) IS a permitted
   # GITHUB_TOKEN action, so this is the robust path.
@@ -1122,16 +1122,16 @@ jobs:
           echo "✅ winget-publish.yml dispatched for ${RELEASE_TAG} on ${default_branch} (runs independently; check the Actions tab)."
 
   # ═══════════════════════════════════════════════════════════════════════════
-  # Publish crates.io — dispatch release-plz.yml's OIDC crates-io-publish job
+  # Publish crates.io - dispatch release-plz.yml's OIDC crates-io-publish job
   # ═══════════════════════════════════════════════════════════════════════════
   #
   # The release tag is created by GITHUB_TOKEN, which (GitHub anti-loop policy)
-  # does NOT trigger release-plz.yml's `push: tags: v*` event — so the crates
+  # does NOT trigger release-plz.yml's `push: tags: v*` event - so the crates
   # publish must be dispatched explicitly, exactly like submit-winget above.
   # Dispatching against the default branch keeps the dispatch ref stable; the
   # tag is passed as `publish_tag`, and release-plz.yml checks out that tag and
   # publishes it via OIDC trusted publishing (registration: workflow
-  # release-plz.yml + environment crates.io-publish — unchanged by this job).
+  # release-plz.yml + environment crates.io-publish - unchanged by this job).
   submit-crates:
     name: 📦 Publish crates.io (OIDC)
     runs-on: ubuntu-latest
@@ -1159,7 +1159,7 @@ jobs:
           echo "✅ release-plz.yml dispatched for ${RELEASE_TAG} (crates publish runs independently; check the Actions tab)."
 
   # ═══════════════════════════════════════════════════════════════════════════
-  # Failure Notification — opens a GitHub Issue on release failure
+  # Failure Notification - opens a GitHub Issue on release failure
   # ═══════════════════════════════════════════════════════════════════════════
 
   notify-failure:
@@ -1179,7 +1179,7 @@ jobs:
             // Per-workflow label so Release / Tier 1 / Tier 2 failures
             // triage to distinct issues instead of piling onto one.
             const label = 'ci-failure-release';
-            const title = `🔴 Release Pipeline Failed — ${context.sha.substring(0, 7)}`;
+            const title = `🔴 Release Pipeline Failed - ${context.sha.substring(0, 7)}`;
             const body = [
               `## Release Pipeline Failed`,
               ``,
@@ -1191,7 +1191,7 @@ jobs:
               `| **Commit** | [\`${context.sha.substring(0, 7)}\`](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/commit/${context.sha}) |`,
               `| **Triggered by** | @${context.actor} |`,
               ``,
-              `⚠️ **This is a release pipeline failure — immediate attention required.**`,
+              `⚠️ **This is a release pipeline failure - immediate attention required.**`,
               ``,
               `📧 Notification sent to: releasefail@acmex.example`,
             ].join('\n');

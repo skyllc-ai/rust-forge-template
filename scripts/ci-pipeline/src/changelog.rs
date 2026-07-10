@@ -3,7 +3,7 @@
 
 #![expect(
     clippy::print_stdout,
-    reason = "operational CLI tool — ship progress lines go to stdout (issue #212)"
+    reason = "operational CLI tool - ship progress lines go to stdout (issue #212)"
 )]
 
 //! Roll `## [Unreleased]` into a dated release section at ship time.
@@ -12,7 +12,7 @@
 //! and then creates the signed release commit.  Historically that flow never
 //! rolled the changelog's `## [Unreleased]` section into a `## [vX.Y.Z]`
 //! section, so `## [Unreleased]` silently accumulated already-shipped work and
-//! every release in between went unrecorded — the drift repaired wholesale in
+//! every release in between went unrecorded - the drift repaired wholesale in
 //! PR #490.
 //!
 //! [`roll_changelog_file`] closes that gap as part of the same release commit:
@@ -37,7 +37,7 @@ const CHANGELOG_PATH: &str = "CHANGELOG.md";
 /// Called from Phase 2 of the ship pipeline right after the version bump, so
 /// the rolled changelog is staged into the `chore: development vX.Y.Z` release
 /// commit.  A missing `CHANGELOG.md` and an empty `## [Unreleased]` are both
-/// soft no-ops (the ship flow still proceeds) — only a malformed changelog
+/// soft no-ops (the ship flow still proceeds) - only a malformed changelog
 /// (no `## [Unreleased]` header at all) is an error.
 ///
 /// # Errors
@@ -46,12 +46,12 @@ const CHANGELOG_PATH: &str = "CHANGELOG.md";
 /// `## [Unreleased]` header) or cannot be written back.
 pub(crate) fn roll_changelog_file(version: &str) -> Result<()> {
     let Ok(content) = std::fs::read_to_string(CHANGELOG_PATH) else {
-        println!("📝 {CHANGELOG_PATH} not found — skipping changelog roll.");
+        println!("📝 {CHANGELOG_PATH} not found - skipping changelog roll.");
         return Ok(());
     };
     let date = chrono::Local::now().format("%Y-%m-%d").to_string();
     // Hand-authored `[Unreleased]` wins. If it is empty, fall back to a draft
-    // generated from the commits since the last tag (best-effort — a git
+    // generated from the commits since the last tag (best-effort - a git
     // failure just means no draft), so a release is never recorded blank.
     if let Some(rolled) = roll_unreleased(&content, version, &date, None)? {
         std::fs::write(CHANGELOG_PATH, rolled)
@@ -65,20 +65,20 @@ pub(crate) fn roll_changelog_file(version: &str) -> Result<()> {
             std::fs::write(CHANGELOG_PATH, rolled)
                 .with_context(|| format!("writing rolled {CHANGELOG_PATH}"))?;
             println!(
-                "📝 CHANGELOG [Unreleased] was empty — auto-drafted [{version}] notes from \
+                "📝 CHANGELOG [Unreleased] was empty - auto-drafted [{version}] notes from \
                  commits (polish anytime; `just changelog-draft` regenerates the draft)."
             );
         }
         None => println!(
             "📝 CHANGELOG [Unreleased] is empty and no user-facing commits since the last \
-             release — nothing to roll."
+             release - nothing to roll."
         ),
     }
     Ok(())
 }
 
 /// Populate `## [Unreleased]` with a draft generated from the commits since the
-/// last release tag — the on-demand half of the hybrid changelog flow, so there
+/// last release tag - the on-demand half of the hybrid changelog flow, so there
 /// is always a placeholder to polish before shipping (`just changelog-draft`).
 ///
 /// Non-destructive: if `## [Unreleased]` already holds hand-authored notes it
@@ -90,11 +90,11 @@ pub(crate) fn roll_changelog_file(version: &str) -> Result<()> {
 /// Returns an error if the changelog cannot be parsed or written.
 pub(crate) fn write_draft_into_unreleased() -> Result<()> {
     let Ok(content) = std::fs::read_to_string(CHANGELOG_PATH) else {
-        println!("📝 {CHANGELOG_PATH} not found — nothing to draft.");
+        println!("📝 {CHANGELOG_PATH} not found - nothing to draft.");
         return Ok(());
     };
     let Some(draft) = generate_commit_draft()? else {
-        println!("📝 No user-facing commits since the last release — nothing to draft.");
+        println!("📝 No user-facing commits since the last release - nothing to draft.");
         return Ok(());
     };
     match inject_unreleased_body(&content, &draft)? {
@@ -102,11 +102,11 @@ pub(crate) fn write_draft_into_unreleased() -> Result<()> {
             std::fs::write(CHANGELOG_PATH, updated)
                 .with_context(|| format!("writing drafted {CHANGELOG_PATH}"))?;
             println!(
-                "📝 Wrote an auto-draft into CHANGELOG [Unreleased] — polish it before shipping."
+                "📝 Wrote an auto-draft into CHANGELOG [Unreleased] - polish it before shipping."
             );
         }
         None => println!(
-            "📝 CHANGELOG [Unreleased] already has notes — left untouched (a draft never \
+            "📝 CHANGELOG [Unreleased] already has notes - left untouched (a draft never \
              overwrites hand-authored entries)."
         ),
     }
@@ -140,7 +140,7 @@ fn inject_unreleased_body(content: &str, body: &str) -> Result<Option<String>> {
         .copied()
         .collect();
     if existing.iter().any(|line| !line.trim().is_empty()) {
-        return Ok(None); // already populated — do not overwrite
+        return Ok(None); // already populated - do not overwrite
     }
 
     let mut out: Vec<String> = Vec::new();
@@ -171,7 +171,7 @@ pub(crate) fn generate_commit_draft() -> Result<Option<String>> {
     Ok(draft_from_subjects(&commit_subjects_since_last_tag()?))
 }
 
-/// Commit subjects (one per line) since the most recent `v*` tag — i.e. the
+/// Commit subjects (one per line) since the most recent `v*` tag - i.e. the
 /// work that a pending release would ship. Falls back to the whole history when
 /// no release tag exists yet. Merge commits are excluded (main squash-merges,
 /// so each PR is one Conventional-Commit subject).
@@ -206,7 +206,7 @@ fn commit_subjects_since_last_tag() -> Result<Vec<String>> {
 
 /// Turn Conventional-Commit subjects into a grouped Keep-a-Changelog draft.
 ///
-/// Only user-facing types are kept — `feat`→**Added**, `fix`→**Fixed**,
+/// Only user-facing types are kept - `feat`→**Added**, `fix`→**Fixed**,
 /// `perf`/`refactor`→**Changed**; `ci` / `chore` / `build` / `style` / `docs` /
 /// `test` / `revert` are dropped. A `!` breaking marker prefixes the bullet.
 /// Subjects arrive newest-first (git-log order) and are reversed to read
@@ -283,7 +283,7 @@ fn classify_subject(subject: &str) -> Option<(&'static str, String)> {
 /// document) into a dated `## [version] - date` release section.
 ///
 /// Returns `Ok(Some(new_content))` when `## [Unreleased]` held entries to roll,
-/// or `Ok(None)` when it was empty (nothing notable to release-note — the
+/// or `Ok(None)` when it was empty (nothing notable to release-note - the
 /// caller leaves the file untouched).  `version` is the bumped workspace
 /// version without a leading `v` (e.g. `"0.6.16"`); `date` is `YYYY-MM-DD`.
 ///
@@ -336,7 +336,7 @@ pub(crate) fn roll_unreleased(
     };
     let trimmed = trim_blank_edges(&body);
 
-    // Previous release version, parsed from the next `## [x] - ...` header — used
+    // Previous release version, parsed from the next `## [x] - ...` header - used
     // for the new footer compare-link.  Absent on a first release.
     let prev_version = lines
         .get(next_section_idx)
@@ -395,7 +395,7 @@ fn parse_section_version(header: &str) -> Option<String> {
 /// move `[Unreleased]` to `vNEW...HEAD` and add `[vNEW]: …/vPREV...vNEW`.
 ///
 /// Defensive by design: a document with no `[Unreleased]:` link-ref (or a link
-/// that does not use the GitHub `/compare/` form) is returned unchanged — the
+/// that does not use the GitHub `/compare/` form) is returned unchanged - the
 /// section roll is the load-bearing part, the footer is best-effort polish.
 fn update_footer_links(content: &str, version: &str, prev: Option<&str>) -> String {
     let Some(unreleased_link) = content
@@ -543,7 +543,7 @@ mod tests {
 
 ## [Unreleased]
 
-### Added — a new thing
+### Added - a new thing
 
 - did stuff (#100)
 
@@ -563,7 +563,7 @@ mod tests {
             .unwrap()
             .unwrap();
         assert!(out.contains("## [0.6.16] - 2026-06-30"));
-        assert!(out.contains("### Added — a new thing"));
+        assert!(out.contains("### Added - a new thing"));
         // The Unreleased header survives but no longer holds the moved body.
         let before_new = out.split("## [0.6.16]").next().unwrap();
         assert!(before_new.contains("## [Unreleased]"));

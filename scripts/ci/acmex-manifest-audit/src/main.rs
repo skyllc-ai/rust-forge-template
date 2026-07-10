@@ -3,11 +3,11 @@
 
 #![expect(
     clippy::print_stderr,
-    reason = "operational CLI tool — findings + summary go to stderr so consumers can pipe \
+    reason = "operational CLI tool - findings + summary go to stderr so consumers can pipe \
               stdout (currently empty) without losing the diagnostic stream (issue #212)"
 )]
 
-//! `acmex-manifest-audit` — workspace manifest-inheritance drift detector.
+//! `acmex-manifest-audit` - workspace manifest-inheritance drift detector.
 //!
 //! Phase 1 follow-up tool from
 //! `docs/dev/architecture/code_clean/phase_1_manifest_implementation_plan.md`
@@ -17,14 +17,14 @@
 //!
 //! # Design
 //!
-//! * **`--check`-mode only** — the tool is read-only; it never mutates a
+//! * **`--check`-mode only** - the tool is read-only; it never mutates a
 //!   manifest.  Consistent shape with `acmex-gen-workflow` and `acmex-gen-hooks
 //!   --check`.
-//! * **Source-of-truth** — `Cargo.toml` files under `crates/`,
+//! * **Source-of-truth** - `Cargo.toml` files under `crates/`,
 //!   `scripts/ci-pipeline/`, and `scripts/ci/`.  The discovery pattern matches
 //!   the existing `gates-drift` / `workflow-drift` detectors so the three gates
 //!   triangulate the same member set.
-//! * **Exit code** — `0` on no findings; `1` on any finding (with per-finding
+//! * **Exit code** - `0` on no findings; `1` on any finding (with per-finding
 //!   diagnostic written to stderr).
 
 // `BTreeMap`/`BTreeSet` live in `alloc`; the workspace
@@ -175,7 +175,7 @@ fn discover_members_recursive(
     if dir.join("Cargo.toml").is_file() {
         out.insert(workspace_relative_prefix.to_owned());
     }
-    // Recurse into subdirectories (one level — ACMEX nests at most
+    // Recurse into subdirectories (one level - ACMEX nests at most
     // `scripts/ci/<crate>` deep).
     let entries = std::fs::read_dir(dir).with_context(|| format!("read_dir {}", dir.display()))?;
     for entry_result in entries {
@@ -211,7 +211,7 @@ fn emit_findings_report(findings: &[Finding]) {
     eprintln!();
     eprintln!(
         "   Fix locally with manifest edits (NOT lint suppressions).  Each finding cites the \
-         Phase-1 invariant number — see \
+         Phase-1 invariant number - see \
          `docs/dev/architecture/code_clean/phase_1_manifest_implementation_plan.md` §3 for the \
          clean-state contract."
     );

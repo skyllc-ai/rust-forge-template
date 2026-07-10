@@ -9,7 +9,7 @@
 
 #![expect(
     unused_crate_dependencies,
-    reason = "integration test — links the package's library deps it does not use"
+    reason = "integration test - links the package's library deps it does not use"
 )]
 
 #[cfg(test)]

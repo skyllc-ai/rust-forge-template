@@ -18,7 +18,7 @@ unparseable = "unparseable" # accepted variant spelling in pipeline/gate docs
 mis = "mis"                 # "mis-classifying" hyphenated prefix in gen-workflow docs
 
 [files]
-# Frozen / historical / third-party-metadata locations — not subject
+# Frozen / historical / third-party-metadata locations - not subject
 # to spelling review.
 extend-exclude = [
   "CHANGELOG.md",    # historical release notes

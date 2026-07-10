@@ -8,35 +8,35 @@
 #![expect(
     clippy::print_stdout,
     clippy::use_debug,
-    reason = "operational CLI tool — user-facing banner + debug formatting of workflow state \
+    reason = "operational CLI tool - user-facing banner + debug formatting of workflow state \
               go to stdout via println! (issue #212)"
 )]
 
-//! ACMEX CI pipeline driver — Tokio async orchestration of the
+//! ACMEX CI pipeline driver - Tokio async orchestration of the
 //! pre-push, pre-ship, and ship workflows.
 //!
 //! Module layout (each module is self-contained with its own docs):
 //!
-//! * [`cli`]         — `clap` parser (`Cli`, `Commands`).
-//! * [`context`]     — `PipelineContext`, `PipelineFlags`, and the small
+//! * [`cli`]         - `clap` parser (`Cli`, `Commands`).
+//! * [`context`]     - `PipelineContext`, `PipelineFlags`, and the small
 //!   filesystem helpers used by context construction.
-//! * [`workflow`]    — resumable-workflow state machine (`WorkflowState`,
+//! * [`workflow`]    - resumable-workflow state machine (`WorkflowState`,
 //!   `StepTracker`, `WorkflowPhase`, `STEP_*` ids).
-//! * [`exec`]        — subprocess execution primitives (`execute_command*`,
+//! * [`exec`]        - subprocess execution primitives (`execute_command*`,
 //!   `execute_parallel*`, `execute_step_with_tracking`).
-//! * [`version`]     — version discovery + bump helpers.
-//! * [`git_ops`]     — `git` + `gh` CLI orchestration for Phase 2 (commit,
+//! * [`version`]     - version discovery + bump helpers.
+//! * [`git_ops`]     - `git` + `gh` CLI orchestration for Phase 2 (commit,
 //!   push, open PR, enable auto-merge).
-//! * [`phases`]      — non-resumable `phase1_optimized` / `phase2_optimized`
+//! * [`phases`]      - non-resumable `phase1_optimized` / `phase2_optimized`
 //!   driver functions.
-//! * [`ship`]        — resumable ship pipeline (`run_enhanced_phase1`,
+//! * [`ship`]        - resumable ship pipeline (`run_enhanced_phase1`,
 //!   `run_enhanced_phase2`, `run_ship_pipeline`).
-//! * [`cross_check`] — Linux + Windows cross-compilation syntax validation.
+//! * [`cross_check`] - Linux + Windows cross-compilation syntax validation.
 //!
 //! `main` itself is just the CLI dispatch: parse → build context →
 //! print banner → match subcommand → delegate.  Every subcommand
 //! handler that survives in this file (`handle_go`,
-//! `handle_check_all`, etc.) is a small coordinator — the real work
+//! `handle_check_all`, etc.) is a small coordinator - the real work
 //! lives in the modules above.
 
 // `BTreeMap`/`BTreeSet` live in `alloc`; the workspace

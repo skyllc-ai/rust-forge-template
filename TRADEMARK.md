@@ -9,7 +9,7 @@
 > with your own.
 
 The **ACMEX** abbreviation, the full name **acmex**, and the
-ACMEX logo (placeholder — describe your logo here) are project trademarks
+ACMEX logo (placeholder - describe your logo here) are project trademarks
 owned by [Acmex Placeholder LLC](https://github.com/acmex-org).
 This document explains how you may and may not use them.
 
@@ -25,8 +25,8 @@ The ACMEX **source code** is licensed under the
 [Mozilla Public License 2.0](LICENSE). That gives everyone the right to
 use, modify, and redistribute the code.
 
-The ACMEX **name and logo** are separate. They identify *this* project —
-the one at <https://github.com/acmex-org/acmex> — and
+The ACMEX **name and logo** are separate. They identify *this* project -
+the one at <https://github.com/acmex-org/acmex> - and
 distinguish it from forks, reimplementations, and unrelated software
 that might look or sound similar. Copyright and trademark are two
 different legal regimes; the code license grants the first and says nothing about
@@ -42,7 +42,7 @@ license.
 
 ## What you can do without asking
 
-You **can** do all of the following — no permission needed, no
+You **can** do all of the following - no permission needed, no
 attribution beyond normal editorial conventions:
 
 - **Talk about ACMEX.** Write blog posts, tutorials, reviews, comparisons,
@@ -52,7 +52,7 @@ attribution beyond normal editorial conventions:
 - **Use the name in book or article titles** when the book is genuinely
   about ACMEX (e.g. "Getting Started with ACMEX").
 - **Say your software "uses ACMEX," "integrates with ACMEX," or "is
-  compatible with ACMEX"** — as long as that's true.
+  compatible with ACMEX"** - as long as that's true.
 - **Use the logo at its intended size and proportions** in slides, posts,
   articles, or videos that are *about* ACMEX. Don't redraw it, don't
   recolor it, don't mash it up with your own logo.
@@ -75,7 +75,7 @@ You **may not**, without prior written permission:
   a different name. (Want to call your fork "ACMEX Turbo"? Ask first.)
 - **Sell merchandise, stickers, T-shirts, mugs, pins, or any physical
   goods carrying the ACMEX name or logo.** Even at cost, even for
-  community events — ask first.
+  community events - ask first.
 - **Use the ACMEX logo as part of your own company or product logo**,
   even if your product is related to or built on ACMEX.
 - **Register a domain name, trademark, social media handle, app store
@@ -94,7 +94,7 @@ You **may not**, without prior written permission:
 
 ## Forks
 
-Forks are welcome — that's the whole point of open source. If you fork
+Forks are welcome - that's the whole point of open source. If you fork
 ACMEX and want to distribute your fork publicly, here's the rule:
 
 1. **If you're shipping the upstream code with only mechanical changes**
@@ -112,7 +112,7 @@ identity without being confused with upstream, and upstream doesn't end
 up on the hook for bugs you introduced.
 
 Same rule applies to reimplementations: if you rewrite ACMEX in Go,
-that's cool — call it something else.
+that's cool - call it something else.
 
 ---
 
@@ -125,11 +125,11 @@ that's cool — call it something else.
 | Slide deck featuring the ACMEX logo in a comparison chart | Yes |
 | Debian/Homebrew/AUR package of vanilla upstream | Yes |
 | Your fork with one bugfix, still called "ACMEX" | Yes (rename it if it diverges) |
-| Your fork with new features, called "ACMEX Pro" | **No — ask first** |
-| T-shirt with the ACMEX logo sold on Redbubble | **No — ask first** |
-| Your SaaS product called "ACMEX Cloud" | **No — ask first** |
-| Modified logo in project rainbow colors | **No — ask first** |
-| Your company logo that incorporates the ACMEX logo | **No — ask first** |
+| Your fork with new features, called "ACMEX Pro" | **No - ask first** |
+| T-shirt with the ACMEX logo sold on Redbubble | **No - ask first** |
+| Your SaaS product called "ACMEX Cloud" | **No - ask first** |
+| Modified logo in project rainbow colors | **No - ask first** |
+| Your company logo that incorporates the ACMEX logo | **No - ask first** |
 
 ---
 
@@ -154,8 +154,8 @@ non-exclusive, revocable, and specific to the use you described.
 
 ## Enforcement
 
-We don't aggressively chase every edge case. We will ask you — politely
-— to stop if:
+We don't aggressively chase every edge case. We will ask you - politely
+- to stop if:
 
 - Users are being confused about the source of your software.
 - Your fork is shipping security issues under the ACMEX name.

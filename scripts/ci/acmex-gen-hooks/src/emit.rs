@@ -1,20 +1,20 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2025-2026 Acmex Placeholder LLC.
 //
-// Hook emission — turns a parsed `Manifest` into the bash text of
+// Hook emission - turns a parsed `Manifest` into the bash text of
 // `_lint_pre_push.sh`.
 //
 // Layout of the emitted file (top to bottom):
 //
 //   1. AUTO-GENERATED banner + manifest cross-reference.
-//   2. Embedded preamble template — colors, change-classification, `spawn_bg` /
+//   2. Embedded preamble template - colors, change-classification, `spawn_bg` /
 //      `run_seq` helpers.  Static; lives in `templates/preamble.sh`. Maintained
 //      by hand because it is pure scaffolding (no gate-specific knowledge).
-//   3. Generated dispatch block — Bucket 1 (spawn_bg) lines for every pre-push
+//   3. Generated dispatch block - Bucket 1 (spawn_bg) lines for every pre-push
 //      gate with `bucket = "bg"`, then Bucket 2 (run_seq) lines wrapped in the
 //      `if (( CODE_CHANGED ))` conditional for every gate with `bucket =
 //      "seq"`.  This is the bit the manifest drives.
-//   4. Embedded footer template — bucket reaping, result reporting,
+//   4. Embedded footer template - bucket reaping, result reporting,
 //      optional-tool hint, failure dump.  Static; lives in
 //      `templates/footer.sh`.
 //
@@ -25,28 +25,28 @@
 
 use crate::manifest::{Gate, Manifest};
 
-/// Tools the generator treats as "always present" — no install check
+/// Tools the generator treats as "always present" - no install check
 /// guards are emitted around gates that use these tools.  Adding a
 /// new tool to the workspace baseline (e.g. via `just install-dev-tools`)
 /// requires extending this list and updating the workspace tooling
 /// docs in `CONTRIBUTING.md` simultaneously.
 const ASSUMED_TOOLS: &[&str] = &["cargo", "bash", "cargo-nextest", "cargo-deny"];
 
-/// Embedded scaffolding for `_lint_pre_push.sh` — colors,
+/// Embedded scaffolding for `_lint_pre_push.sh` - colors,
 /// change-classification, `spawn_bg` / `run_seq` helpers.  Pure bash;
 /// no per-gate knowledge.
 const PREAMBLE_PRE_PUSH: &str = include_str!("../templates/preamble.sh");
 /// Embedded scaffolding emitted after `_lint_pre_push.sh`'s dispatch
-/// section — bucket reaping, result reporting, optional-tool hint,
+/// section - bucket reaping, result reporting, optional-tool hint,
 /// failure dump.  Pure bash; no per-gate knowledge.
 const FOOTER_PRE_PUSH: &str = include_str!("../templates/footer.sh");
 
-/// Embedded scaffolding for `_lint_fast.sh` — colors, staged-file
+/// Embedded scaffolding for `_lint_fast.sh` - colors, staged-file
 /// inventory, `has_staged_*` helpers, `spawn` helper.  Pure bash; no
 /// per-gate knowledge.
 const PREAMBLE_PRE_COMMIT: &str = include_str!("../templates/preamble_fast.sh");
 /// Embedded scaffolding emitted after `_lint_fast.sh`'s dispatch
-/// section — wait loop, per-job report, optional-tool hint, failure
+/// section - wait loop, per-job report, optional-tool hint, failure
 /// dump.  Pure bash; no per-gate knowledge.
 const FOOTER_PRE_COMMIT: &str = include_str!("../templates/footer_fast.sh");
 
@@ -57,9 +57,9 @@ const FOOTER_PRE_COMMIT: &str = include_str!("../templates/footer_fast.sh");
 /// crate target-agnostic.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum EmitTarget {
-    /// `_lint_pre_push.sh` — the workspace pre-push gate (Phase 2).
+    /// `_lint_pre_push.sh` - the workspace pre-push gate (Phase 2).
     PrePush,
-    /// `_lint_fast.sh` — the workspace pre-commit gate (Phase 3a).
+    /// `_lint_fast.sh` - the workspace pre-commit gate (Phase 3a).
     PreCommit,
 }
 
@@ -194,7 +194,7 @@ fn render_dispatch(manifest: &Manifest) -> String {
     let mut out = String::with_capacity(4 * 1024);
     out.push_str("# ── Dispatch (generated from gates.toml) ──────────────────────────────\n");
 
-    out.push_str("# Bucket 1 — fire-and-forget.  Cheap, parallel; no cargo lock\n");
+    out.push_str("# Bucket 1 - fire-and-forget.  Cheap, parallel; no cargo lock\n");
     out.push_str("# contention.  See gates.toml for the canonical gate set.\n");
     for gate in &bg {
         out.push_str(&emit_bg(gate));
@@ -202,7 +202,7 @@ fn render_dispatch(manifest: &Manifest) -> String {
 
     if !seq.is_empty() {
         out.push('\n');
-        out.push_str("# Bucket 2 — sequential, fail-fast.  Only runs when code\n");
+        out.push_str("# Bucket 2 - sequential, fail-fast.  Only runs when code\n");
         out.push_str("# changed (rust | dep | infra).  Pure-docs-only pushes skip\n");
         out.push_str("# the compile/test gate entirely.\n");
         out.push_str("if (( CODE_CHANGED )); then\n");
@@ -230,7 +230,7 @@ fn render_dispatch_fast(manifest: &Manifest) -> String {
     let gates = manifest.gates_for_tier("pre-commit");
 
     // Pre-collect the rust-staged group (lint-prod / lint-tests /
-    // lint-ci, in manifest order).  `fmt` is excluded — it has a
+    // lint-ci, in manifest order).  `fmt` is excluded - it has a
     // wider predicate (`has_staged_rs || ! has_any_staged`) and is
     // emitted on its own.
     let rust_staged: Vec<&Gate> = gates
@@ -290,7 +290,7 @@ fn emit_fast_default(gate: &Gate) -> String {
     format!("\nspawn \"{label}\" {cmd}\n")
 }
 
-/// Fast-emit for `fmt` — the only pre-commit gate whose predicate is
+/// Fast-emit for `fmt` - the only pre-commit gate whose predicate is
 /// "rust-staged OR no-staged".  The "no-staged" branch keeps manual
 /// `just lint-fast` runs on a clean worktree useful as a sanity pass
 /// (otherwise the entire dispatch would no-op).
@@ -309,7 +309,7 @@ fn emit_fast_fmt(gate: &Gate) -> String {
 
 /// Fast-emit for the `rust_changed`-tier gates other than `fmt`.
 /// Collapses the trio (lint-prod / lint-tests / lint-ci, in manifest
-/// order) into a single `if has_staged_rs; then` block — three
+/// order) into a single `if has_staged_rs; then` block - three
 /// `spawn` lines instead of three separate guard blocks, matching
 /// the existing hook's terse shape.  An empty input yields an empty
 /// string (no leading newline) so the caller can treat it inline.
@@ -323,7 +323,7 @@ fn emit_fast_rust_staged_block(gates: &[&Gate]) -> String {
     for gate in gates {
         let cmd = format_command(&gate.command);
         let label = consumer_label_pre_commit(gate);
-        // Writes to a `String` are infallible — discard the
+        // Writes to a `String` are infallible - discard the
         // `Result<(), fmt::Error>` so the call type-checks under
         // `must_use` without an `expect("...")` that would never
         // fire.
@@ -333,7 +333,7 @@ fn emit_fast_rust_staged_block(gates: &[&Gate]) -> String {
     out
 }
 
-/// Fast-emit for `taplo` — the only pre-commit gate whose command
+/// Fast-emit for `taplo` - the only pre-commit gate whose command
 /// embeds the `{{STAGED_TOML}}` placeholder (resolved via a bash
 /// command-substitution over `$STAGED_TOML_NONVET`).  The placeholder
 /// must NOT leak into the emitted bash; it is rewritten here into
@@ -351,7 +351,7 @@ fn emit_fast_taplo(gate: &Gate) -> String {
     )
 }
 
-/// Fast-emit for `vet-fmt` — supply-chain TOML staged AND `cargo-vet`
+/// Fast-emit for `vet-fmt` - supply-chain TOML staged AND `cargo-vet`
 /// installed.  The `command -v cargo-vet` guard is at the dispatch
 /// level (not the optional-tool footer) because at pre-commit a
 /// missing `cargo-vet` is a soft-skip; the upstream pre-push `vet`
@@ -382,12 +382,12 @@ fn consumer_label_pre_commit(gate: &Gate) -> &str {
 /// Bucket 1 emission for a single gate.
 ///
 /// Special cases (in order of precedence):
-///   1. `commit-subjects` — multi-line `bash -c` reading `COMMIT_RANGES`.
-///   2. `cargo-vet` + `gate_when="dep_changed"` + `hard=true` — emit the
+///   1. `commit-subjects` - multi-line `bash -c` reading `COMMIT_RANGES`.
+///   2. `cargo-vet` + `gate_when="dep_changed"` + `hard=true` - emit the
 ///      `DEP_CHANGED` gate WITH a missing-tool hard-fail and install hint.
 ///      Closes the PR #43 loophole.
-///   3. `hard=false` + non-assumed tool — silent `command -v` guard.
-///   4. Default — unconditional `spawn_bg`.
+///   3. `hard=false` + non-assumed tool - silent `command -v` guard.
+///   4. Default - unconditional `spawn_bg`.
 ///
 /// Gates whose `gate_when` equals one of `rust_changed` /
 /// `infra_changed` / `code_changed` are still emitted unconditionally
@@ -456,7 +456,7 @@ fn emit_seq(gate: &Gate) -> String {
     format!("run_seq \"{label}\" {cmd}\n")
 }
 
-/// Hardcoded multi-line bash for `commit-subjects` — the only gate
+/// Hardcoded multi-line bash for `commit-subjects` - the only gate
 /// whose command embeds `{{COMMIT_RANGES}}` (the iterated stdin
 /// captured during change-classification).  Phase 3 may generalise
 /// this if a second template variable enters the manifest.
@@ -475,7 +475,7 @@ fn emit_commit_subjects(gate: &Gate) -> String {
     )
 }
 
-/// Hardcoded `vet` block — the only hard=true Bucket-1 gate that
+/// Hardcoded `vet` block - the only hard=true Bucket-1 gate that
 /// uses a non-assumed tool with an install hint.  Closes PR #43's
 /// CI-only-checked loophole: missing `cargo-vet` on a `dep_changed`
 /// push aborts before the rest of the hook runs.
@@ -1046,7 +1046,7 @@ bucket    = "bg"
     fn fast_emit_rust_staged_block_is_empty_when_no_rust_gates() {
         // Edge case: a pre-commit-tier manifest with NO
         // rust_changed gates other than `fmt` must NOT emit a
-        // dangling `if has_staged_rs; then ... fi` block — the
+        // dangling `if has_staged_rs; then ... fi` block - the
         // generator drops it entirely.
         let m = parse(
             r#"

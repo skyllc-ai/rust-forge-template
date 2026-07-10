@@ -3,14 +3,14 @@ SPDX-License-Identifier: MIT OR Apache-2.0
 Copyright (c) 2025-2026 Acmex Placeholder LLC.
 -->
 
-# Implementation Plan — Closing the "Bugs Rust Won't Catch" Gaps
+# Implementation Plan - Closing the "Bugs Rust Won't Catch" Gaps
 
-> **Provenance note — read this first.** Like its companion audit,
+> **Provenance note - read this first.** Like its companion audit,
 > this document is an **inherited donor-project artifact**: the
 > completed, work-item-by-work-item runbook the donor project (a
 > Windows NTFS file-search tool) used to close every gap that audit
 > found.  All file paths, crate names, PR numbers, and statuses below
-> refer to the donor codebase — none of that code exists in this
+> refer to the donor codebase - none of that code exists in this
 > template.  It is kept as a worked example of how to structure a
 > hardening runbook: stable WI IDs, per-WI goal/files/steps/acceptance/
 > tests/verify, a tracking table, phase ordering, and regression
@@ -31,14 +31,14 @@ This is a **step-by-step runbook for a junior engineer**. Work top-to-bottom.
 Each unit of work is a **Work Item (WI)** with a stable ID like `WI-2.1`. For
 every WI you will find:
 
-- **Goal** — one sentence on what "done" looks like.
-- **Files** — exact paths you will touch.
-- **Steps** — numbered, copy-pasteable changes.
-- **Acceptance criteria** — objective checks; all must pass.
-- **Tests** — the test(s) you must add/update (we never reduce coverage).
-- **Verify** — the exact commands to run.
+- **Goal** - one sentence on what "done" looks like.
+- **Files** - exact paths you will touch.
+- **Steps** - numbered, copy-pasteable changes.
+- **Acceptance criteria** - objective checks; all must pass.
+- **Tests** - the test(s) you must add/update (we never reduce coverage).
+- **Verify** - the exact commands to run.
 
-### Working rules (non-negotiable — from the donor repo's user rules)
+### Working rules (non-negotiable - from the donor repo's user rules)
 
 1. **One WI = one commit.** Commit message: `fix(security): <root cause>` /
    `refactor(mft): <root cause>` etc. Small, atomic commits.
@@ -73,15 +73,15 @@ every WI you will find:
   criteria are met. Do **not** bump versions / deploy / push (that is the
   `just phase2-ship` lane and requires explicit maintainer approval).
 
-### Phase ordering (do them in this order — later phases depend on earlier)
+### Phase ordering (do them in this order - later phases depend on earlier)
 
-1. **Phase A — Security primitives** (WI-2.x, WI-1.x): shared secure-fs helpers;
+1. **Phase A - Security primitives** (WI-2.x, WI-1.x): shared secure-fs helpers;
    everything else reuses them.
-2. **Phase B — Lints & guardrails** (WI-5.1, WI-G.1): turn on the missing lints
+2. **Phase B - Lints & guardrails** (WI-5.1, WI-G.1): turn on the missing lints
    and the regression grep-gate early so new code is born compliant.
-3. **Phase C — Byte-boundary correctness** (WI-4.x).
-4. **Phase D — Parser hardening & fuzzing** (WI-5.2, WI-5.3).
-5. **Phase E — Errors, trust boundary, parity, identity** (WI-6.x, WI-8.x,
+3. **Phase C - Byte-boundary correctness** (WI-4.x).
+4. **Phase D - Parser hardening & fuzzing** (WI-5.2, WI-5.3).
+5. **Phase E - Errors, trust boundary, parity, identity** (WI-6.x, WI-8.x,
    WI-7.x, WI-3.x).
 
 ---
@@ -109,7 +109,7 @@ means the acceptance criteria were checked off *and* the pipeline was green.
 | WI-4.1 | 4 Bytes | Single instrumented UTF-16 decoder; per-index `lossy_name_count` stat + warn | ✅ | `harden/bugs-2` | ✅ |
 | WI-4.2 | 4 Bytes | Pass `OsString` (not `to_string_lossy`) to spawn argv / IPC paths | ✅ | `harden/wi-4.2-osstring-argv` | full `&[OsString]` spawn chain (incl. Windows `CreateProcessW`/`ShellExecuteW` via `encode_wide`) + 4 `from_utf16_lossy` decode sites (2 lossless, 2 AUDIT-OK); gate now fully green |
 | WI-4.3 | 4 Bytes | Strict-parse subprocess stdout used for decisions (PID/name) | ✅ | `harden/bugs` | ✅ |
-| WI-4.4 | 4 Bytes | **RFC + impl:** lossless name storage (binary/WTF-8 column) | ✅ | #358 + `feat/malformed-name-forensics` | bytes-native `MftIndex.names: Vec<u8>` (WTF-8) + `get_name_bytes` / `CompactRecord::name_bytes`; lossless `wtf8_from_utf16le`; cache v14/v11 bump; surrogate-named file is enumerated + byte-recoverable (not hidable). Storage landed in **#358**. Forensic surface (`--malformed`/`--well-formed`/`--malformed-path` filters + `malformed`/`malformed_path`/`name_hex` columns) added on `feat/malformed-name-forensics`, which also fixed two real ways a crooked name could still hide (crooked-dir path truncation in `resolve_path_cached_with_malformed`; `numeric_top_n` empty-lossy-name skip). RFC §8 records the bytes-native design. Live-Windows find+open is now scripted (`create-corrupted-name-tree.rs --verify`) — one elevated run pending (see §5). |
+| WI-4.4 | 4 Bytes | **RFC + impl:** lossless name storage (binary/WTF-8 column) | ✅ | #358 + `feat/malformed-name-forensics` | bytes-native `MftIndex.names: Vec<u8>` (WTF-8) + `get_name_bytes` / `CompactRecord::name_bytes`; lossless `wtf8_from_utf16le`; cache v14/v11 bump; surrogate-named file is enumerated + byte-recoverable (not hidable). Storage landed in **#358**. Forensic surface (`--malformed`/`--well-formed`/`--malformed-path` filters + `malformed`/`malformed_path`/`name_hex` columns) added on `feat/malformed-name-forensics`, which also fixed two real ways a crooked name could still hide (crooked-dir path truncation in `resolve_path_cached_with_malformed`; `numeric_top_n` empty-lossy-name skip). RFC §8 records the bytes-native design. Live-Windows find+open is now scripted (`create-corrupted-name-tree.rs --verify`) - one elevated run pending (see §5). |
 | WI-5.2 | 5 Panic | Replace parser arithmetic with `checked_*`; remove parser `indexing_slicing` allows → `.get()` | ✅ | PR #349 (merged) | ✅ |
 | WI-5.3 | 5 Panic | In-tree malformed-input fuzz/regression tests (parsers + cache deserialize) | ✅ | `harden/wi-5.3-malformed-tests` | parser malformed-record test (PR #349) + deserializer truncation/boundary/seeded-fuzz corpus |
 | WI-6.1 | 6 Errors | `daemon_ctl` control writes: surface/log instead of bare `drop` | ✅ | `harden/bugs` | ✅ |
@@ -127,9 +127,9 @@ means the acceptance criteria were checked off *and* the pipeline was green.
 > #349, WI-5.3 #350, WI-8.1 #352, WI-7.1 #353, the WI-G.1 pipeline wiring
 > #354, and the WI-4.4 lossless-name storage #358). WI-4.4's *elimination*
 > half is now **implemented** (surrogate-named files can no longer hide), and
-> its forensic surface — `--malformed`/`--well-formed`/`--malformed-path`
+> its forensic surface - `--malformed`/`--well-formed`/`--malformed-path`
 > filters plus `malformed`/`malformed_path`/`name_hex` columns, and two further
-> crooked-name hiding fixes — lands on `feat/malformed-name-forensics` (PR
+> crooked-name hiding fixes - lands on `feat/malformed-name-forensics` (PR
 > pending; see §5). The only open item is the elevated-Windows `--verify` run.
 > The §2 "Definition of done" is therefore **met**.
 
@@ -149,7 +149,7 @@ means the acceptance criteria were checked off *and* the pipeline was green.
 > requires a binary/WTF-8 name column that ripples through the Polars query
 > engine, compact storage, and serialization. It is too large to land blind, so
 > it ships as an RFC first (acceptance below). WI-4.1 makes the current loss
-> **non-silent, measured, and tested** — that is the required mitigation; WI-4.4
+> **non-silent, measured, and tested** - that is the required mitigation; WI-4.4
 > is the path to elimination and must not be silently dropped.
 >
 > **Update (2026-06-05):** implemented. WI-4.4 shipped **bytes-native** (not the
@@ -157,7 +157,7 @@ means the acceptance criteria were checked off *and* the pipeline was green.
 > crooked-name hiding fixes land on `feat/malformed-name-forensics`. Only the
 > elevated-Windows `--verify` run remains (see §5).
 
-> **Deviation (WI-5.1 — implementation reality):** the plan called for a
+> **Deviation (WI-5.1 - implementation reality):** the plan called for a
 > workspace `arithmetic_side_effects = "warn"`. That is **not viable** in this
 > repo: the lint gate runs `-D warnings` (`just/shared.just::common_flags`),
 > which promotes a workspace `"warn"` to a hard error across ~1766 legitimate
@@ -172,7 +172,7 @@ means the acceptance criteria were checked off *and* the pipeline was green.
 
 ---
 
-## Phase A — Security primitives (Categories 2 & 1)
+## Phase A - Security primitives (Categories 2 & 1)
 
 All file paths below are relative to the repo root. The canonical "correct"
 reference already in the tree is
@@ -180,7 +180,7 @@ reference already in the tree is
 lines ~298-310): `OpenOptions::new().read(true).write(true).create_new(true)
 .mode(0o600).open(path)`. We are generalising that pattern.
 
-### WI-2.1 — Add shared secure-create helpers in `acmex-security::fs`
+### WI-2.1 - Add shared secure-create helpers in `acmex-security::fs`
 
 **Goal:** one place that creates a file **born** with owner-only perms and that
 **refuses to follow or reuse** an existing path (kills symlink pre-planting).
@@ -269,7 +269,7 @@ secure-fs test file):
 
 ---
 
-### WI-2.2 — `create_secure_dir`: born-`0700` per component
+### WI-2.2 - `create_secure_dir`: born-`0700` per component
 
 **Goal:** no window where the runtime/cache dir (holds key, cache, socket,
 nonce) exists at default perms.
@@ -301,7 +301,7 @@ nonce) exists at default perms.
 2. Keep the Windows arm as-is (it already calls `create_dir_all` then sets the
    ACL; leave `create_dir_all(path)?` *inside the Windows arm only*). Restructure
    so `create_dir_all` is no longer called unconditionally before the `cfg`
-   branches — move it into the Windows `return { … }` block.
+   branches - move it into the Windows `return { … }` block.
 3. Note in the doc comment: `recursive(true)` makes `create` succeed if the dir
    already exists; existing components keep their current perms (we only
    guarantee birth perms for components we create).
@@ -319,7 +319,7 @@ returns `Ok`.
 
 ---
 
-### WI-2.3 — Keystore writes the key born-`0600`
+### WI-2.3 - Keystore writes the key born-`0600`
 
 **Goal:** the AES key / DPAPI blob is never on disk at default perms.
 
@@ -362,7 +362,7 @@ the data dir at a temp dir (via the existing test seam, or
 
 ---
 
-### WI-2.4 + WI-1.2 — `atomic_write`: born-`0600` temp with a randomised name
+### WI-2.4 + WI-1.2 - `atomic_write`: born-`0600` temp with a randomised name
 
 **Goal:** remove both the perms-after-create window **and** the predictable,
 symlink-pluggable temp name in the shared atomic-write primitive (and in the
@@ -421,7 +421,7 @@ daemon `--out` export that copies the pattern).
 
 ---
 
-### WI-1.1 — `secure_remove`: anchor on a single fd
+### WI-1.1 - `secure_remove`: anchor on a single fd
 
 **Goal:** the size used to zero-overwrite and the bytes written go through the
 **same** handle; do not re-resolve the path or follow symlinks.
@@ -444,7 +444,7 @@ daemon `--out` export that copies the pattern).
    ```
 2. Keep the Windows `win_clear_readonly(path)?` call **before** the open (a
    read-only file can't be opened for write); document that this is a path-based
-   attribute clear that precedes the anchor — acceptable because it only toggles
+   attribute clear that precedes the anchor - acceptable because it only toggles
    an attribute, not content.
 3. The zero-fill loop and `remove_file(path)` at the end stay. (The final
    `remove_file` is by path; that is inherent to unlink and acceptable.)
@@ -457,16 +457,16 @@ daemon `--out` export that copies the pattern).
 **Tests:** `secure_remove_zeroes_then_unlinks`: create a file with known bytes,
 `secure_remove`, assert it no longer exists. `secure_remove_absent_is_ok`: call on
 a missing path → `Ok`. (Symlink-follow assertion: create a symlink to a sentinel
-file, `secure_remove(symlink)`; assert sentinel **content** preserved — only the
-link removed — or document the chosen semantics.)
+file, `secure_remove(symlink)`; assert sentinel **content** preserved - only the
+link removed - or document the chosen semantics.)
 
 **Verify:** `cargo nextest run -p acmex-security`
 
 ---
 
-## Phase B — Lints & regression guardrails
+## Phase B - Lints & regression guardrails
 
-### WI-5.1 — Enable the missing arithmetic lint + dist overflow checks
+### WI-5.1 - Enable the missing arithmetic lint + dist overflow checks
 
 **Goal:** the one lint from the article that is off (`arithmetic_side_effects`)
 becomes a warning, and shipped binaries keep overflow checks.
@@ -483,11 +483,11 @@ becomes a warning, and shipped binaries keep overflow checks.
    lands. Once WI-5.2 is done, raise to `"deny"` in a follow-up commit and record
    it in the tracker.
 2. In `[profile.dist]`, add `overflow-checks = true` (matches `release` intent
-   for a shipped product; measure the perf delta — if material, document and keep
+   for a shipped product; measure the perf delta - if material, document and keep
    `release` off but `dist` on, or gate behind a feature).
 3. Confirm test code is exempt: the crate roots already carry the
    `#![cfg_attr(test, allow(...))]` pattern per `clippy.toml`; if a test trips
-   `arithmetic_side_effects`, add it to that test-scoped allow list — **not** a
+   `arithmetic_side_effects`, add it to that test-scoped allow list - **not** a
    blanket allow.
 
 **Acceptance criteria:** `just check` shows `arithmetic_side_effects` warnings
@@ -498,7 +498,7 @@ becomes a warning, and shipped binaries keep overflow checks.
 
 ---
 
-### WI-G.1 — Regression grep-gate (prevents the anti-patterns returning)
+### WI-G.1 - Regression grep-gate (prevents the anti-patterns returning)
 
 **Goal:** CI fails if any anti-pattern from the audit is reintroduced. This is
 what makes coverage *stay* at 100%.
@@ -511,15 +511,15 @@ the existing `scripts/ci/` style); wire into the pipeline.
 1. Create the script. It greps `crates/**/src/**` excluding `*test*` and fails
    (exit 1) on any match, printing file:line. Patterns to forbid in **prod**
    code:
-   - `from_utf16_lossy` and `from_utf8_lossy` — must route through the approved
+   - `from_utf16_lossy` and `from_utf8_lossy` - must route through the approved
      instrumented decoder (WI-4.1) or carry an inline `// AUDIT-OK(bytes): <why>`
      marker.
-   - `\.with_extension\("acmex\.tmp"\)` paired with `File::create` — predictable
+   - `\.with_extension\("acmex\.tmp"\)` paired with `File::create` - predictable
      temp.
-   - `set_permissions\(` in `acmex-security` outside the legacy compat helper —
+   - `set_permissions\(` in `acmex-security` outside the legacy compat helper -
      perms-after-create.
    - `std::fs::write\(` of key material in `keystore.rs`.
-   - `drop\((?:stream|pipe)\.(?:write_all|flush)` — discarded control writes.
+   - `drop\((?:stream|pipe)\.(?:write_all|flush)` - discarded control writes.
    The script honours an explicit `// AUDIT-OK(<category>): <reason>` escape
    comment on the same or previous line, so deliberate, justified exceptions are
    visible and greppable.
@@ -531,7 +531,7 @@ with the known hits; after all WIs land it passes; adding a fresh
 `from_utf16_lossy` to any prod file makes it fail.
 
 **Tests:** a tiny fixture test (a temp file containing a forbidden token) that the
-gate flags it — or a documented manual check in the script header.
+gate flags it - or a documented manual check in the script header.
 
 **Verify:** `just audit-gate`
 
@@ -544,16 +544,16 @@ Phase 1 fail if any anti-pattern returns. Verified end-to-end:
 
 ---
 
-## Phase C — Byte-boundary correctness (Category 4)
+## Phase C - Byte-boundary correctness (Category 4)
 
-### WI-4.1 — One instrumented UTF-16 decoder; make loss observable
+### WI-4.1 - One instrumented UTF-16 decoder; make loss observable
 
 **Goal:** every NTFS-name decode goes through a single function that **counts**
 replacement substitutions, surfaces the count in index stats, and logs a warning
 when > 0. No more silent corruption.
 
 **Files:**
-- `crates/acmex-mft/src/io/parser/unified.rs` (`decode_utf16le_into`, ~29-76) —
+- `crates/acmex-mft/src/io/parser/unified.rs` (`decode_utf16le_into`, ~29-76) -
   the canonical decoder.
 - All other decode sites listed in the audit §4.1:
   `fragment.rs:144`, `index.rs:204,353,452`, `index_extension.rs:133,255,307`,
@@ -619,7 +619,7 @@ round-trip lossless test for a normal BMP + astral name (count `0`).
 
 ---
 
-### WI-4.2 — Pass `OsString` to spawn argv / IPC instead of `to_string_lossy`
+### WI-4.2 - Pass `OsString` to spawn argv / IPC instead of `to_string_lossy`
 
 **Goal:** spawning the daemon / passing paths over IPC never mangles a non-UTF-8
 (or WTF-8 on Windows) path.
@@ -638,14 +638,14 @@ round-trip lossless test for a normal BMP + astral name (count `0`).
    `Command::args` (which accepts `IntoIterator<Item: AsRef<OsStr>>`).
 2. For the **Windows custom CreateProcess** path in `daemon_spawn.rs` that builds
    a single command line string (`quote_arg_for_createprocess`), the command line
-   must be UTF-16 anyway — build it from `OsStr` via `encode_wide` rather than via
+   must be UTF-16 anyway - build it from `OsStr` via `encode_wide` rather than via
    `to_string_lossy()` → `String`. If that is too invasive for this pass, leave a
    `// AUDIT-OK(bytes): CreateProcess command line is UTF-16; <details>` marker
    and open a follow-up; note it in the tracker.
 3. Anywhere a path crosses the IPC wire as a `String` field (handler/protocol),
    confirm the receiving side does not need to re-open it as a path; if it does,
    the wire type should be bytes. Scope this to argv first; wire-path types are
-   part of WI-4.4's surface — cross-reference, don't duplicate.
+   part of WI-4.4's surface - cross-reference, don't duplicate.
 
 **Acceptance criteria:** no `to_string_lossy()` on a path that is then used as a
 spawn argument remains (grep `to_string_lossy` in the listed files → only
@@ -663,7 +663,7 @@ preserves the exact bytes in the resulting `OsString` argv entry.
   carries OS-native bytes end to end: `process::build_daemon_args` (mcp) and the
   two `daemon_mgmt.rs` builders + `extract_spawn_args` (cli) produce
   `Vec<OsString>` (flag literals via `OsString::from`, path values via
-  `path.as_os_str().to_os_string()` — no `to_string_lossy`); the public client
+  `path.as_os_str().to_os_string()` - no `to_string_lossy`); the public client
   API `AcmexClient`/`AcmexClientSync::connect_with_args`/`connect_with_elevation`,
   `auto_start_daemon`, `log_spawn_details`, and the whole `daemon_spawn.rs`
   chain (`spawn_daemon`, `spawn_daemon_unix`/`_windows`, `spawn_via_uac_prompt`,
@@ -682,7 +682,7 @@ preserves the exact bytes in the resulting `OsString` argv entry.
 - **The 4 `from_utf16_lossy` decode sites (clears the gate):** `verify.rs`
   (process exe path → identity check) and `broker.rs` exe-name identity check
   now decode **losslessly** via `OsString::from_wide`; `broker.rs`
-  `get_client_exe_path` (audit-log display only — the real check is
+  `get_client_exe_path` (audit-log display only - the real check is
   `verify_client`) and `pipe.rs` `pwstr_to_string` (decodes an ASCII-by-spec SID
   string) are marked `// AUDIT-OK(bytes)` with rationale.
 - **Verification:** native + `cargo xwin` (Windows) `--all-targets -D warnings`
@@ -697,7 +697,7 @@ preserves the exact bytes in the resulting `OsString` argv entry.
 
 ---
 
-### WI-4.3 — Strict-parse subprocess stdout used for decisions
+### WI-4.3 - Strict-parse subprocess stdout used for decisions
 
 **Goal:** lossy decode of child-process output never silently corrupts a value
 that drives a trust/targeting decision.
@@ -729,10 +729,10 @@ it returns the "unverified / unknown" outcome (fail-closed), not a wrong match.
 
 ---
 
-### WI-4.4 — (RFC, then impl) Lossless name storage  ✅ implemented
+### WI-4.4 - (RFC, then impl) Lossless name storage  ✅ implemented
 
 > **Implemented (`feat/wi-4.4-lossless-names`).** Done **bytes-native**, not via
-> the RFC's Option B sidecar — see `refactor/lossless-name-column-rfc.md` §8 for
+> the RFC's Option B sidecar - see `refactor/lossless-name-column-rfc.md` §8 for
 > why (the search hot path was already byte-native; the only loss was the
 > upstream `MftIndex.names: String`). `MftIndex.names`/`MftIndexFragment.names`
 > are now `Vec<u8>` (WTF-8); `get_name` stays a lossy `&str` view, new
@@ -773,12 +773,12 @@ unpaired-surrogate file and finds/opens it via ACMEX.
 
 ---
 
-## Phase D — Parser hardening & fuzzing (Category 5)
+## Phase D - Parser hardening & fuzzing (Category 5)
 
-### WI-5.2 — Replace parser arithmetic/indexing with checked, fallible access
+### WI-5.2 - Replace parser arithmetic/indexing with checked, fallible access
 
 **Goal:** no on-disk MFT/cache byte sequence can panic the parser (overflow or
-out-of-bounds slice) — the daemon runs with `panic = "abort"`, so a panic is a
+out-of-bounds slice) - the daemon runs with `panic = "abort"`, so a panic is a
 whole-process DoS.
 
 **Files (from audit §5):**
@@ -794,7 +794,7 @@ crate-level or block-level `#![allow(clippy::indexing_slicing)]`.
 1. Find every `&buf[a..b]`, `buf[i]`, `a + b`, `a - b`, `a * b`, `len - off` on
    data derived from the record bytes. For each:
    - Slices → `buf.get(a..b).ok_or(ParseError::Truncated)?` (or the crate's
-     existing error type — reuse it, don't invent a new one).
+     existing error type - reuse it, don't invent a new one).
    - Indexing → `*buf.get(i).ok_or(...)?`.
    - Arithmetic on offsets/lengths → `a.checked_add(b).ok_or(...)?`,
      `a.checked_sub(b).ok_or(...)?`. Use `saturating_*` only where saturation is
@@ -805,7 +805,7 @@ crate-level or block-level `#![allow(clippy::indexing_slicing)]`.
    point of WI-5.1's `"warn"` → it now reports nothing in these files.
 3. Validate bounds **before** trusting header-declared lengths (e.g. an attribute
    length field that claims more bytes than the record holds): clamp/reject via
-   the checked path, return a parse error, and let the caller skip the record —
+   the checked path, return a parse error, and let the caller skip the record -
    never panic.
 4. Confirm the caller treats a per-record `ParseError` as "skip this record and
    continue indexing", not "abort the whole drive".
@@ -817,7 +817,7 @@ crate-level or block-level `#![allow(clippy::indexing_slicing)]`.
 - After this lands, raise `arithmetic_side_effects` from `"warn"` to `"deny"` in
   `Cargo.toml` (follow-up commit; update tracker).
 
-**Tests:** see WI-5.3 — the fuzz/regression corpus is the proof.
+**Tests:** see WI-5.3 - the fuzz/regression corpus is the proof.
 
 **Verify:** `just lint-prod && cargo nextest run -p acmex-mft`
 
@@ -826,7 +826,7 @@ crate-level or block-level `#![allow(clippy::indexing_slicing)]`.
 - **Deviation from steps 1/3 (error type):** the plan assumed converting to
   `buf.get(..).ok_or(ParseError::Truncated)?`. The five parser entry points
   (`process_record`, `parse_record_to_index`, `parse_extension_to_index`, and
-  the deprecated `parse_*_to_fragment` pair) do **not** return a `Result` — their
+  the deprecated `parse_*_to_fragment` pair) do **not** return a `Result` - their
   established contract is "parse what is valid, skip/leave-default what is not,
   return a `bool`/unit and let the caller continue indexing". Introducing a new
   error type would change that public contract. Instead, every untrusted-`data`
@@ -835,20 +835,20 @@ crate-level or block-level `#![allow(clippy::indexing_slicing)]`.
   `checked_add`/`checked_mul` (or `saturating_*` where overflow is provably
   unreachable, with an inline justification comment). On a malformed field the
   result is **exactly the same skip/default the original `if X+N <= len` guards
-  produced** — behaviour-preserving, panic-free. This satisfies the goal (no
+  produced** - behaviour-preserving, panic-free. This satisfies the goal (no
   byte sequence panics the parser) and step 4 (caller skips the record).
 - **Deviation from step 2 / acceptance (lint mechanism):** rather than removing
   the block-level `indexing_slicing` expects outright, they were **narrowed**:
   all untrusted-`data` slicing now goes through `.get()`, so the only `[]` left
   is on internal arena vectors (`index.records[base_ri]`, `fragment.streams[..]`,
-  `frs_to_idx[..]`) keyed by indices this code itself mints — not attacker
+  `frs_to_idx[..]`) keyed by indices this code itself mints - not attacker
   controlled. Each retained expect's `reason` now states this. `arithmetic_side_effects`
   was enabled **module-scoped** (`#![warn(clippy::arithmetic_side_effects)]` in
   each of the five parser files) instead of workspace-wide: at workspace level it
   flags 1766 benign sites which, under `-D warnings`, would be a hard error
   (see audit note at line ~461). Module-scoped + the workspace `-D warnings` makes
   it effectively `deny` **inside the parsers** (any new raw `+`/`*`/`[..]` on a
-  byte-derived value fails the build there) — the intended regression guard,
+  byte-derived value fails the build there) - the intended regression guard,
   scoped to where it matters. The workspace `Cargo.toml` `arithmetic_side_effects`
   follow-up (raise to deny globally) remains **not done** for this reason.
 - **Behaviour parity checked:** the index/fragment parser families have a known
@@ -861,15 +861,15 @@ crate-level or block-level `#![allow(clippy::indexing_slicing)]`.
 
 ---
 
-### WI-5.3 — Malformed-input regression/fuzz tests
+### WI-5.3 - Malformed-input regression/fuzz tests
 
 **Goal:** lock in WI-5.2 with deterministic tests that feed garbage/truncated
 bytes to every parser entry point and the cache deserializer, asserting
-`Err`/skip — never panic.
+`Err`/skip - never panic.
 
 **Files:** `crates/acmex-mft/tests/` (new in-tree integration test, e.g.
 `parser_malformed.rs`); optionally a `cargo-fuzz` target under
-`crates/acmex-mft/fuzz/` if the repo already uses it (check first — do **not** add
+`crates/acmex-mft/fuzz/` if the repo already uses it (check first - do **not** add
 a new toolchain dependency without maintainer sign-off; if absent, ship the
 table-driven regression test and note fuzz as a follow-up).
 
@@ -897,9 +897,9 @@ deterministic (seeded) and runs in CI.
 
 **Implementation notes (landed on `harden/wi-5.2-parser-checked`):**
 
-- **Parsers** — a deterministic, table-driven malformed-record regression test
-  (`io::parser::tests::malformed_records_do_not_panic`) feeds 8 crafted records —
-  each passing the FILE-record header gate so the attribute loop runs — through
+- **Parsers** - a deterministic, table-driven malformed-record regression test
+  (`io::parser::tests::malformed_records_do_not_panic`) feeds 8 crafted records -
+  each passing the FILE-record header gate so the attribute loop runs - through
   **all three live parser entry points** (`parse_record_to_index`,
   `process_record`, and the deprecated `parse_record_to_fragment`). The cases
   target every edge WI-5.2 converted: first-attribute-offset past EOF, attribute
@@ -908,29 +908,29 @@ deterministic (seeded) and runs in CI.
   termination), and a full garbage body. A `RecordBuilder` constructs records by
   append, so the fixture itself is index-free and panic-free.
 - **Cache deserializer** (`index/storage/deserialize.rs`, `index/tests_storage.rs`)
-  — five tests: a valid-blob round-trip baseline; a **truncation sweep** over a
+  - five tests: a valid-blob round-trip baseline; a **truncation sweep** over a
   *populated* serialized index at every length; empty / 1-byte rejection;
   out-of-range section-length header fields (`u64::MAX` in record-count /
   names-size / links-count → clean error, no overflow/OOB); and a **seeded,
   deterministic fuzz loop** (`ChaCha8Rng::seed_from_u64`, 5 000 iterations)
   mixing bit-flips, random truncation, trailing garbage, and fully random blobs.
-- **Property under test** is **liveness** — `deserialize` returns `Ok` *or* `Err`
-  but never panics/aborts — except where a specific rejection is provable (tiny
+- **Property under test** is **liveness** - `deserialize` returns `Ok` *or* `Err`
+  but never panics/aborts - except where a specific rejection is provable (tiny
   inputs, a cut inside the fixed header, oversized length fields). The truncation
   sweep deliberately does **not** assert "every prefix is an error": the
   deserializer is intentionally lenient about some trailing/optional sections, so
   a near-complete prefix may legitimately parse `Ok`; asserting otherwise would
   encode a false contract. This was found empirically (a 1570/1610-byte prefix
   parsed) and the test was corrected to match the real, safe behaviour.
-- A `cargo-fuzz` target is intentionally **not** added — it would introduce a
+- A `cargo-fuzz` target is intentionally **not** added - it would introduce a
   toolchain dependency without sign-off (per the plan's own caveat); the seeded
   `ChaCha8Rng` corpus gives deterministic, CI-friendly fuzz coverage instead.
 
 ---
 
-## Phase E — Errors, trust boundary, parity, identity
+## Phase E - Errors, trust boundary, parity, identity
 
-### WI-6.1 — Surface/log discarded control writes (Category 6)
+### WI-6.1 - Surface/log discarded control writes (Category 6)
 
 **Goal:** IPC control writes whose failure means "the command did not happen"
 are no longer silently dropped.
@@ -961,7 +961,7 @@ tracing subscriber), not silent success.
 
 ---
 
-### WI-6.2 — Log directory-create failures once (Category 6)
+### WI-6.2 - Log directory-create failures once (Category 6)
 
 **Goal:** `log_init` / MFT logging setup failures are visible on stderr instead
 of vanishing.
@@ -972,7 +972,7 @@ of vanishing.
 
 1. Where `create_dir_all`/`create_secure_dir` for a log dir is `let _ =`-ed,
    capture the error and `eprintln!` once (logging isn't up yet, so stderr is the
-   only honest channel). Do not abort startup if logging dir fails — degrade
+   only honest channel). Do not abort startup if logging dir fails - degrade
    gracefully, but say so.
 
 **Acceptance criteria:** a forced dir-create failure (e.g. path is a file) prints
@@ -985,7 +985,7 @@ diagnostic is produced and the init returns the degraded outcome.
 
 ---
 
-### WI-6.3 — Audit remaining `.ok()` / `let _ =`; justify each
+### WI-6.3 - Audit remaining `.ok()` / `let _ =`; justify each
 
 **Goal:** every intentional error discard in prod code is either fixed or carries
 a one-line justification, so reviewers can trust them.
@@ -1006,9 +1006,9 @@ behaviour-affecting `Result` remains in prod code.
 
 ---
 
-### WI-8.1 — Broker: thread one process handle from verify → grant (Category 8)
+### WI-8.1 - Broker: thread one process handle from verify → grant (Category 8)
 
-**Goal:** close the verify-then-reopen-by-PID gap — the handle whose identity is
+**Goal:** close the verify-then-reopen-by-PID gap - the handle whose identity is
 verified is the **same** handle the privileged volume handle is duplicated into,
 so a PID-reuse race cannot redirect the grant.
 
@@ -1040,7 +1040,7 @@ case).
 **Implementation notes (landed on `harden/wi-8.1-broker-single-handle`):**
 
 - **One `OpenProcess` per grant.** Before this WI the broker opened the client
-  process by PID **three times** — `get_client_exe_path` (audit name),
+  process by PID **three times** - `get_client_exe_path` (audit name),
   `verify_client` (identity decision), and `duplicate_volume_handle_to_client`
   (the `DuplicateHandle` target). The window between verify and duplicate was a
   PID-reuse race: a recycled PID could point the grant at a different,
@@ -1049,7 +1049,7 @@ case).
   `PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_DUP_HANDLE`) and threads that
   single handle through `check_client_identity` → `handle_pipe_request_inner` →
   `duplicate_volume_handle_to_client`. The handle verified is the handle the
-  grant duplicates into — no second PID→handle resolution exists.
+  grant duplicates into - no second PID→handle resolution exists.
 - **`broker/process_handle.rs`** (new submodule via `#[path]`) holds the
   trust-boundary machinery: `OwnedProcessHandle` (RAII; `Drop` closes on every
   path), `query_process_image_name` (one shared image-name read),
@@ -1063,7 +1063,7 @@ case).
   `from_utf16_lossy` site from the anti-pattern gate.
 - **Tests:** `is_acmex_daemon_image` has cross-platform unit tests (accepts the
   daemon-name forms incl. versioned prefixes; rejects other images and a path
-  whose *directory* — not file name — contains `acmexd`). They compile into the
+  whose *directory* - not file name - contains `acmexd`). They compile into the
   Windows test binary (`cargo xwin test --no-run` confirms discovery); the
   broker is a Windows-only `[[bin]]`, so they run on the Windows CI test job.
   The single-handle invariant is additionally enforced at compile time:
@@ -1074,10 +1074,10 @@ case).
 
 ---
 
-### WI-8.2 — Document the daemon-nonce security property (Category 8)
+### WI-8.2 - Document the daemon-nonce security property (Category 8)
 
 **Goal:** make explicit that the FNV-1a handshake nonce is **not** a cryptographic
-authenticator — its security derives entirely from the `0700` runtime dir
+authenticator - its security derives entirely from the `0700` runtime dir
 (WI-2.2) that hides it from other users.
 
 **Files:** doc comment on the nonce/handshake code + a short section in this guide
@@ -1098,7 +1098,7 @@ linked to WI-2.2; no code behaviour change.
 
 ---
 
-### WI-7.1 — Bug-for-bug parity corpus for pathological names (Category 7)
+### WI-7.1 - Bug-for-bug parity corpus for pathological names (Category 7)
 
 **Goal:** guarantee ACMEX enumerates the same names Windows does, including
 pathological ones (trailing dots/spaces, reserved device names, very long names,
@@ -1113,7 +1113,7 @@ harness referenced by `scripts/trial_run.ps1`.
    to create: trailing-dot/space names, `CON`/`NUL`-like names, max-length
    components, and an unpaired-surrogate name (ties to WI-4.1/4.4).
 2. Add a parity assertion: ACMEX's enumerated set for the test tree equals the
-   reference Windows enumeration (the trial harness already compares — extend its
+   reference Windows enumeration (the trial harness already compares - extend its
    corpus and assertions).
 3. For names ACMEX intentionally normalises (e.g. lossy until WI-4.4), assert the
    **documented** behaviour explicitly so a future silent change fails the test.
@@ -1128,11 +1128,11 @@ acmex-mft -- parity`.
 
 - **Not Windows-only after all.** ACMEX reads **offline** `.iocp` MFT captures on
   any platform (`load_iocp_to_index`), so the parity check runs on macOS against
-  the pre-captured local corpus — no live elevated Windows volume required.
+  the pre-captured local corpus - no live elevated Windows volume required.
 - **`crates/acmex-mft/src/parity_tests.rs`** (crate-internal `#[cfg(test)]`, so it
   can reach the `pub(crate)` decoder) holds two tiers:
   - **Tier 1 (always-on, CI):** feeds pathological `$FILE_NAME` UTF-16 through
-    the WI-4.1 `decode_name_u16` and pins the documented behaviour — trailing
+    the WI-4.1 `decode_name_u16` and pins the documented behaviour - trailing
     dot/space, reserved device names (`CON`/`NUL`/…), and 255-char max-length
     components decode **verbatim** (Win32 stripping/remapping is above the FS,
     not in the MFT); valid Unicode is lossless; an unpaired surrogate becomes a
@@ -1145,8 +1145,8 @@ acmex-mft -- parity`.
 - **Real divergences found and asserted (the test's whole point):** running
   Tier 2 against the live `drive_g` capture surfaced (1) a trailing-`\`
   directory-presentation difference (normalised away on both sides), (2) **ADS**
-  — C++ lists `path:stream`, ACMEX tracks streams outside the path namespace
-  (filtered + asserted absent from the path set), and (3) **hard links** — ACMEX
+  - C++ lists `path:stream`, ACMEX tracks streams outside the path namespace
+  (filtered + asserted absent from the path set), and (3) **hard links** - ACMEX
   enumerates every link name while C++ lists the inode once (ACMEX path set is a
   legitimate superset; extras asserted well-formed). Result on `drive_g`: 15049
   reference file/dir paths all found, 2 ADS-only, 3 hard-link aliases.
@@ -1160,7 +1160,7 @@ acmex-mft -- parity`.
 
 ---
 
-### WI-3.1 — Path identity helper + scoping invariant (Category 3)
+### WI-3.1 - Path identity helper + scoping invariant (Category 3)
 
 **Goal:** no safety/scoping decision is made by comparing path **strings**; where
 identity matters, compare `(device, inode)` (Unix) / file ID (Windows), and the
@@ -1214,7 +1214,7 @@ The effort is complete when **all** of the following hold:
 
 ---
 
-## 3. Quick reference — per-category exit checklist
+## 3. Quick reference - per-category exit checklist
 
 - **§1 TOCTOU:** single-fd `secure_remove`; randomised `create_new` temps. ✔ when
   WI-1.1, 1.2, 2.4 ✅.
@@ -1237,21 +1237,21 @@ The effort is complete when **all** of the following hold:
 
 The effort is **complete**. All 20 work items landed across PRs **#345–#355**;
 WI-4.4 alone remains 🟨 by design (RFC `refactor/lossless-name-column-rfc.md`
-landed; *elimination* implementation is a maintainer-gated follow-up — WI-4.1
+landed; *elimination* implementation is a maintainer-gated follow-up - WI-4.1
 already ships the required non-silent/measured/tested mitigation).
 
 **Definition-of-done verification (§2):**
 
 | # | Clause | Result |
 |---|--------|--------|
-| 1 | Every WI ✅ (or 🟨+RFC for 4.4) | ✅ — 19 ✅, WI-4.4 🟨 (permitted) |
-| 2 | §1.2 rollup 100% | ✅ — categories 1/2/3/5/6/7/8/G = 100%; cat 4 = 100% for non-silent+argv (4.4 elimination tracked) |
-| 3 | `just go` green | ✅ — `just go` PHASE 1 COMPLETE, 151s, all steps green |
-| 4 | `audit-gate` passes + wired | ✅ — `just go` ran **6** fanout commands incl. `✅ Anti-pattern gate (2s)` |
-| 5 | Per-WI healing logs | ✅ — `LOG/*_CHANGELOG_HEALING.md` (gitignored) |
-| 6 | No blanket `#[allow]` | ✅ — all exceptions scoped `#[expect(reason)]` / `// AUDIT-OK` |
+| 1 | Every WI ✅ (or 🟨+RFC for 4.4) | ✅ - 19 ✅, WI-4.4 🟨 (permitted) |
+| 2 | §1.2 rollup 100% | ✅ - categories 1/2/3/5/6/7/8/G = 100%; cat 4 = 100% for non-silent+argv (4.4 elimination tracked) |
+| 3 | `just go` green | ✅ - `just go` PHASE 1 COMPLETE, 151s, all steps green |
+| 4 | `audit-gate` passes + wired | ✅ - `just go` ran **6** fanout commands incl. `✅ Anti-pattern gate (2s)` |
+| 5 | Per-WI healing logs | ✅ - `LOG/*_CHANGELOG_HEALING.md` (gitignored) |
+| 6 | No blanket `#[allow]` | ✅ - all exceptions scoped `#[expect(reason)]` / `// AUDIT-OK` |
 
-**Incident learned during closeout — stale pipeline binary silently dropped the
+**Incident learned during closeout - stale pipeline binary silently dropped the
 gate.** The v0.5.111 ship run (`LOG/Output`) executed a *cached* release build
 of `acmex-ci-pipeline` that predated the WI-G.1 wiring: it ran only **5** fanout
 commands and the "Anti-pattern gate" step never fired, yet the run shipped
@@ -1261,13 +1261,13 @@ green. Root cause: `cargo run --release` reused a stale binary, and the forced
 `--target-dir target/ci-bootstrap` sibling that `cargo clean` never touches, so
 the binary is fresh every run. Verified: the subsequent `just go` ran **6**
 fanout commands with the gate present and passing. *Lesson: adding a pipeline
-validation step is not enough — confirm the running binary is rebuilt, or a
+validation step is not enough - confirm the running binary is rebuilt, or a
 stale artifact can silently skip it.*
 - **§G Guard:** grep-gate in CI. ✔ when WI-G.1 ✅.
 
 ---
 
-## 5. Follow-up record — malformed-name forensics (2026-06-05)
+## 5. Follow-up record - malformed-name forensics (2026-06-05)
 
 WI-4.4's *elimination* half landed in **#358** (lossless WTF-8 name storage;
 surrogate-named files are enumerated + byte-recoverable). This follow-up
@@ -1281,7 +1281,7 @@ provable**:
   **lossless** `CompactRecord::name_bytes`; `malformed_path` is post-filtered
   over the resolved parent chain. `name_hex` is the lowercase hex of the true
   WTF-8 leaf bytes (projection-only; not in the binary shmem record). Opt-in
-  only — none are added to `--columns all`, so default output is byte-identical.
+  only - none are added to `--columns all`, so default output is byte-identical.
 - **Two real hiding bugs fixed (not test-only).**
   `tree::resolve_path_cached_with_malformed` judged component emptiness on the
   lossy `&str` (empty for an ill-formed name), so a surrogate-named directory
@@ -1292,7 +1292,7 @@ provable**:
   crooked name can no longer hide a file or its descendants from search/resolve.
 - **Windows proof scripted.** `scripts/windows/create-corrupted-name-tree.rs
   --verify` now also asserts `acmex '*' --malformed` returns **exactly** the
-  ill-formed on-disk entries — the WI-4.4 find+open claim plus the new filter,
+  ill-formed on-disk entries - the WI-4.4 find+open claim plus the new filter,
   checked end-to-end. **Open item:** one elevated run on a real NTFS volume to
   close the live-Windows acceptance.
 - **Verification:** whole-workspace clippy `--all-targets` clean (ultra-strict

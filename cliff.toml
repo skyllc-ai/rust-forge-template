@@ -32,7 +32,7 @@
 # Adding or removing a type means updating BOTH this file's
 # `commit_parsers` array AND the regex in
 # `.github/workflows/commitlint.yml` AND the table in
-# `CONTRIBUTING.md` in the SAME PR — the three are a tightly-
+# `CONTRIBUTING.md` in the SAME PR - the three are a tightly-
 # coupled trio.
 
 [changelog]
@@ -57,7 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 """
 
-# Per-release body template.  Tera syntax — see
+# Per-release body template.  Tera syntax - see
 # https://keats.github.io/tera/docs/ for filter / function
 # reference.  Whitespace control via `{%- ... -%}` is fiddly;
 # the layout below has been tuned by iterating against the
@@ -86,7 +86,7 @@ body = """
 
 # Footer.  Generates the bottom-of-CHANGELOG comparison links that
 # the existing file already maintains by hand.  The `unreleased`
-# anchor compares against the latest tag — same as the existing
+# anchor compares against the latest tag - same as the existing
 # `[Unreleased]: ...compare/v0.5.71...HEAD` pattern.
 #
 # Why the `default(value="...")` filter on `remote.github.*`:
@@ -95,14 +95,14 @@ body = """
 #   these variables for STANDALONE `git cliff` invocations.  But when
 #   release-plz embeds git-cliff and renders this template (Phase R3
 #   shadow mode and beyond), it doesn't populate `remote.github` from
-#   our `[remote.github]` section — release-plz expects to derive the
+#   our `[remote.github]` section - release-plz expects to derive the
 #   remote from `Cargo.toml`'s `repository` field instead, and only
 #   populates `remote.github` if a GitHub API token is available at
 #   render time.  The default-filter fallback makes the template work
 #   identically in both contexts: standalone iteration uses the literal
 #   values from `[remote.github]`, release-plz uses the same hardcoded
 #   defaults.  If the org or repo ever moves, both this file and
-#   `[remote.github]` below need updating — the duplication is the
+#   `[remote.github]` below need updating - the duplication is the
 #   price of cross-tool template compatibility.
 footer = """
 
@@ -152,7 +152,7 @@ filter_unconventional = true
 # from the body's prose paragraphs.
 split_commits = false
 
-# Commit parsers — first-match wins.  Order matters: most-
+# Commit parsers - first-match wins.  Order matters: most-
 # specific patterns (security scope, breaking marker) MUST come
 # before the broad `^feat`, `^fix`, `^perf` matches.
 commit_parsers = [
@@ -169,11 +169,11 @@ commit_parsers = [
   # ### Security section.  Mirrors how the existing CHANGELOG
   # already groups supply-chain hardening commits, and aligns with
   # the commit-msg hook + commitlint workflow which only accept the
-  # 11 standard CC types (`security` is NOT a top-level type — see
+  # 11 standard CC types (`security` is NOT a top-level type - see
   # `CONTRIBUTING.md` → "Commit message conventions").
   #
   # The historical carve-out for top-level `security:` / `security(<scope>):`
-  # subjects (PRs #31, #33, #34 — see `release-automation-baseline.md` §4)
+  # subjects (PRs #31, #33, #34 - see `release-automation-baseline.md` §4)
   # was retired in 2026-05-08; those three early commits remain in the
   # historical CHANGELOG but no future commit can use that prefix because
   # the local commit-msg hook rejects it.  See

@@ -4,18 +4,18 @@
 #![expect(
     clippy::print_stdout,
     clippy::print_stderr,
-    reason = "operational CLI tool — step progress to stdout, error details to stderr (issue #212)"
+    reason = "operational CLI tool - step progress to stdout, error details to stderr (issue #212)"
 )]
 
 //! Subprocess execution primitives for the ACMEX CI pipeline.
 //!
-//! * [`execute_command`] / [`execute_command_with_env`] — spawn a single
+//! * [`execute_command`] / [`execute_command_with_env`] - spawn a single
 //!   subprocess under the pipeline's timeout, logging, and progress- spinner
 //!   conventions.
-//! * [`execute_parallel`] / [`execute_parallel_with_env`] — fan out a
+//! * [`execute_parallel`] / [`execute_parallel_with_env`] - fan out a
 //!   `Vec<(name, cmd, args)>` concurrently via `try_join_all`, bounded by the
 //!   `fanout_concurrency` semaphore.
-//! * [`execute_step_with_tracking`] — adapter that wraps a `FnOnce() ->
+//! * [`execute_step_with_tracking`] - adapter that wraps a `FnOnce() ->
 //!   Future<Result<()>>` in the resumable-workflow tracking contract
 //!   (mark-started → run → mark-completed/failed + record duration).
 //!
@@ -73,7 +73,7 @@ fn create_fillup_spinner(message: &str) -> ProgressBar {
     // string is constructed from a compile-time-constant format pattern
     // plus a message that only supplies the literal text), but the
     // indicatif API forces a `Result`.  Fall back to the plain tick-
-    // string-only spinner if the (unreachable) error path ever fires —
+    // string-only spinner if the (unreachable) error path ever fires -
     // the user still gets a working progress indicator, just without
     // the message prefix.
     let style = ProgressStyle::default_spinner()

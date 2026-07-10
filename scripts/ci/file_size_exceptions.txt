@@ -2,4 +2,4 @@
 # Format: relative_path|reason
 # All files listed here MUST also have an `//! Exception:` comment in their first 60 lines.
 #
-# --- (none yet — the template starts with zero exceptions) ---
+# --- (none yet - the template starts with zero exceptions) ---

@@ -3,7 +3,7 @@
 
 #![expect(
     clippy::print_stdout,
-    reason = "operational CLI tool — git/gh progress lines go to stdout (issue #212)"
+    reason = "operational CLI tool - git/gh progress lines go to stdout (issue #212)"
 )]
 
 //! `git` + `gh` CLI helpers that Phase 2 of the ship pipeline drives.
@@ -19,7 +19,7 @@
 //!
 //! The auto-commit is created on the `release/vX.Y.Z` branch (see
 //! [`git_commit`] / `switch_to_release_branch`), never on `main`, so a
-//! ship leaves local `main` exactly at `origin/main` — no post-merge
+//! ship leaves local `main` exactly at `origin/main` - no post-merge
 //! `git reset --hard` is ever needed.
 //!
 //! [`count_unpushed_commits`] is the Phase 6 (resumable-push-fix)
@@ -81,7 +81,7 @@ async fn switch_to_release_branch(ctx: &PipelineContext, release_branch: &str) -
 /// shape is stable so the release PR template can parse it.
 ///
 /// Switches onto `release/vX.Y.Z` first (via [`switch_to_release_branch`])
-/// so `main` is never mutated by the ship — see that helper's docs for
+/// so `main` is never mutated by the ship - see that helper's docs for
 /// the local-`main`-divergence rationale.
 ///
 /// # Errors
@@ -119,7 +119,7 @@ pub(crate) async fn git_commit(ctx: &PipelineContext) -> Result<()> {
 ///
 /// Special cases:
 /// * If the remote ref does not yet exist (first push of a new release branch),
-///   `git rev-list` fails — we treat that as "1 unpushed commit" so the push
+///   `git rev-list` fails - we treat that as "1 unpushed commit" so the push
 ///   runs.
 /// * If HEAD equals the remote ref, the count is 0 and the cached completion is
 ///   honoured (idempotent re-runs stay cheap).
@@ -138,7 +138,7 @@ pub(crate) async fn count_unpushed_commits(remote_branch: &str) -> Result<u64> {
         .await
         .with_context(|| format!("Failed to run git rev-list for {spec}"))?;
     if !out.status.success() {
-        // Remote ref doesn't exist yet (first push) — be conservative
+        // Remote ref doesn't exist yet (first push) - be conservative
         // and treat HEAD as ahead so the push always runs.
         return Ok(1);
     }
@@ -151,7 +151,7 @@ pub(crate) async fn count_unpushed_commits(remote_branch: &str) -> Result<u64> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Ensure the working tree is on the existing `release_branch` before
-/// pushing — without resetting it.
+/// pushing - without resetting it.
 ///
 /// Uses plain `git switch <branch>` (NOT `-C`): on a resumed ship where
 /// `git_commit` was cached-skipped, the release branch already exists
@@ -163,7 +163,7 @@ pub(crate) async fn count_unpushed_commits(remote_branch: &str) -> Result<u64> {
 /// # Errors
 ///
 /// Propagates any failure from the `git switch` subprocess (e.g. the
-/// branch does not exist — which would indicate `git_commit` never ran).
+/// branch does not exist - which would indicate `git_commit` never ran).
 async fn ensure_on_release_branch(ctx: &PipelineContext, release_branch: &str) -> Result<()> {
     execute_command(
         "Git switch (ensure release branch)",
@@ -178,8 +178,8 @@ async fn ensure_on_release_branch(ctx: &PipelineContext, release_branch: &str) -
 /// `origin/<BASE_BRANCH>` so the auto-commit lands on top of any
 /// intervening mainline changes before the PR is opened.
 ///
-/// (Previously this rebased the *current* branch onto its own upstream
-/// — valid when the ship committed on `main`.  Now that the commit
+/// (Previously this rebased the *current* branch onto its own upstream,
+/// which was valid when the ship committed on `main`.  Now that the commit
 /// lives on `release/vX.Y.Z`, we rebase onto `origin/main` so the PR is
 /// based on current mainline.)
 ///
@@ -258,19 +258,19 @@ async fn open_release_pr(
     release_branch: &str,
     version: &str,
 ) -> Result<()> {
-    let pr_title = format!("chore: release v{version} — ship pipeline auto-commit");
+    let pr_title = format!("chore: release v{version} - ship pipeline auto-commit");
     let pr_body = format!(
         "## Summary\n\n\
-         `just ship` Phase 2 auto-commit for **v{version}** — the \
+         `just ship` Phase 2 auto-commit for **v{version}** - the \
          `[workspace.package].version` bump in `Cargo.toml`.  This PR \
          routes that commit through branch-protection rules.  Once it \
          merges to `{base_branch}`, run `just release-tag` to cut the \
          signed `v{version}` tag, which fires `release.yml` and builds \
          the cross-platform binaries + GitHub Release v{version}.  \
-         (No auto-tag on merge — the tag step is manual on-demand, \
+         (No auto-tag on merge - the tag step is manual on-demand, \
          Path B.)\n\n\
          ## Auto-merge\n\n\
-         `--auto --squash` is queued — GitHub will merge as soon as the \
+         `--auto --squash` is queued - GitHub will merge as soon as the \
          required status checks pass.  Squash is required because \
          `main-protection` mandates signed commits, and GitHub's \
          rebase-auto-merge cannot sign the rebased commit; the \
@@ -279,7 +279,7 @@ async fn open_release_pr(
          signed commit remains verifiable in the PR branch history.\n\n\
          ## After merge\n\n\
          The auto-commit lived only on `{release_branch}`, so local \
-         `{base_branch}` never drifted — sync it with a plain \
+         `{base_branch}` never drifted - sync it with a plain \
          `git pull --ff-only origin {base_branch}` (no `reset --hard` \
          needed)."
     );
@@ -342,7 +342,7 @@ async fn enable_auto_merge(ctx: &PipelineContext, release_branch: &str) -> Resul
 /// [`BASE_BRANCH`].  Branch-protection compatible: never pushes
 /// directly to `main`.
 ///
-/// Thin orchestrator — each sub-step lives in its own helper
+/// Thin orchestrator - each sub-step lives in its own helper
 /// ([`ensure_on_release_branch`], [`rebase_onto_upstream`],
 /// [`push_release_branch`], [`find_existing_release_pr`],
 /// [`open_release_pr`], [`enable_auto_merge`], [`return_to_base_branch`])
@@ -369,7 +369,7 @@ pub(crate) async fn git_push(ctx: &PipelineContext) -> Result<()> {
 
     // Resilience for resumed ships: if step 10 (git_commit) was
     // cached-complete this run, we were NOT switched onto the release
-    // branch — and a prior git_push may have already switched us back to
+    // branch - and a prior git_push may have already switched us back to
     // `main`.  Re-checkout the existing release branch (plain `switch`,
     // NOT `-C`, so we land on the branch that already holds the
     // auto-commit rather than resetting it to a commit-less HEAD).
@@ -383,7 +383,7 @@ pub(crate) async fn git_push(ctx: &PipelineContext) -> Result<()> {
 
     // Idempotent PR creation: reuse an existing open PR for the same
     // release branch if the pipeline is resuming from a previously-
-    // failed step 11.  Base is always `main` — the ship never targets
+    // failed step 11.  Base is always `main` - the ship never targets
     // any other branch.
     match find_existing_release_pr(&release_branch)? {
         Some(pr_number) => {
@@ -398,7 +398,7 @@ pub(crate) async fn git_push(ctx: &PipelineContext) -> Result<()> {
 
     // Leave the developer back on `main`, untouched and exactly at
     // `origin/main`.  Because the commit only ever lived on the release
-    // branch, local `main` never drifted — after the PR squash-merges,
+    // branch, local `main` never drifted - after the PR squash-merges,
     // a plain `git pull --ff-only` syncs it (no `reset --hard` needed).
     return_to_base_branch(ctx).await?;
 
@@ -424,12 +424,12 @@ pub(crate) async fn git_push(ctx: &PipelineContext) -> Result<()> {
 /// has been opened, so the developer is left where they started.
 ///
 /// Best-effort: a failure here does not undo the already-opened PR, so
-/// it is logged but not fatal — the ship's real deliverable (the PR +
+/// it is logged but not fatal - the ship's real deliverable (the PR +
 /// queued auto-merge) is already done by the time this runs.
 ///
 /// # Errors
 ///
-/// Never returns `Err` — a failed switch is downgraded to a warning so
+/// Never returns `Err` - a failed switch is downgraded to a warning so
 /// it cannot fail an otherwise-successful ship.
 async fn return_to_base_branch(ctx: &PipelineContext) -> Result<()> {
     println!("🔙 Returning to {}", BASE_BRANCH.cyan());

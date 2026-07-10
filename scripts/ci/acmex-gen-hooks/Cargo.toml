@@ -1,5 +1,5 @@
 # =============================================================================
-# scripts/ci/acmex-gen-hooks/Cargo.toml — ACMEX gate-manifest hook generator
+# scripts/ci/acmex-gen-hooks/Cargo.toml - ACMEX gate-manifest hook generator
 # =============================================================================
 #
 # SPDX-License-Identifier: MIT OR Apache-2.0
@@ -11,7 +11,7 @@
 # hand-maintained.  Pre-commit (`_lint_fast.sh`) stays hand-written
 # (Phase 3 picks it up).
 #
-# Lint policy: same as `scripts/ci-pipeline` — does NOT inherit
+# Lint policy: same as `scripts/ci-pipeline` - does NOT inherit
 # `[lints] workspace = true`.  This is an internal tool; the production
 # library lints (deny unwrap, deny println, deny missing_docs_in_private_items)
 # fight readability for an operational binary.  Default clippy passes on
@@ -26,7 +26,7 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 description = "ACMEX gate-manifest hook generator (Phase 2 of gates-manifest-plan); not published"
-# Posture: **permanently non-publishable** — internal workspace CI tooling.
+# Posture: **permanently non-publishable** - internal workspace CI tooling.
 # Distinct from the 8 Polars-blocked deferred-publishable crates: this
 # crate would remain non-publishable even if Polars upstream released,
 # because it is internal CI orchestration, not a reusable library.
@@ -35,7 +35,7 @@ publish.workspace = true
 # Phase R6 of `release-automation-plan.md` step 3: docs.rs build configuration.
 # This crate is `publish = false` (internal CI orchestration), so docs.rs will
 # never build it; this block is preserved for workspace-uniform manifest shape
-# (per Phase 1 follow-up F1.15 / issue #214).  Pure Rust CLI tooling — the
+# (per Phase 1 follow-up F1.15 / issue #214).  Pure Rust CLI tooling - the
 # docs.rs default (Linux x86_64) build is sufficient if it ever runs.
 [package.metadata.docs.rs]
 all-features = true

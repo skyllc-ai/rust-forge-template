@@ -22,7 +22,7 @@ permissions:
   contents: read
 
 # Tier 2 runs on a weekly cron; a manual `workflow_dispatch` landing
-# on top of a cron run should queue, not cancel — we want the full
+# on top of a cron run should queue, not cancel - we want the full
 # Miri / coverage report to complete.  Keyed the same way as the
 # other workflows in this repo so GitHub's concurrency UI stays
 # consistent across the pipeline.
@@ -112,14 +112,14 @@ jobs:
           verbose: true
 
   # ══════════════════════════════════════════════════════════════════════════
-  # Tier 2 / Windows Compile Check — intentionally absent.
+  # Tier 2 / Windows Compile Check - intentionally absent.
   #
   # `pr-fast.yml::windows-lint` runs `cargo clippy --workspace
   # --all-targets --all-features --locked --no-deps -- -D warnings`
   # natively on `windows-latest` on EVERY PR.  `cargo clippy` does a
   # full type-check + executes every dep's `build.rs`, so any
   # platform-specific build regression a weekly `cargo check` here
-  # would catch is already caught at PR-time — minutes after the bad
+  # would catch is already caught at PR-time - minutes after the bad
   # commit lands on the PR branch instead of up to 7 days later.
   # Strict clippy on top is a bonus.  Tier 2 stays as the
   # deep-assurance lane for things genuinely too expensive for
@@ -148,7 +148,7 @@ jobs:
           cache-on-failure: 'true'
 
       - name: Run build validation
-        # --locked per §2.8 — validation builds must resolve through
+        # --locked per §2.8 - validation builds must resolve through
         # the committed Cargo.lock, otherwise a broken lockfile wouldn't
         # surface here.
         #
@@ -159,7 +159,7 @@ jobs:
         # so divergence here would defeat the fix.  Background:
         # ubuntu-latest's 16 GB / 4 vCPU pre-empted the runner mid-link
         # of the workspace binaries even at parallelism 2 (issue #83,
-        # run 24984887285 attempts 1+2 — both died ~60 s after the
+        # run 24984887285 attempts 1+2 - both died ~60 s after the
         # last `Compiling …` line, mid-`ld`).  Serialised link is
         # ~+2-4 min wall time on warm cache, well inside budget.
         env:
@@ -204,7 +204,7 @@ jobs:
   # Iterates every feature-bearing crate's `[features]` permutations and
   # runs `cargo check --all-targets --locked` for each one.  Catches the
   # class of bug where new code adds `use <crate-behind-feature>` without
-  # `#[cfg(feature = "...")]` gating — `--all-features` is blind to it
+  # `#[cfg(feature = "...")]` gating - `--all-features` is blind to it
   # because the feature is always on in that mode; cargo-hack is the
   # static guarantee that single-feature builds still compile.
   #
@@ -246,7 +246,7 @@ jobs:
         #   the command once per feature in isolation (plus once with
         #   --no-default-features and once with default features).
         # --keep-going: report every failing permutation, not just the
-        #   first — needed for actionable fix-passes.
+        #   first - needed for actionable fix-passes.
         # check --all-targets: type-check including tests / benches /
         #   examples.  Faster than clippy and sufficient to catch the
         #   class of feature-flag bug this gate exists for; strict
@@ -298,7 +298,7 @@ jobs:
           cargo miri test --locked -p acmex-core
 
   # ───────────────────────────────────────────────────────────────────
-  # cargo-careful — broad std-debug-assertion coverage that complements
+  # cargo-careful - broad std-debug-assertion coverage that complements
   # Miri's narrow deep-dive
   #
   # `cargo-careful` rebuilds the standard library with extra debug
@@ -306,7 +306,7 @@ jobs:
   # the regular debug build glosses over) and runs the workspace tests
   # against that augmented std.  Catches UB in std-using code paths
   # that Miri can't reach because Miri is too slow for the broad test
-  # surface — Miri stays focused on the narrow deep-dive above;
+  # surface - Miri stays focused on the narrow deep-dive above;
   # `careful` widens the lens to every test in the workspace.
   #
   # Why `--workspace` (not a per-crate scope):
@@ -332,7 +332,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Free up disk space
-        # Same prelude as miri — std rebuild plus per-crate test
+        # Same prelude as miri - std rebuild plus per-crate test
         # compile produces several GB of artifacts and the
         # ubuntu-latest runner image ships with only ~14 GB free
         # after the default toolchain install.
@@ -353,7 +353,7 @@ jobs:
       - name: Cache dependencies
         uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
         with:
-          # Dedicated cache key — cargo-careful's `-Zbuild-std`
+          # Dedicated cache key - cargo-careful's `-Zbuild-std`
           # rebuild produces a distinct sysroot / target-dir layout
           # from the regular workspace build, so sharing miri's
           # cache key would invalidate one or both on each run.
@@ -378,7 +378,7 @@ jobs:
         #   - misuse of `RefCell` borrow rules in cases regular
         #     `RefCell::borrow*` panics miss
         #   - some `slice::from_raw_parts` invariant violations
-        # — none of which a regular `cargo test` will flag, and many
+        # - none of which a regular `cargo test` will flag, and many
         # of which Miri can't reach because Miri's interpretation
         # cost limits it to narrow test scopes (see the miri job
         # above).
@@ -388,7 +388,7 @@ jobs:
         run: cargo careful test --locked --workspace
 
   # ───────────────────────────────────────────────────────────────────
-  # cargo-mutants — test-suite quality measurement on safety-critical
+  # cargo-mutants - test-suite quality measurement on safety-critical
   # paths
   #
   # `cargo-mutants` programmatically generates small source-code
@@ -396,13 +396,13 @@ jobs:
   # etc.) and runs the full test suite against each mutant.  The
   # signal is:
   #
-  #   * **caught** — at least one test failed with the mutation in
+  #   * **caught** - at least one test failed with the mutation in
   #     place → the test suite genuinely exercises the mutated code
   #     path.  Good.
-  #   * **missed** — all tests still passed with the mutation in
+  #   * **missed** - all tests still passed with the mutation in
   #     place → either the mutated code is dead, or there's a test
   #     gap.  Bad (or at least: worth a human look).
-  #   * **timeout** — the mutated program looped forever; the
+  #   * **timeout** - the mutated program looped forever; the
   #     per-mutant timeout (configured in `mutants.toml` at repo
   #     root) bounded the runtime.  Treated like "caught" since the
   #     mutation produced a behaviour the tests rejected.
@@ -411,7 +411,7 @@ jobs:
   #
   #   `cargo-mutants` is O(mutations × test-suite-runtime), so it is
   #   the most expensive gate in this workflow per line of code it
-  #   covers.  `acmex-core` is the primary library crate — the place
+  #   covers.  `acmex-core` is the primary library crate - the place
   #   where decision logic (and therefore test-gap signal) lives.
   #   Binary / tooling crates are mostly glue whose mutations produce
   #   low-value noise.  Extend the `--package` list as further
@@ -424,12 +424,12 @@ jobs:
   #   the same mutation coverage as any other OS at the lowest $/min.
   #   If a crate ever grows `#[cfg(windows)]`-gated logic whose tests
   #   only compile on Windows, mutations inside it would show up as
-  #   structural false-negative MISSES on Linux — at that point move
+  #   structural false-negative MISSES on Linux - at that point move
   #   (or matrix) this job onto the platform that compiles the tests.
   #
   # Why advisory (job allowed to fail without breaking the workflow):
   #
-  #   We have NO baseline of "expected missed mutations" yet — this
+  #   We have NO baseline of "expected missed mutations" yet - this
   #   is the first run.  The initial post-merge run will produce a
   #   numerical baseline (e.g. "12 missed out of 209"); a follow-up
   #   PR can then promote the gate to hard-fail-on-regression once
@@ -440,7 +440,7 @@ jobs:
     name: Tier 2 / cargo-mutants (acmex-core)
     runs-on: ubuntu-22.04
     timeout-minutes: 60
-    # Advisory in the initial rollout — see header comment.  Promote
+    # Advisory in the initial rollout - see header comment.  Promote
     # to a hard gate via a follow-up PR once we have a baseline of
     # "expected missed mutations" and can fail on regression.
     continue-on-error: true
@@ -454,7 +454,7 @@ jobs:
       - name: Cache dependencies
         uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
         with:
-          # Dedicated cache key — cargo-mutants does many short
+          # Dedicated cache key - cargo-mutants does many short
           # per-mutant rebuilds and benefits from its own cache so
           # the regular workspace builds don't evict mutation-test
           # artifacts (and vice-versa).
@@ -472,7 +472,7 @@ jobs:
         # is useful when comparing successive runs.
         # `mutants.toml` at repo root supplies `additional_cargo_args
         # = ["--locked"]`, `timeout_multiplier = 2.0`, and exclusion
-        # globs / regexes — see that file for justification of each.
+        # globs / regexes - see that file for justification of each.
         run: |
           cargo mutants \
             --package acmex-core \
@@ -497,7 +497,7 @@ jobs:
   #
   # The workspace pins a nightly toolchain (`rust-toolchain.toml`) for
   # unstable rustfmt options, so `rust-version` (MSRV) is deliberately
-  # omitted from `[workspace.package]` — an MSRV claim would be
+  # omitted from `[workspace.package]` - an MSRV claim would be
   # unverifiable.  `rust-toolchain.toml` is the single source of truth
   # for the toolchain.
   #
@@ -508,7 +508,7 @@ jobs:
   # ───────────────────────────────────────────────────────────────────
 
   # ───────────────────────────────────────────────────────────────────
-  # cargo-fuzz — intentionally absent (for now).
+  # cargo-fuzz - intentionally absent (for now).
   #
   # The template workspace has no parser / deserializer that consumes
   # untrusted external bytes, so there is nothing worth fuzzing yet.
@@ -552,14 +552,14 @@ jobs:
       - name: Create summary
         if: success()
         # Single grouped redirect (SC2129) with the env-var quoted (SC2086)
-        # — one pipe to the GITHUB_STEP_SUMMARY file instead of nine, and
+        # - one pipe to the GITHUB_STEP_SUMMARY file instead of nine, and
         # safe against word-splitting if `$GITHUB_STEP_SUMMARY` ever
         # contains a space (it doesn't on hosted runners today, but
         # quoting is the defensible default).
         #
         # `cargo-mutants` row uses `${{ needs.mutants.result }}` (an
         # actual variable, not a hard-coded ✅) so the summary
-        # accurately reflects the advisory job's underlying state —
+        # accurately reflects the advisory job's underlying state -
         # green when it caught all mutations, red when at least one
         # was missed (so triage happens against `mutants.out/`).
         run: |
@@ -596,7 +596,7 @@ jobs:
   # The advisory-job exemption (mutants intentionally omitted from
   # notification triggers) is preserved indirectly: that job uses
   # `continue-on-error: true`, so when it fails the workflow
-  # run's overall `conclusion` is still `success` — and
+  # run's overall `conclusion` is still `success` - and
   # `ci-failure-notify.yml` only files an issue on `conclusion ==
   # 'failure'`.  When the job is promoted to a hard gate (see the
   # `Check pipeline success` step's comment in the tier-2-summary

@@ -18,8 +18,8 @@ this table and keep it tracked via the `!tests/fixtures/**/*.bin` carve-out in
 Rules:
 
 - Every fixture gets a row here (what it is, where it came from, which test
-  reads it) — an undocumented fixture is a future mystery.
+  reads it) - an undocumented fixture is a future mystery.
 - Keep fixtures small; large captures belong outside the repo with a
   documented download step.
-- Fixtures are inputs, never expected outputs — golden outputs live next to
+- Fixtures are inputs, never expected outputs - golden outputs live next to
   the test that asserts them.

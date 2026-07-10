@@ -2,12 +2,12 @@
 # Copyright (c) 2026 Acmex Placeholder LLC
 #
 # =============================================================================
-# SAMPLE user-level Cargo config — Windows (x86_64 MSVC)
+# SAMPLE user-level Cargo config - Windows (x86_64 MSVC)
 # =============================================================================
 # This file is INERT where it sits. To use it:
 #
 #   1. Copy the parts you want into  %USERPROFILE%\.cargo\config.toml
-#      (your HOME, not this repo — the repo ships stock Cargo behavior on
+#      (your HOME, not this repo - the repo ships stock Cargo behavior on
 #      purpose; see .cargo/config.toml for the rationale).
 #   2. Uncomment selectively. Everything here is optional tuning.
 # =============================================================================
@@ -21,7 +21,7 @@
 # ── Target directory redirect (READ THE WARNING) ────────────────────────────
 # Strongly recommended when the repo lives in a Dropbox/OneDrive-synced
 # folder (sync services lock files mid-build). Use one dir PER PROJECT and
-# monitor the volume — shared caches grow silently until the disk fills:
+# monitor the volume - shared caches grow silently until the disk fills:
 # target-dir = "C:/rust-target/<project>"
 
 # ── Parallel jobs ───────────────────────────────────────────────────────────
@@ -33,7 +33,7 @@
 # faster on large workspaces:
 # linker = "rust-lld"
 rustflags = [
-  # Optimize for YOUR CPU — user-level only; never in a repo (bakes the
+  # Optimize for YOUR CPU - user-level only; never in a repo (bakes the
   # build machine's CPU into binaries, breaks cross-compilation).
   "-C",
   "target-cpu=native",
@@ -41,5 +41,5 @@ rustflags = [
 
 # ── Antivirus note ──────────────────────────────────────────────────────────
 # Add the target dir (and %USERPROFILE%\.cargo) to Windows Defender's
-# exclusion list — real-time scanning of build artifacts costs 20-50% of
+# exclusion list - real-time scanning of build artifacts costs 20-50% of
 # build time on large workspaces.

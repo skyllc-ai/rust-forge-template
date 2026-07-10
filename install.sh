@@ -76,14 +76,14 @@ detect_platform() {
   # Only the platforms the release actually publishes.
   case "$PLATFORM" in
     macos-arm64 | linux-x64) ;;
-    *) err "no prebuilt binaries for '$PLATFORM' yet — build from source: https://github.com/$REPO" ;;
+    *) err "no prebuilt binaries for '$PLATFORM' yet - build from source: https://github.com/$REPO" ;;
   esac
 }
 
 # ── resolve the version to install (latest, or pinned via ACMEX_VERSION) ──────
 resolve_version() {
   if [ -n "${ACMEX_VERSION:-}" ]; then
-    # Accept both `v0.6.18` and `0.6.18` — release tags carry the `v`.
+    # Accept both `v0.6.18` and `0.6.18` - release tags carry the `v`.
     case "$ACMEX_VERSION" in
       v*) VERSION="$ACMEX_VERSION" ;;
       *) VERSION="v$ACMEX_VERSION" ;;
@@ -95,8 +95,8 @@ resolve_version() {
   # `curl | grep -m1 | sed` died intermittently: grep -m1 closes the pipe as
   # soon as it sees tag_name (near the top of a large JSON body), the writer
   # takes SIGPIPE, and `pipefail` fails the install even though the parse
-  # succeeded (curl exit 23 in the wild). Any early-exiting reader — grep -m1,
-  # head, sed q — recreates it, so the parse below is pure parameter
+  # succeeded (curl exit 23 in the wild). Any early-exiting reader - grep -m1,
+  # head, sed q - recreates it, so the parse below is pure parameter
   # expansion: zero subprocesses, zero pipes, zero SIGPIPE (and no jq).
   local body
   body="$(download - "https://api.github.com/repos/$REPO/releases/latest")" \
@@ -121,7 +121,7 @@ verify_asset() {
   # $1 = local file, $2 = asset name (the SHA256SUMS entry), $3 = SHA256SUMS path
   # The release generates entries as `<hash>  ./<asset>` (note the ./ prefix);
   # accept the bare name, ./-prefixed, and sha256sum's `*` binary marker.
-  # Exact string comparison in awk — no regex escaping, no pipes.
+  # Exact string comparison in awk - no regex escaping, no pipes.
   local want got
   want="$(awk -v name="$2" \
     '$2 == name || $2 == "./" name || $2 == "*" name { print $1; exit }' "$3")"
@@ -162,14 +162,14 @@ main() {
 
   printf '\n%s✓%s ACMEX %s installed: %s\n' "$C_GREEN" "$C_OFF" "$VERSION" "${BINARIES[*]}"
 
-  # PATH guidance — we never edit your shell rc for you (the shell owns PATH).
+  # PATH guidance - we never edit your shell rc for you (the shell owns PATH).
   case ":$PATH:" in
     *":$INSTALL_DIR:"*) ;;
     *)
       printf '\n%sNote:%s %s is not on your PATH. Add this to your shell rc\n' \
         "$C_YELLOW" "$C_OFF" "$INSTALL_DIR"
       printf '      (~/.profile, ~/.bashrc, or ~/.zshrc), then restart your shell:\n'
-      # `$PATH` is deliberately literal — it goes verbatim into the user's rc.
+      # `$PATH` is deliberately literal - it goes verbatim into the user's rc.
       # shellcheck disable=SC2016
       printf '  export PATH="%s:$PATH"\n' "$INSTALL_DIR"
       ;;

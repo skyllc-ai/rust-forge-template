@@ -8,7 +8,7 @@
 //! Each public function in this module corresponds to one or more
 //! invariants and returns a `Vec<Finding>` (empty on success).  The
 //! top-level [`audit_all`] entry point calls every check and
-//! concatenates the results — exit code is derived from
+//! concatenates the results - exit code is derived from
 //! `result.is_empty()`.
 //!
 //! # Design rationale
@@ -45,7 +45,7 @@ impl core::fmt::Display for Finding {
 }
 
 /// Hardcoded set of intentional manifest deviations.  Update this
-/// whenever a new exception lands — the audit fires on every new
+/// whenever a new exception lands - the audit fires on every new
 /// deviation by default, forcing the contributor to either fix the
 /// manifest or extend this list with a citation.
 struct KnownExceptions {
@@ -63,7 +63,7 @@ struct KnownExceptions {
     /// Members allowed to set `readme = "README.md"` directly (not via
     /// workspace inheritance).  This is the implementation of the
     /// "deliberately overridden value with a justification comment"
-    /// escape hatch documented in Phase 1 §3.5 — publishable library
+    /// escape hatch documented in Phase 1 §3.5 - publishable library
     /// crates that ship their own per-crate `README.md` need to point
     /// crates.io / docs.rs at that file rather than at the workspace-
     /// root app-focused README that gets inherited.  The override is
@@ -80,7 +80,7 @@ struct KnownExceptions {
     /// "datetime", ...]` rather than the workspace-app defaults
     /// `["mft", "ntfs", "file-search", "windows", "polars"]` which
     /// describe the *application*, not the library).  The override
-    /// is required to be a **non-empty TOML array** — an empty array
+    /// is required to be a **non-empty TOML array** - an empty array
     /// still fires (cargo treats `keywords = []` as legal but it
     /// defeats the discoverability purpose of an override).  Per-
     /// keyword shape (max 5, max 20 chars, `^[a-zA-Z][a-zA-Z0-9_-]*$`)
@@ -89,8 +89,8 @@ struct KnownExceptions {
     /// authoritatively against crates.io's own validator.
     keywords_override_ok: BTreeSet<&'static str>,
     /// Members allowed to set `categories = [...]` directly (not via
-    /// workspace inheritance).  Same rationale as `keywords_override_ok`
-    /// — publishable library crates want category slugs that match
+    /// workspace inheritance).  Same rationale as `keywords_override_ok`:
+    /// publishable library crates want category slugs that match
     /// their library role (e.g. `acmex-time` → `["date-and-time"]`)
     /// rather than the workspace-app defaults (`["filesystem",
     /// "command-line-utilities"]`).  Same non-empty-array requirement.
@@ -101,14 +101,14 @@ struct KnownExceptions {
 
 impl KnownExceptions {
     /// Build the hardcoded exception set.  Update this list whenever a
-    /// new intentional deviation lands (with an in-code citation) — the
+    /// new intentional deviation lands (with an in-code citation) - the
     /// audit fires on every new deviation by default.
     const fn new() -> Self {
         // The template starts with ZERO deviations: every member inherits
         // every fingerprint field and every dependency from the workspace.
         // Add entries here only when a crate earns a documented exception
         // (e.g. a publishable library crate that ships its own README.md
-        // and tailored keywords/categories) — each addition needs an
+        // and tailored keywords/categories) - each addition needs an
         // in-code citation, and the audit fires on every new deviation
         // by default.
         Self {
@@ -157,7 +157,7 @@ pub(crate) fn audit_all(
         ));
         // Invariant 3.4 (`rust-version` consistency) was retired on 2026-05-18
         // when the workspace dropped its `[workspace.package].rust-version`
-        // claim (refs issue #267 — the polars/nightly transitive feature
+        // claim (refs issue #267 - the polars/nightly transitive feature
         // makes any stable MSRV claim unverifiable).  Per-crate manifests no
         // longer carry `rust-version.workspace = true`.
         findings.extend(audit_metadata_fields(member, &id, &exc));
@@ -299,7 +299,7 @@ fn audit_no_path_dep_outside_workspace(
                 invariant: "3.2",
                 member: id.to_owned(),
                 detail: format!(
-                    "dep `{dep_name}` uses `path = {path_str:?}` resolving to `{resolved}` — \
+                    "dep `{dep_name}` uses `path = {path_str:?}` resolving to `{resolved}` - \
                      not in [workspace.members]"
                 ),
             });
@@ -328,7 +328,7 @@ fn normalise_path_dep(member_manifest_path: &str, dep_path: &str) -> String {
     components.join("/")
 }
 
-/// Shared 3.3 / 3.5 helper.  (Invariant 3.4 — `rust-version` consistency —
+/// Shared 3.3 / 3.5 helper.  (Invariant 3.4 - `rust-version` consistency -
 /// was retired on 2026-05-18; see `audit_all` for the citation.)
 fn check_inherited(
     value: Option<&toml::Value>,
@@ -355,9 +355,9 @@ fn check_inherited(
 /// `description` must inherit from workspace, with three narrowly
 /// scoped exceptions:
 ///
-/// * `readme` — see [`KnownExceptions::readme_override_ok`].
-/// * `keywords` — see [`KnownExceptions::keywords_override_ok`].
-/// * `categories` — see [`KnownExceptions::categories_override_ok`].
+/// * `readme` - see [`KnownExceptions::readme_override_ok`].
+/// * `keywords` - see [`KnownExceptions::keywords_override_ok`].
+/// * `categories` - see [`KnownExceptions::categories_override_ok`].
 ///
 /// All three exceptions implement the same Phase 1 §3.5 "deliberately
 /// overridden with justification" escape hatch for publishable
@@ -396,7 +396,7 @@ fn audit_metadata_fields(
         // discoverability purpose of overriding).  Per-keyword shape
         // (max 5, max 20 chars, regex) and per-category slug-set
         // validity are enforced authoritatively by `cargo publish
-        // --dry-run` in the weekly `crates-io-dry-run.yml` workflow —
+        // --dry-run` in the weekly `crates-io-dry-run.yml` workflow -
         // re-implementing them here would duplicate the source of
         // truth and risk drifting from crates.io's validator.
         if (name == "keywords" && exc.keywords_override_ok.contains(id)
@@ -759,7 +759,7 @@ workspace = true
         assert_eq!(findings.len(), 1);
         assert_eq!(findings[0].invariant, "3.13");
 
-        // Same shape under an allow-listed crate — should be suppressed.
+        // Same shape under an allow-listed crate - should be suppressed.
         let listed_exc = listed_exceptions();
         let d_listed = disc("crates/acmex-listed/Cargo.toml", &m);
         let suppressed = audit_lib_bin_name_convention(&d_listed, "acmex-listed", &listed_exc);
@@ -782,7 +782,7 @@ workspace = true
     }
 
     // ─────────────────────────────────────────────────────────────
-    // Invariant 3.5 — readme override allow-list
+    // Invariant 3.5 - readme override allow-list
     // ─────────────────────────────────────────────────────────────
 
     #[test]
@@ -802,7 +802,7 @@ workspace = true
 
     #[test]
     fn readme_override_on_unlisted_crate_still_fires_3_5() {
-        // `acmex-core` is NOT on the allow-list — override must fire.
+        // `acmex-core` is NOT on the allow-list - override must fire.
         let text = MEMBER_CLEAN.replace("readme.workspace = true", "readme = \"README.md\"");
         let m = parse_member(&text).unwrap();
         let d = disc("crates/acmex-core/Cargo.toml", &m);
@@ -872,7 +872,7 @@ workspace = true
     }
 
     // ─────────────────────────────────────────────────────────────
-    // Invariant 3.5 — keywords / categories override allow-list
+    // Invariant 3.5 - keywords / categories override allow-list
     // ─────────────────────────────────────────────────────────────
 
     #[test]
@@ -911,7 +911,7 @@ workspace = true
 
     #[test]
     fn keywords_override_on_unlisted_crate_still_fires_3_5() {
-        // `acmex-core` is NOT on the keywords allow-list — override
+        // `acmex-core` is NOT on the keywords allow-list - override
         // must fire even with a well-formed array.
         let text = MEMBER_CLEAN.replace("keywords.workspace = true", r#"keywords = ["something"]"#);
         let m = parse_member(&text).unwrap();

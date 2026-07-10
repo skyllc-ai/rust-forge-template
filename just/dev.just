@@ -40,7 +40,7 @@ check-cross:
 # Type-check all #[cfg(windows)] code paths from macOS using cargo-xwin.
 #
 # Catches missing imports, wrong types, and dead code in Windows-only blocks
-# that `cargo check` on macOS silently skips — including `#[cfg(windows)]`
+# that `cargo check` on macOS silently skips - including `#[cfg(windows)]`
 # tests, benches, and `std::os::windows::*` usage.  CI today only runs on
 # Linux (`ubuntu-22.04`), so this recipe is the ONLY pre-PR gate that
 # exercises Windows-specific code.
@@ -60,12 +60,12 @@ check-windows:
 # else Docker `lint-ci-linux`) + Windows (via xwin, through
 # `check-windows`).  Intended as a manual "pre-PR sweep"; the pre-push
 # hook runs the host + Windows subset only (Linux is too slow for a
-# commit-time gate — CI covers it).
+# commit-time gate - CI covers it).
 #
 # Linux path order (Phase L1.4 of windows-clippy-and-linux-cross-plan.md):
 #   1. Prefer `just lint-ci-linux-zig` (native, ~10–20 s warm) when
 #      `zig` and `cargo-zigbuild` are both available.
-#   2. Fall back to `just lint-ci-linux` (Docker, authoritative —
+#   2. Fall back to `just lint-ci-linux` (Docker, authoritative -
 #      mirrors CI's `rust:latest` image exactly).
 #   3. Skip with a hint when neither is available.
 #
@@ -84,7 +84,7 @@ check-all-targets:
         cargo xwin check --workspace --all-targets --all-features --target x86_64-pc-windows-msvc
         printf "\033[0;32m   ✅ Windows (xwin)\033[0m\n\n"
     else
-        printf "\033[1;33m   ⚠  cargo-xwin not installed — skipping; install with: \033[0;36mcargo install cargo-xwin\033[0m\n\n"
+        printf "\033[1;33m   ⚠  cargo-xwin not installed - skipping; install with: \033[0;36mcargo install cargo-xwin\033[0m\n\n"
     fi
     printf "\033[0;36m   ── Linux x86_64-unknown-linux-gnu ──\033[0m\n"
     if command -v zig >/dev/null 2>&1 && command -v cargo-zigbuild >/dev/null 2>&1; then
@@ -94,7 +94,7 @@ check-all-targets:
         printf "\033[0;36m   · using Docker (authoritative; install \033[0;36mzig\033[0m + \033[0;36mcargo-zigbuild\033[0m for the faster path)\033[0m\n"
         just lint-ci-linux
     else
-        printf "\033[1;33m   ⚠  Neither zigbuild nor Docker available — skipping; install one via \033[0;36mjust install-dev-tools\033[0m\n"
+        printf "\033[1;33m   ⚠  Neither zigbuild nor Docker available - skipping; install one via \033[0;36mjust install-dev-tools\033[0m\n"
     fi
     printf "\033[0;32m✅ Cross-platform check complete\033[0m\n"
 
@@ -143,7 +143,7 @@ update-tools:
         printf "  → Using cargo-binstall (fast, pre-built binaries)\n"
         cargo binstall -y --no-confirm $TOOL_LIST
     else
-        printf "  → Using cargo install (compiling from source — slower)\n"
+        printf "  → Using cargo install (compiling from source - slower)\n"
         printf "  💡 Install cargo-binstall for ~100× faster updates:\n"
         printf "     curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash\n"
         cargo install $TOOL_LIST

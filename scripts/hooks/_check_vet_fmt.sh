@@ -22,7 +22,7 @@
 
 set -euo pipefail
 
-# Resolve to the workspace root — cargo vet has to run where
+# Resolve to the workspace root - cargo vet has to run where
 # `supply-chain/` lives, and the pre-commit hook cwd is already the
 # workspace root, but make it explicit for standalone invocations.
 cd "$(git rev-parse --show-toplevel)"
@@ -38,7 +38,7 @@ if diff -rq supply-chain "$snap_dir/supply-chain" >/dev/null 2>&1; then
     exit 0
 fi
 
-# Drift found — restore pre-fmt state so the operator's working tree
+# Drift found - restore pre-fmt state so the operator's working tree
 # is untouched, then fail with an actionable hint.
 rm -rf supply-chain
 mv "$snap_dir/supply-chain" .

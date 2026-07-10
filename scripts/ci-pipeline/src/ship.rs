@@ -3,24 +3,24 @@
 
 #![expect(
     clippy::print_stdout,
-    reason = "operational CLI tool — ship-pipeline phase banners + completion footers go to stdout (issue #212)"
+    reason = "operational CLI tool - ship-pipeline phase banners + completion footers go to stdout (issue #212)"
 )]
 
 //! Resumable ship pipeline driver.
 //!
 //! Everything in this module wraps [`crate::exec::execute_step_with_tracking`]
 //! around a pipeline step so the on-disk
-//! [`crate::workflow::WorkflowState`] records each transition — a
+//! [`crate::workflow::WorkflowState`] records each transition - a
 //! re-run after a failure picks up at the first non-completed step.
 //!
 //! Layout:
-//! * `tracked_*_step` — one helper per resumable pipeline step (toolchain,
+//! * `tracked_*_step` - one helper per resumable pipeline step (toolchain,
 //!   clean, coverage, parallel validation, format check).
-//! * `run_enhanced_phase1` / `run_enhanced_phase2` — thin orchestrators over
+//! * `run_enhanced_phase1` / `run_enhanced_phase2` - thin orchestrators over
 //!   those tracked helpers.
-//! * `load_or_reset_ship_state` / `print_ship_*` — resume / summary /
+//! * `load_or_reset_ship_state` / `print_ship_*` - resume / summary /
 //!   next-steps helpers.
-//! * `run_ship_pipeline` — the entry point `just ship` ultimately calls.
+//! * `run_ship_pipeline` - the entry point `just ship` ultimately calls.
 
 use core::time::Duration;
 use std::fs;
@@ -85,7 +85,7 @@ const RUSTC_FINGERPRINT_FILE: &str = ".acmex-ci-rustc-fingerprint";
 enum CleanDecision {
     /// Run `cargo clean`; the payload is the human-readable reason.
     Clean(&'static str),
-    /// Skip the clean — nothing is stale and the disk thresholds are fine.
+    /// Skip the clean - nothing is stale and the disk thresholds are fine.
     Skip,
     /// A toolchain change needs a clean but `--no-clean` suppressed it;
     /// the stale fingerprint is left in place so the next run re-detects
@@ -134,7 +134,7 @@ const fn decide_clean(
         CleanMode::Auto => {
             if toolchain_changed {
                 CleanDecision::Clean(
-                    "Toolchain changed (rustc fingerprint mismatch) — forcing clean to avoid stale-artifact E0514",
+                    "Toolchain changed (rustc fingerprint mismatch) - forcing clean to avoid stale-artifact E0514",
                 )
             } else if disk_pressure {
                 CleanDecision::Clean("Auto-clean triggered (disk space low or target too large)")
@@ -145,7 +145,7 @@ const fn decide_clean(
     }
 }
 
-/// Return `true` when `target_dir` already holds build output — i.e. any
+/// Return `true` when `target_dir` already holds build output - i.e. any
 /// entry other than the fingerprint file itself.  A missing or
 /// fingerprint-only dir means there is nothing to invalidate, so a fresh
 /// checkout (or the state right after a `cargo clean`) never triggers a
@@ -162,7 +162,7 @@ fn target_dir_has_build_output(target_dir: &Path) -> bool {
 /// Persist the active `rustc` fingerprint under `target_dir`, recording
 /// the toolchain that (re)built the cache so a later run can detect the
 /// next bump.  Best-effort: recreates the dir if `cargo clean` removed it
-/// and swallows any write error — a missing marker only costs the next
+/// and swallows any write error - a missing marker only costs the next
 /// run a re-probe, never a hard failure.
 fn record_rustc_fingerprint(target_dir: &Path, id: &str) {
     if fs::create_dir_all(target_dir).is_ok() {
@@ -235,7 +235,7 @@ async fn tracked_clean_step(state: &mut WorkflowState, ctx: &PipelineContext) ->
             }
             CleanDecision::SuppressedToolchainChange => {
                 println!(
-                    "  ⚠️  rustc changed but --no-clean is set — keeping stale artifacts (build may hit E0514)"
+                    "  ⚠️  rustc changed but --no-clean is set - keeping stale artifacts (build may hit E0514)"
                 );
                 // Leave the stale fingerprint untouched so the next run
                 // re-detects the mismatch and can clean.
@@ -303,7 +303,7 @@ async fn tracked_parallel_validation_step(
                 "--all-features",
             ]),
             // pedantic/nursery/cargo/multiple_crate_versions levels are
-            // set in workspace Cargo.toml — only per-target overrides
+            // set in workspace Cargo.toml - only per-target overrides
             // needed here.
             ("Production linting", "cargo", vec![
                 "clippy",
@@ -347,7 +347,7 @@ async fn tracked_parallel_validation_step(
             ]),
             ("Dependency security", "cargo", vec!["deny", "check"]),
             // `--document-private-items` validates links across the private
-            // surface too — see the matching note in `phases.rs`.
+            // surface too - see the matching note in `phases.rs`.
             ("Rustdoc link validation", "cargo", vec![
                 "doc",
                 "--workspace",
@@ -362,7 +362,7 @@ async fn tracked_parallel_validation_step(
 }
 
 /// Tracked format-check step: `cargo fmt --all -- --check` on the
-/// *post-format* tree — catches any files rustfmt can't stabilise in
+/// *post-format* tree - catches any files rustfmt can't stabilise in
 /// one pass (extremely rare, but worth gating before shipping).
 async fn tracked_format_check_step(state: &mut WorkflowState, ctx: &PipelineContext) -> Result<()> {
     execute_step_with_tracking(state, STEP_FORMAT_CHECK, || async {
@@ -384,7 +384,7 @@ async fn tracked_format_check_step(state: &mut WorkflowState, ctx: &PipelineCont
 /// Phase 1 of the ship pipeline: the full validation sweep (toolchain +
 /// polars + clean + format + coverage tests + parallel validation +
 /// format check).  Mutates `state` so every step's started / completed
-/// / failed transition is persisted — a re-run after a failure picks
+/// / failed transition is persisted - a re-run after a failure picks
 /// up at the first non-completed step.
 ///
 /// Thin orchestrator: each `STEP_*` gets a named `tracked_*_step`
@@ -425,7 +425,7 @@ pub(crate) async fn run_enhanced_phase1(
         if !state.validated_fingerprint.is_empty() {
             println!(
                 "{}",
-                "↻ Working tree changed since last validation — re-running Phase 1 checks".yellow()
+                "↻ Working tree changed since last validation - re-running Phase 1 checks".yellow()
             );
         }
         for step in [
@@ -484,7 +484,7 @@ pub(crate) async fn run_enhanced_phase1(
 /// any edit to a tracked file changes the hash; a brand-new *untracked* file
 /// is the one gap, and the uncacheable PR CI still covers it.
 ///
-/// Uses `DefaultHasher` (fixed-key `SipHash` — deterministic across processes,
+/// Uses `DefaultHasher` (fixed-key `SipHash` - deterministic across processes,
 /// unlike `HashMap`'s randomized state); non-cryptographic but ample for
 /// change detection.  On any `git` error the components default to empty, which
 /// simply makes the fingerprint conservative (more likely to differ → re-run).
@@ -528,8 +528,8 @@ pub(crate) async fn run_enhanced_phase2(
     );
 
     // Version increment (Path B, 2026-06-10): restored after R5 retired it.
-    // release-plz only versions the 2 publishable leaf libs — it cannot drive
-    // binary releases — so the lockstep workspace bump happens HERE, at the end
+    // release-plz only versions the 2 publishable leaf libs - it cannot drive
+    // binary releases - so the lockstep workspace bump happens HERE, at the end
     // of `just ship`, gated behind the resumable `version_incremented` flag so a
     // re-run after a mid-ship failure never double-bumps.  Default level: patch.
     if !state.version_incremented {
@@ -539,7 +539,7 @@ pub(crate) async fn run_enhanced_phase2(
         // Roll CHANGELOG `## [Unreleased]` into the dated `## [vX.Y.Z]` section
         // BEFORE the commit so it lands in the same release commit (`git add .`
         // in `git_commit` stages it).  This is what stops the changelog from
-        // drifting — every ship records its release notes (see PR #490 / the
+        // drifting - every ship records its release notes (see PR #490 / the
         // `changelog` module).  Idempotent: a resumed ship after this point is
         // gated by `version_incremented`, and the roll itself is a no-op on an
         // already-rolled file.
@@ -572,7 +572,7 @@ pub(crate) async fn run_enhanced_phase2(
     let unpushed = count_unpushed_commits(&release_branch_peek).await?;
     if unpushed > 0 && state.is_step_completed(STEP_GIT_PUSH) {
         println!(
-            "↻ {} unpushed commit(s) on HEAD vs origin/{} — re-running step {}",
+            "↻ {} unpushed commit(s) on HEAD vs origin/{} - re-running step {}",
             unpushed.to_string().yellow(),
             release_branch_peek.cyan(),
             STEP_GIT_PUSH.cyan(),
@@ -619,7 +619,7 @@ fn load_or_reset_ship_state(ctx: &PipelineContext) -> Result<WorkflowState> {
         let loaded = WorkflowState::load().ok();
         // A COMPLETED cycle must not be "resumed": its steps are all marked
         // done and `version_incremented` is set, so resuming would skip both
-        // Phase 1 validation AND the Phase 2 version bump — the next release
+        // Phase 1 validation AND the Phase 2 version bump - the next release
         // would commit nothing.  `is_resumable()` already excludes Completed,
         // so a finished state starts a fresh cycle.  (`--fresh` is still the
         // explicit reset; this just stops a stale terminal state from wedging
@@ -742,7 +742,7 @@ fn print_ship_phase_separator() {
 }
 
 /// Combined ship pipeline: Phase 1 (validation) + Phase 2 (deploy).
-/// Supports resumable execution — re-runs skip already-completed
+/// Supports resumable execution - re-runs skip already-completed
 /// steps.  Pass `--fresh` on the CLI to reset state and start over.
 ///
 /// Thin orchestrator: state hydration, progress banner, phase calls,
@@ -792,7 +792,7 @@ mod tests {
     #[test]
     fn tree_fingerprint_is_deterministic_and_nonempty() {
         // Two back-to-back calls observe the same working tree, so they MUST
-        // agree — if the fingerprint were unstable, every `just ship` would
+        // agree - if the fingerprint were unstable, every `just ship` would
         // needlessly re-run all of Phase 1.  16 hex chars (u64) is the shape.
         let first = working_tree_fingerprint();
         let second = working_tree_fingerprint();

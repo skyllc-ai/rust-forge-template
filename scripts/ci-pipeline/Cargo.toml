@@ -12,7 +12,7 @@
 # inherit workspace-wide tooling like `cargo nextest`/`cargo deny`).
 #
 # NOTE ON LINTS (issue #212): inherits `[lints] workspace = true` (see
-# bottom-of-file `[lints]` block) — matches all 14 product crates.  The
+# bottom-of-file `[lints]` block) - matches all 14 product crates.  The
 # previous wholesale opt-out skipped ~60 high-value lints (cast_lossless,
 # redundant_clone, manual_memcpy, …) along with the 4-5 CLI-inappropriate
 # ones it was meant to skip.  Per workspace rule 1 ("targeted allow,
@@ -31,7 +31,7 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 description = "ACMEX internal CI pipeline driver (promoted from rust-script; not published)"
-# Posture: **permanently non-publishable** — internal workspace CI tooling.
+# Posture: **permanently non-publishable** - internal workspace CI tooling.
 # Distinct from the 8 Polars-blocked deferred-publishable crates: this
 # crate would remain non-publishable even if Polars upstream released,
 # because it is internal CI orchestration, not a reusable library.
@@ -40,7 +40,7 @@ publish.workspace = true
 # Phase R6 of `release-automation-plan.md` step 3: docs.rs build configuration.
 # This crate is `publish = false` (internal CI orchestration), so docs.rs will
 # never build it; this block is preserved for workspace-uniform manifest shape
-# (per Phase 1 follow-up F1.15 / issue #214).  Pure Rust CLI tooling — the
+# (per Phase 1 follow-up F1.15 / issue #214).  Pure Rust CLI tooling - the
 # docs.rs default (Linux x86_64) build is sufficient if it ever runs.
 [package.metadata.docs.rs]
 all-features = true
@@ -56,7 +56,7 @@ path = "src/main.rs"
 # Every dependency is aliased to `[workspace.dependencies]` in the root
 # Cargo.toml so a single Cargo.lock entry serves this tool and every other
 # crate.  If this crate ever needs a crate that the rest of the workspace
-# does not, ADD IT TO THE ROOT Cargo.toml FIRST — we do not tolerate per-
+# does not, ADD IT TO THE ROOT Cargo.toml FIRST - we do not tolerate per-
 # crate direct pins because they let different consumers drift onto
 # different major versions of the same crate.
 

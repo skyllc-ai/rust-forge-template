@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2025-2026 Acmex Placeholder LLC.
 #
-# anti_pattern_gate.sh — regression guard for the "Bugs Rust Won't Catch"
+# anti_pattern_gate.sh - regression guard for the "Bugs Rust Won't Catch"
 # audit (docs/architecture/code-quality/bugs-rust-wont-catch-audit.md).
 #
 # Fails (exit 1) if any forbidden anti-pattern is reintroduced into
 # production code under `crates/**/src/**` (test files excluded). This
-# is what keeps the WI-* mitigations at 100% — a fresh `from_utf16_lossy`
+# is what keeps the WI-* mitigations at 100% - a fresh `from_utf16_lossy`
 # in a parser, a predictable `File::create` temp, or a `set_permissions`
 # on a secret will be blocked at the gate.
 #
@@ -68,7 +68,7 @@ run_rule() {
   while IFS=: read -r file lineno content; do
     [[ -n "$file" ]] || continue
     # Skip matches inside line/doc comments: a `//` or `///` line cannot
-    # itself BE a lossy conversion / anti-pattern — it only mentions the
+    # itself BE a lossy conversion / anti-pattern - it only mentions the
     # token (e.g. doc comments on the approved decoder). Anti-patterns are
     # about executable code, not prose.
     if printf '%s\n' "$content" | grep -Eq '^[[:space:]]*//'; then
@@ -82,7 +82,7 @@ run_rule() {
 }
 
 # Source scope: all crate src dirs, excluding any path containing `test`
-# (test modules + integration tests are exempt — the anti-patterns are
+# (test modules + integration tests are exempt - the anti-patterns are
 # about PROD code).
 mapfile -t SRC_FILES < <(
   find crates -type f -name '*.rs' \

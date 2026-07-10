@@ -17,7 +17,7 @@
 #   will not fetch new imports on its own.  If we never refreshed,
 #   any Dependabot crate bump that's already been audited by
 #   Mozilla/Google after our last refresh would spuriously fail
-#   CI — the maintainer would end up pulling imports manually on
+#   CI - the maintainer would end up pulling imports manually on
 #   every Dependabot PR.
 #
 #   Scheduling a weekly refresh amortises that cost to ~5 min of
@@ -42,7 +42,7 @@
 #   cargo-vet-refresh-signed-commits, refs #272 force-push).
 #   See that step's comment for the mechanism.
 #
-# Operational note — CI won't auto-run on this PR:
+# Operational note - CI won't auto-run on this PR:
 #
 #   GitHub suppresses workflow runs for PRs opened by the default
 #   GITHUB_TOKEN (supply-chain defence against recursive automation
@@ -62,7 +62,7 @@ name: "🔄 cargo-vet: weekly import refresh"
 
 on:
   schedule:
-    # Mondays at 08:00 UTC — gives Mozilla/Google/BA the full
+    # Mondays at 08:00 UTC - gives Mozilla/Google/BA the full
     # weekend-plus to land their own weekly audit updates before
     # we fetch them.  Chose Monday morning so the PR is fresh for
     # the start-of-week review.
@@ -74,8 +74,8 @@ on:
   workflow_dispatch:
 
 # Minimum permissions needed:
-#   contents: write        — push the refresh branch
-#   pull-requests: write   — open / update the refresh PR
+#   contents: write        - push the refresh branch
+#   pull-requests: write   - open / update the refresh PR
 permissions:
   contents: write
   pull-requests: write
@@ -92,7 +92,7 @@ env:
   # Override `.cargo/config.toml`'s `rustc-wrapper = "sccache"` setting.
   # sccache is a developer-machine convenience (`cargo install sccache`);
   # GitHub-hosted runners don't have it pre-installed, so every `cargo`
-  # invocation — including `cargo vet`'s internal `cargo metadata` —
+  # invocation - including `cargo vet`'s internal `cargo metadata` -
   # fails immediately with `could not execute process sccache …` and
   # exit code 255.  An empty `RUSTC_WRAPPER` defeats the wrapper
   # without touching `.cargo/config.toml` (which would hurt local dev
@@ -129,7 +129,7 @@ jobs:
         # `regenerate imports` fetches the latest audits.toml from
         # every upstream listed in `supply-chain/config.toml`'s
         # `[imports.*]` sections and rewrites `imports.lock`.  Safe
-        # — never changes anything outside `supply-chain/`.
+        # - never changes anything outside `supply-chain/`.
         run: cargo vet regenerate imports
 
       - name: Prune redundant exemptions
@@ -151,10 +151,10 @@ jobs:
         run: |
           if git diff --quiet supply-chain/; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "No changes to supply-chain/ — nothing to open a PR for."
+            echo "No changes to supply-chain/ - nothing to open a PR for."
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "supply-chain/ changed — will open a PR."
+            echo "supply-chain/ changed - will open a PR."
             echo ""
             echo "=== diff summary ==="
             git diff --stat supply-chain/
@@ -225,7 +225,7 @@ jobs:
 
             ## What changed
 
-            Diff is entirely within `supply-chain/` — either added
+            Diff is entirely within `supply-chain/` - either added
             audit records or pruned exemptions that are now covered
             by upstream audits.
 
@@ -235,7 +235,7 @@ jobs:
             the merge commit itself must be signed + reviewed per
             branch protection.  Skim the diff for anything
             unusual (e.g. a removed audit record that's been
-            replaced by an exemption — would indicate an upstream
+            replaced by an exemption - would indicate an upstream
             has *retracted* an audit, which warrants investigation).
           labels: |
             security

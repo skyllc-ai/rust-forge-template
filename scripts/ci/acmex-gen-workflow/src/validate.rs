@@ -61,7 +61,7 @@ pub(crate) fn validate(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Property 1 — Job presence
+// Property 1 - Job presence
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// For every pr-fast-tier gate, the resolved job-id must exist as a
@@ -85,7 +85,7 @@ fn check_job_presence(manifest: &Manifest, workflow: &Workflow) -> Vec<String> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Property 2 — `if:` predicate alignment
+// Property 2 - `if:` predicate alignment
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Set of change classes a predicate (or a fold of gates) accepts.
@@ -96,8 +96,8 @@ fn check_job_presence(manifest: &Manifest, workflow: &Workflow) -> Vec<String> {
 /// Modeled as a `u8` bitset with one bit per change class
 /// (rust / dep / infra / always).  This is materially cleaner than
 /// the original `struct { rust: bool, dep: bool, infra: bool,
-/// always: bool }` shape — single-byte values, free `Copy`, free
-/// `union` via `|`, free `contains` via `&` — and avoids the
+/// always: bool }` shape - single-byte values, free `Copy`, free
+/// `union` via `|`, free `contains` via `&` - and avoids the
 /// `clippy::struct_excessive_bools` lint at the root cause (the
 /// data shape itself, not via a per-item suppression).
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -110,7 +110,7 @@ impl PermissiveSet {
     const DEP: Self = Self(1 << 1);
     /// `.github/`, `scripts/`, `.cargo/`, `just/` etc. changed.
     const INFRA: Self = Self(1 << 2);
-    /// "Run unconditionally" — `always()` / no `if:` field / no
+    /// "Run unconditionally" - `always()` / no `if:` field / no
     /// classification gating.  Strictly stronger than rust+dep+infra
     /// because it also runs on pure docs-only PRs that wouldn't
     /// trigger any of the other three classes.
@@ -172,7 +172,7 @@ impl PermissiveSet {
         set
     }
 
-    /// Set union — used to combine multiple folded gates'
+    /// Set union - used to combine multiple folded gates'
     /// requirements into a single demand the job must satisfy.
     const fn union(self, other: Self) -> Self {
         Self(self.0 | other.0)
@@ -204,7 +204,7 @@ impl PermissiveSet {
             parts.push("always");
         }
         if parts.is_empty() {
-            "(none — predicate not recognised)".to_owned()
+            "(none - predicate not recognised)".to_owned()
         } else {
             parts.join(" + ")
         }
@@ -255,7 +255,7 @@ fn check_if_predicates(manifest: &Manifest, workflow: &Workflow) -> Vec<String> 
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Property 3 — Aggregator coverage
+// Property 3 - Aggregator coverage
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Pattern for the bash `R=(...)` table line shape:
@@ -282,7 +282,7 @@ fn aggregator_table_regex() -> Result<Regex> {
 
 /// Extract the set of job-ids declared in the `required` job's bash
 /// `declare -A R=(...)` table.  Operates on the raw workflow text
-/// because the bash code lives inside a YAML string scalar — pulling
+/// because the bash code lives inside a YAML string scalar - pulling
 /// it from the YAML model requires schema-modelling step contents,
 /// which the validator deliberately avoids (see plan §4.2 "What is
 /// explicitly NOT validated").
@@ -322,8 +322,8 @@ fn extract_aggregator_ids(workflow_text: &str) -> Result<BTreeSet<String>> {
 /// 1. `workflow.jobs["required"].needs`
 /// 2. the bash `declare -A R=(...)` table inside `required`
 ///
-/// The third invariant — coverage in `workflow.jobs["notify-failure"].needs:`
-/// — was retired in the Design C refactor for #209.  Failure notification
+/// The third invariant (coverage in `workflow.jobs["notify-failure"].needs:`)
+/// was retired in the Design C refactor for #209.  Failure notification
 /// is now produced by `.github/workflows/ci-failure-notify.yml`, which
 /// triggers off `workflow_run [completed]` rather than via an in-workflow
 /// `notify-failure` job needing a `needs:` list of every gate.
@@ -368,7 +368,7 @@ fn check_aggregator_coverage(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Property 4 — Branch-protection guard
+// Property 4 - Branch-protection guard
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// The literal string GitHub branch protection matches against.
@@ -379,7 +379,7 @@ pub(crate) const REQUIRED_JOB_NAME: &str = "PR Fast CI / required";
 
 /// The `required` job's `name:` field MUST be exactly
 /// [`REQUIRED_JOB_NAME`].  A rename here silently breaks branch
-/// protection for every subsequent PR — there's no other guard.
+/// protection for every subsequent PR - there's no other guard.
 fn check_required_name_guard(workflow: &Workflow) -> Vec<String> {
     let mut issues = Vec::new();
     let Some(job) = workflow.jobs.get("required") else {
@@ -507,7 +507,7 @@ jobs:
           )
 ";
 
-    /// Helper — parse both fixtures and run the validator.
+    /// Helper - parse both fixtures and run the validator.
     /// `unwrap()` is allowed in tests via `clippy.toml`'s
     /// `allow-unwrap-in-tests = true`.
     fn validate_fixture(manifest_text: &str, workflow_text: &str) -> Vec<String> {
@@ -564,7 +564,7 @@ jobs:
         let job = PermissiveSet::from_if_expr(Some("classify.outputs.code"));
         assert!(job.contains(folded));
 
-        // job's if: rust does NOT contain rust + dep — too narrow.
+        // job's if: rust does NOT contain rust + dep - too narrow.
         let narrow = PermissiveSet::from_if_expr(Some("classify.outputs.rust"));
         assert!(!narrow.contains(folded));
     }
@@ -585,7 +585,7 @@ jobs:
 
     #[test]
     fn property1_detects_missing_job() {
-        // Remove the `sanity` job — both cargo-check and vet fold
+        // Remove the `sanity` job - both cargo-check and vet fold
         // into it, so we expect 2 issues (one per gate).
         let workflow = WORKFLOW_FIXTURE.replace(
             "  sanity:\n    name: Sanity\n    runs-on: ubuntu-22.04\n    needs: classify\n    if: needs.classify.outputs.code == 'true'\n    steps:\n      - run: cargo check\n\n",
@@ -609,7 +609,7 @@ jobs:
     #[test]
     fn property2_detects_too_narrow_predicate() {
         // sanity folds {cargo-check (code), vet (dep)} → needs code
-        // permissions.  Narrow it to `rust` only — should fail.
+        // permissions.  Narrow it to `rust` only - should fail.
         let workflow = WORKFLOW_FIXTURE.replace(
             "    if: needs.classify.outputs.code == 'true'\n    steps:\n      - run: cargo check",
             "    if: needs.classify.outputs.rust == 'true'\n    steps:\n      - run: cargo check",
@@ -623,7 +623,7 @@ jobs:
 
     #[test]
     fn property2_accepts_wider_predicate() {
-        // Widen fmt's `if:` from `rust` to `code` — wider is fine.
+        // Widen fmt's `if:` from `rust` to `code` - wider is fine.
         let workflow = WORKFLOW_FIXTURE.replace(
             "    if: needs.classify.outputs.rust == 'true'",
             "    if: needs.classify.outputs.code == 'true'",
