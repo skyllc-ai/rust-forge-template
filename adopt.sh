@@ -124,6 +124,18 @@ copy_path() { # SRC_REL
 }
 for p in "${MACHINERY[@]}"; do copy_path "$p"; done
 ok "copied $copied new files"
+# If you already had a .gitignore we did not touch it; append (never
+# overwrite) the entries the machinery's runtime artifacts need.
+if [[ -e .gitignore ]]; then
+    ADDED_IGNORES=""
+    for pat in "target/" "build/" "*.forge-suggested"; do
+        grep -qxF "$pat" .gitignore 2>/dev/null || ADDED_IGNORES="$ADDED_IGNORES$pat\n"
+    done
+    if [[ -n "$ADDED_IGNORES" ]]; then
+        printf '\n# added by rust-forge adopt (machinery runtime artifacts)\n%b' "$ADDED_IGNORES" >> .gitignore
+        ok ".gitignore: appended machinery artifact entries (yours untouched above)"
+    fi
+fi
 if [[ ${#SUGGESTED[@]} -gt 0 ]]; then
     warn "${#SUGGESTED[@]} files already existed; template versions saved as *.forge-suggested:"
     for f in "${SUGGESTED[@]}"; do note "   $f  ->  $f.forge-suggested"; done

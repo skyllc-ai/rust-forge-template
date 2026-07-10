@@ -50,6 +50,9 @@ adopt-undo:
         exit 1
     fi
     printf "\033[0;34mundoing the adoption trial: returning to '%s'\033[0m\n" "$base"
+    # The pipeline's own log dir is trial residue; safe to remove.
+    command rm -rf build/logs 2>/dev/null || true
+    rmdir build 2>/dev/null || true
     git switch "$base"
     git branch -D adopt/rust-forge-scaffolding
     # Unwind repo-local config the flow created
@@ -59,6 +62,10 @@ adopt-undo:
     fi
     git config --unset forge.adoptBase 2>/dev/null || true
     printf "\033[0;32mdone: repository restored to pre-adoption state (branch deleted).\033[0m\n"
+    leftovers=$(git status --porcelain 2>/dev/null | head -5)
+    if [[ -n "$leftovers" ]]; then
+        printf "\033[1;33muntracked leftovers from the trial (delete if unwanted):\033[0m\n%s\n" "$leftovers"
+    fi
     printf "\033[0;36mkept on purpose: installed tools, your SSH key/GitHub registration,\033[0m\n"
     printf "\033[0;36mand any repo-local signing config from 'just setup-signing'.\033[0m\n"
     printf "\033[0;36mchanged your mind again? just re-run adopt.sh any time.\033[0m\n"
