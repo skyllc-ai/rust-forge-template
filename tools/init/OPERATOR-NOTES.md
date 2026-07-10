@@ -30,7 +30,10 @@ or license-enforcement mechanism.
 
 - `docs/forge/TEMPLATE_VERSION` is the baseline for update diffs; bump it
   with template releases.
-- A public repo *topic* (`rust-forge-template`) was considered as a second
-  breadcrumb and deliberately rejected: topics are displayed on every
-  child's repo homepage, which advertises the lineage. If a child wants to
-  credit the template publicly, that is their call, not the bootstrap's.
+- `bootstrap-github.sh` adds the public repo *topic* `rust-forge-template`
+  to each child: that is the attribution the template earns for providing
+  the machinery (and, secondarily, a coarse public breadcrumb via
+  `topic:rust-forge-template`). It is deliberately easy for a child to
+  remove, and the bootstrap says so out loud - credit offered, not forced.
+  Fleet-finding must therefore never rely on the topic; the quiet stamp
+  file above is the dependable mechanism.

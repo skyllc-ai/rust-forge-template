@@ -36,6 +36,16 @@ for spec in \
   echo "   ✅ ${name}"
 done
 
+# ── 1b. Attribution topic: the public credit for the scaffolding.
+#        Visible on the repo homepage; remove it if you prefer not to
+#        credit the template (the machinery does not depend on it).
+echo "── attribution topic"
+if gh repo edit "${REPO}" --add-topic rust-forge-template >/dev/null 2>&1; then
+  echo "   ✅ topic rust-forge-template (public credit - remove any time)"
+else
+  echo "   ⚠  could not add topic (add manually: gh repo edit --add-topic rust-forge-template)"
+fi
+
 # ── 2. Dormant-lane repo variables (all off; see docs/forge/COMPONENTS.md) ──────
 echo "── lane variables (all false - activation is a conscious flip)"
 for lane in LANE_RELEASE LANE_RELEASE_PLZ LANE_CRATES LANE_WINGET LANE_CODECOV LANE_CODEQL LANE_SLSA; do
