@@ -11,9 +11,12 @@ and "join a project"), and it works, because the machine decomposes into
 layers with very different retrofit costs. Only one layer is expensive, and
 it has a ratchet.
 
-**The one rule:** everything happens on a branch, nothing is enforced until
-you flip it on, and the adopt script never overwrites a file you already
-have.
+**The one rule:** every FILE change happens on a branch, nothing is
+enforced until you flip it on, and the adopt script never overwrites a
+file you already have. One honest asterisk: git hooks, signing keys, and
+GitHub rulesets are not branch-scoped; they get their own explicitly
+sequenced step (step 5), after the branch has merged, so nothing
+repo-global changes before the team has agreed to it.
 
 ## The cost map
 
@@ -111,6 +114,43 @@ patterns above. The same project also measured ~1,766 sites for one lint
 (`arithmetic_side_effects`) and consciously declined to adopt it,
 documenting why. Both outcomes are the posture working: ratchet what pays,
 decline what does not, in writing. Nobody rewrites a codebase wholesale.
+
+## Step 5: the GitHub-side cutover (the part that is NOT branch-scoped)
+
+Everything up to here was files on a branch. Three kinds of Git scaffolding
+live OUTSIDE branches and flip once, for the whole repo or the whole clone.
+Sequence matters; do these in order, after the adopt branch has merged to
+your default branch.
+
+1. **Per-clone git config (each collaborator, each machine).**
+   `just install-hooks` sets `core.hooksPath` for that clone; every
+   teammate runs it once (it is opt-in by design, and harmless on branches
+   that predate the scaffolding: git treats a missing hooks dir as "no
+   hooks"). `just setup-signing` configures commit signing per machine.
+   Use `just doctor-signing` as the team readiness checklist BEFORE step 3
+   makes signatures mandatory.
+2. **Harmless server-side state, any time after the merge.** Labels, the
+   `LANE_*` variables (all false), and Dependabot config activate nothing
+   by themselves; `bootstrap-github.sh` sets them idempotently. The
+   merge-method settings (squash-only, auto-merge, delete-branch-on-merge)
+   change team workflow, so announce them, but they block nothing.
+3. **Rulesets LAST, and only after two preconditions.** The
+   `main-protection` ruleset (required `PR Fast CI / required` check +
+   merge queue) applies to every PR the moment it exists. Two traps:
+   - the required check can only be reported by `pr-fast.yml`, so the
+     workflow must already be ON your default branch (i.e. the adopt PR
+     merged) or nothing can merge at all;
+   - PRs opened BEFORE the adoption do not contain the workflow, so their
+     check never reports and they become unmergeable. Update every open
+     PR from the default branch (rebase or merge main in) BEFORE creating
+     the ruleset, or land them first.
+   Add the required-signatures rule only after step 1's doctor checklist
+   is green for every committer.
+
+Everything here is reversible (rulesets can be disabled or set to
+"evaluate", variables set back to false, `git config --unset
+core.hooksPath`), which is what makes the cutover safe to schedule rather
+than scary.
 
 ## Caveats before you start
 
