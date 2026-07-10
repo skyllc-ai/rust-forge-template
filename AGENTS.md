@@ -3,7 +3,7 @@ SPDX-License-Identifier: MIT OR Apache-2.0
 Copyright (c) 2026 Acmex Placeholder LLC
 -->
 
-# AGENTS.md - rules for AI coding agents
+# AGENTS.md: rules for AI coding agents
 
 Read this whole file before doing anything. Follow it literally.
 
@@ -15,11 +15,11 @@ Your job: make changes that pass the checks, and tell the user the truth
 about what passed and what failed.
 
 **How to read this file:** sections 2-9 are the literal, always-binding
-floor - follow them exactly, whatever your capability. If you are a
+floor. Follow them exactly, whatever your capability. If you are a
 capable model that reasons about systems, ALSO read section 10: it points
 you at the design-level documentation so you can work at architecture
 level instead of rule level. Sophistication buys you the *why* and the
-license to propose better designs - never an exemption from the rules.
+license to propose better designs, never an exemption from the rules.
 
 ## 2. Determine the state FIRST
 
@@ -40,7 +40,7 @@ Run these checks in order. Pick the first match.
       ```
       curl -fsSL https://raw.githubusercontent.com/skyllc-ai/rust-forge-template/main/bootstrap.sh | bash
       ```
-      This is interactive and can do everything below by itself - if the
+      This is interactive and can do everything below by itself; if the
       user completes it fully, you are done: jump to their new project
       directory and re-run these state checks. If they prefer manual
       steps, continue:
@@ -96,14 +96,14 @@ After EVERY code change, before telling the user anything is done:
 ```
 just check        # fast: compile + lint (seconds)
 just test         # run the test suite
-just go           # the full validation lane - this is the definition of "done"
+just go           # the full validation lane: the definition of "done"
 ```
 
 If `just go` prints green, the change is done. If it prints a failing gate,
 find the gate name in section 6 and apply the exact fix. Do not claim
 success while anything is red.
 
-Committing (the hooks will run automatically - that is normal):
+Committing (the hooks will run automatically; that is normal):
 
 ```
 git switch -c feat/short-description
@@ -117,7 +117,7 @@ gh pr merge feat/short-description --auto
 If a hook rejects the commit or push, that is the system working. Read the
 gate name it prints, fix per section 6, retry the same command.
 
-## 5. Writing Rust in this repo - hard rules
+## 5. Writing Rust in this repo: hard rules
 
 - No `unwrap()`, `expect()`, `panic!`, `todo!`, `unimplemented!` in
   production code (`src/`). Return `Result` instead. Tests MAY use
@@ -134,7 +134,7 @@ gate name it prints, fix per section 6, retry the same command.
 - Copy the existing style: look at `crates/acmex-core/src/lib.rs` before
   writing library code, `crates/acmex-cli/src/main.rs` before CLI code.
 
-## 6. When a gate fails - exact fixes
+## 6. When a gate fails: exact fixes
 
 | Gate name printed | Run / do exactly this |
 | --- | --- |
@@ -145,11 +145,11 @@ gate name it prints, fix per section 6, retry the same command.
 | `taplo` | `taplo fmt` |
 | `reuse` | Add the 2-line SPDX header from section 5 to the new file |
 | `file-size` | Split the file; keep every piece under 800 lines |
-| `deny` | `cargo deny check` - usually a new dependency's license; ask the user before changing `deny.toml` |
+| `deny` | `cargo deny check`; usually a new dependency's license; ask the user before changing `deny.toml` |
 | `vet` | `cargo vet` and follow its printed suggestions |
 | `machete` | Remove the unused dependency from that crate's `Cargo.toml` |
 | `gates-drift`, `hooks-drift`, `fast-drift` | You edited a generated hook or `gates.toml` inconsistently. Revert hook edits, edit `scripts/ci/gates.toml`, run `just acmex-gen-hooks` |
-| `workflow-drift` | Make `.github/workflows/pr-fast.yml` match `scripts/ci/gates.toml` - the error names the mismatch |
+| `workflow-drift` | Make `.github/workflows/pr-fast.yml` match `scripts/ci/gates.toml`; the error names the mismatch |
 | `manifest-drift` | A crate `Cargo.toml` violates inheritance. Use `field.workspace = true` and `dep.workspace = true` (see prohibition 5) |
 | `commit-subjects` | Reword: `git commit --amend -m "feat: ..."` with a type from section 4 |
 | `commit-signatures` | Tell the user to run `just setup-signing` (needs their passphrase) |
@@ -161,7 +161,7 @@ gate name it prints, fix per section 6, retry the same command.
   in the root `Cargo.toml` AND a `release = false` block in
   `release-plz.toml`. Then `cargo run -p acmex-manifest-audit` must pass.
 - **New dependency**: version in root `[workspace.dependencies]`, then
-  `depname.workspace = true` in the crate. Then run `just go` - the `vet`
+  `depname.workspace = true` in the crate. Then run `just go`; the `vet`
   and `deny` gates will tell you if the supply chain needs attention.
 - **Enable releases / publishing / winget**: these are switched-off "lanes".
   Do not improvise. Follow the runbook in `COMPONENTS.md` for the specific
@@ -186,12 +186,12 @@ head, this is where the repo actually lives:
 
 | Read this | To operate at this level |
 | --- | --- |
-| `docs/policies/*.md` (panic, allocation, concurrency, trait, dependency, build-codegen, lint-posture) | The reasoning behind every rule in sections 3-6. A change that touches policy territory should engage the policy doc, not just satisfy the lint. When you disagree with a rule, argue against the documented rationale - with the user, in the PR - never around it. |
+| `docs/policies/*.md` (panic, allocation, concurrency, trait, dependency, build-codegen, lint-posture) | The reasoning behind every rule in sections 3-6. A change that touches policy territory should engage the policy doc, not just satisfy the lint. When you disagree with a rule, argue against the documented rationale (with the user, in the PR), never around it. |
 | `scripts/ci/gates.toml` | The machine-readable source of truth for every gate: tiers, budgets, change-classification regexes. Gate changes are made HERE, then `just acmex-gen-hooks` regenerates the hooks and the drift gates verify the workflow side. This is how you legitimately evolve the enforcement itself. |
 | `scripts/ci-pipeline/src/` | The `just go` / `just ship` engine: a resumable state machine with tree-hash invalidation, a clean-decision engine, and the release choreography (bump → changelog roll → signed release PR → auto-merge → binary build). Read before debugging pipeline behavior. |
-| `COMPONENTS.md` | The growth architecture: dormant capability *lanes* (data switches, never file changes) vs additive *components* (recipes ending in `just go`). Consult before proposing any new machinery - it may already exist, switched off. |
+| `COMPONENTS.md` | The growth architecture: dormant capability *lanes* (data switches, never file changes) vs additive *components* (recipes ending in `just go`). Consult before proposing any new machinery; it may already exist, switched off. |
 | `.github/workflows/pr-fast.yml` + `tier-2.yml` | The CI mirror of gates.toml (tier 1) and the weekly deep suite (miri, cargo-careful, mutation testing). `acmex-gen-workflow --check` enforces the mirror. |
-| `GETTING-STARTED.md` | The human runbook - read it when you are *guiding a person*, so your instructions match what they see. |
+| `GETTING-STARTED.md` | The human runbook; read it when you are *guiding a person*, so your instructions match what they see. |
 
 What capable agents are invited to do that section 4 does not cover:
 design multi-crate architecture within the manifest-inheritance rules,
@@ -203,7 +203,7 @@ capability: the prohibitions in section 3, and reporting honestly.
 ## 10. What to tell the user, when
 
 - Before their first push: "run `just setup-signing` once" (signed commits
-  are required; you cannot do this for them - it needs their passphrase).
+  are required; you cannot do this for them; it needs their passphrase).
 - After you finish any task: report the actual `just go` result, including
   failures. Never say "done" with a red gate.
 - If they ask to skip a check: refuse, explain the gate is the point, and
