@@ -193,8 +193,10 @@ bash scripts/ci/bootstrap-github.sh
 ```
 
 **Already have a project?** The scaffolding can be brought to existing
-code too, on a branch, never overwriting anything, lints installed inert
-with a documented ratchet: see **[ADOPTING.md](ADOPTING.md)** (`adopt.sh`).
+code too: file changes on a branch, nothing overwritten, lints installed
+inert with a documented ratchet, and the repo-global pieces (hooks
+config, signing, rulesets) deferred to an explicitly sequenced cutover
+step: see **[ADOPTING.md](ADOPTING.md)** (`adopt.sh`).
 
 After init, `rg -i acmex` returns nothing; that emptiness is the proof the
 rename ceremony completed.

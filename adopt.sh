@@ -254,5 +254,7 @@ printf "${C_GREEN}Done. Your code was not touched; nothing is enforced yet.${C_O
 printf "${C_CYAN}Next: 1) paste the two blocks from forge-adopt-snippets.md${C_OFF}\n"
 printf "${C_CYAN}      2) merge any *.forge-suggested files by hand${C_OFF}\n"
 printf "${C_CYAN}      3) just setup && just go${C_OFF}\n"
-printf "${C_CYAN}      4) read ADOPTING.md for the ratchet (steps 3-4)${C_OFF}\n"
+printf "${C_CYAN}      4) read ADOPTING.md for the ratchet (steps 3-4) and, IMPORTANT,${C_OFF}\n"
+printf "${C_CYAN}         step 5: the GitHub-side cutover (hooks/signing/rulesets are${C_OFF}\n"
+printf "${C_CYAN}         NOT branch-scoped; sequence them after this branch merges)${C_OFF}\n"
 printf "${C_CYAN}      5) git add -A && git commit when you like what you see${C_OFF}\n"
