@@ -1,4 +1,8 @@
 
 # cargo-vet audits file
 
-[audits]
+[[audits.uuid]]
+who = "Robert M1 (via Claude review) <openclauderobert@nios.net>"
+criteria = "safe-to-deploy"
+delta = "1.23.4 -> 1.23.5"
+notes = "Reviewed full crate-source diff 1.23.4 -> 1.23.5 (crates.io tarballs). Material changes are confined to src/fmt.rs and src/parser.rs: hex encode/decode refactored from static lookup tables (UPPER/LOWER, HEX_TABLE/SHL4_TABLE) to branchless const fns (nibble_to_hex, decode_hex32); format_hyphenated now derives from format_simple with the standard 8-4-4-4-12 offsets. Arithmetic verified: nibble+b'0'+0x27/0x07 maps 10..15 to a..f/A..F; decode rejects non-hex via accumulated bad flag. Remainder: rustdoc link fix in src/external/serde_support.rs, version-string bumps, and a dev-only benchmark harness (gungraun =0.19.2, cfg(not(wasm32)) dev-dependency; benches not packaged). No unsafe (0 occurrences in diff), no I/O, no build.rs, no new runtime dependencies, no public-API change."
