@@ -58,6 +58,33 @@
 #   If ANY condition fails, the workflow finishes successfully without
 #   calling `gh pr merge --auto`.  The PR sits open for manual review
 #   exactly like today - zero regression in the default path.
+#
+# ─── Token: why GITHUB_TOKEN alone strands the PR ───────────────────────
+#
+#   Auto-merge armed with the default `GITHUB_TOKEN` records an
+#   AutoMergeEnabledEvent but NEVER produces an AddedToMergeQueueEvent:
+#   GitHub's anti-loop design means GITHUB_TOKEN actions don't trigger
+#   the merge queue's enrollment (same limitation documented for tag
+#   pushes in `release-plz.yml`).  Observed on PRs #40/#41 - both sat
+#   CLEAN with auto-merge "enabled" for hours, queue empty.
+#
+#   Fix: mint a GitHub App installation token and arm auto-merge with
+#   THAT.  Reuses the repo-wide app credentials release-plz.yml already
+#   designates (`APP_ID` + `APP_PRIVATE_KEY`).  Setup:
+#
+#     1. Create a GitHub App (permissions: Contents R/W,
+#        Pull requests R/W), install it on this repo.
+#     2. Store the credentials as **Dependabot** secrets - this
+#        workflow runs on Dependabot-actor `pull_request` events, which
+#        read the Dependabot secrets store, NOT the Actions one:
+#          gh secret set APP_ID          --app dependabot
+#          gh secret set APP_PRIVATE_KEY --app dependabot
+#        (Add them as Actions secrets too if other workflows want them.)
+#
+#   Fallback: if the secrets are absent (fresh template clone), the
+#   step is skipped and we arm with GITHUB_TOKEN as before - auto-merge
+#   then needs one manual nudge per PR (enqueue via UI/API), which is
+#   the pre-fix behavior, not a regression.
 
 name: "🤖 Dependabot auto-merge (patch-level)"
 
@@ -88,6 +115,10 @@ jobs:
     if: github.actor == 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    env:
+      # `secrets` isn't a legal context in step-level `if:`, so surface
+      # "are the app credentials configured?" here where it is legal.
+      HAS_APP_CREDS: ${{ secrets.APP_ID != '' }}
     steps:
       - name: Fetch Dependabot metadata
         id: meta
@@ -152,6 +183,18 @@ jobs:
             echo "| reason | $reason |"
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Mint GitHub App token
+        id: app-token
+        # Only when the gate is green AND the app credentials exist (see
+        # the "Token" section in the header for setup).  No
+        # `continue-on-error`: if the secrets are set but minting fails,
+        # that's a misconfiguration we want loud, not a silent fallback.
+        if: steps.gate.outputs.eligible == 'true' && env.HAS_APP_CREDS == 'true'
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
       - name: Enable auto-merge via gh CLI
         # Only call `gh pr merge --auto` when the gate is green.
         #
@@ -162,9 +205,13 @@ jobs:
         # CLEAN-but-stuck (cf. #494). `--auto` alone lets the queue own the
         # squash and enrolls correctly. This step also fires on `synchronize`,
         # so it now re-arms (self-heals enrollment) after an Update-branch.
+        #
+        # Token preference: app token when minted (actually enrolls in the
+        # merge queue), GITHUB_TOKEN otherwise (arms auto-merge but needs a
+        # manual enqueue nudge - see header).
         if: steps.gate.outputs.eligible == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
         run: |
           echo "Enabling auto-merge on $PR_URL"
