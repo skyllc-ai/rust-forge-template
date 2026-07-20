@@ -291,6 +291,27 @@ doctor-signing:
         fi
     fi
 
+    # Identity check: a key that signs fine and IS registered on GitHub
+    # still renders "Unverified" (reason: no_user) if the commit's
+    # user.email isn't a verified email on the SAME GitHub account the key
+    # is registered to - GitHub can't attribute the commit to anyone. This
+    # is a silent failure mode: every check above passes, the signature is
+    # cryptographically valid, and the commit still shows Unverified.
+    email=$(git config --get user.email || true)
+    if [[ -n "$email" ]]; then
+        if gh_emails=$(gh api user/emails --jq '.[].email' 2>/dev/null); then
+            if printf '%s\n' "$gh_emails" | grep -qxF "$email"; then
+                ok "user.email ($email) matches a verified GitHub email"
+            else
+                bad "user.email ($email) is not a verified email on your GitHub account - the signature will be valid but the commit shows 'Unverified' (GitHub can't attribute it to anyone). Fix: git config user.email <a verified address> (see https://github.com/settings/emails), matching whichever account this signing key is registered to"
+            fi
+        else
+            info "could not list your GitHub account emails (gh token lacks user:email scope) - skipped; verify manually that '$email' is registered at https://github.com/settings/emails"
+        fi
+    else
+        bad "no user.email configured - git config user.email <you>@users.noreply.github.com"
+    fi
+
     if (( fail )); then
         printf "\033[0;31m❌ signing setup incomplete - commits may be rejected by main's ruleset.\033[0m\n" >&2
         exit 1
