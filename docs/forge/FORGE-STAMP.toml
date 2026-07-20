@@ -2,9 +2,15 @@
 # Copyright (c) 2026 Acmex Placeholder LLC
 #
 # Provenance record: which template baseline this repository started from.
-# Used by template-update tooling to diff against a known baseline.
-# `project` is rewritten by `just init`. Do not delete this file.
+# Used by template-update tooling to diff against a known baseline, and by
+# adopt.sh's idempotency check (a repo with this file has already been
+# forged or adopted; re-running adopt.sh is a no-op guard, not a heuristic
+# on unrelated paths like justfile/scripts/ci).
+# `project` is rewritten by `just init` / `adopt.sh`. Do not delete this file.
 
 forged-from = "skyllc-ai/rust-forge-template"
 template-version = "1.0.0"
 project = "acmex"
+# "init" for `just init` (born from the template); "adopted" for adopt.sh
+# (brought to an existing project). Rewritten by adopt.sh; do not edit by hand.
+origin = "init"

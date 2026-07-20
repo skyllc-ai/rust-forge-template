@@ -67,8 +67,8 @@ say "rust-forge adopt: scaffolding for an existing project"
 [[ -d .git ]] || die "run this from the ROOT of your git repository"
 [[ -f Cargo.toml ]] || die "no Cargo.toml here; this kit is for Rust projects"
 [[ -z "$(git status --porcelain)" ]] || die "working tree not clean; commit or stash first"
-if [[ -f justfile && -d scripts/ci ]]; then
-    die "this repo already looks scaffolded (justfile + scripts/ci exist)"
+if [[ -f docs/forge/FORGE-STAMP.toml ]]; then
+    die "this repo already has a forge stamp (docs/forge/FORGE-STAMP.toml) - already forged or adopted. If that's wrong (the file predates this repo's own history, or was copied in by hand), remove it and re-run."
 fi
 command -v git >/dev/null || die "git is required"
 
@@ -104,6 +104,7 @@ MACHINERY=(
     deny.toml .taplo.toml .typos.toml clippy.toml rustfmt.toml
     rust-toolchain.toml supply-chain/config.toml
     crates/acmex-version AGENTS.md docs/policies docs/forge/ADOPTING.md
+    docs/forge/FORGE-STAMP.toml docs/forge/TEMPLATE_VERSION
 )
 SUGGESTED=()
 copied=0
@@ -176,6 +177,10 @@ for d in $(find . -type d -name '*acmex*' -not -path './.git/*' 2>/dev/null | so
     mv "$d" "$(dirname "$d")/$(basename "$d" | sed "s/acmex/${SLUG}/g")"
 done
 ok "placeholder renamed in the new files only"
+# The copied stamp says origin = "init" (the template's own default, for
+# `just init`); this run came through adopt.sh instead.
+[[ -f docs/forge/FORGE-STAMP.toml ]] && \
+    perl -pi -e 's/^origin = "init"/origin = "adopted"/' docs/forge/FORGE-STAMP.toml
 
 # ---- Snippets file: what to paste, nothing auto-edited ---------------------
 say "4/6 Recording the wiring plan (forge-adopt-snippets.md)"
