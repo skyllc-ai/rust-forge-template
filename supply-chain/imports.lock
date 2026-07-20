@@ -648,37 +648,37 @@ criteria = "safe-to-deploy"
 delta = "0.1.1 -> 0.2.0"
 aggregated-from = "https://hg.mozilla.org/mozilla-central/raw-file/tip/supply-chain/audits.toml"
 
-[[audits.ultrafastfilesearch.audits.autocfg]]
+[[audits.uffs.audits.autocfg]]
 who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
 criteria = "safe-to-deploy"
 delta = "1.5.0 -> 1.5.1"
 notes = "Delta audit (cargo vet diff 1.5.0 -> 1.5.1). TEST-ONLY change: ZERO src/ library changes. README adds the 1.5.1 changelog line ('Refactor the test_wrappers test without any shell script'). Cargo.toml(.orig) declares explicit [[test]] targets and sets harness=false for the wrappers test. The bash helper tests/wrap_ignored is deleted and replaced by a Rust main() in tests/wrappers.rs that acts as the rustc-wrapper stand-in. No change to autocfg's build-probe library logic, no new unsafe, no new runtime deps; the changed code runs only under `cargo test`. autocfg is a build-dependency (via num-traits). Publisher cuviper (Josh Stone), already trusted by isrg/mozilla/bytecode-alliance."
 
-[[audits.ultrafastfilesearch.audits.bitflags]]
+[[audits.uffs.audits.bitflags]]
 who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
 criteria = "safe-to-deploy"
 delta = "2.13.0 -> 2.13.1"
 notes = "Reviewed diff (6 files, 30/18 lines): pure perf change in the generated all() macro body (computes the ALL flags mask in a const block instead of a runtime loop, per upstream changelog 'Lower the LLVM IR output'). No new unsafe, no capability changes."
 
-[[audits.ultrafastfilesearch.audits.colored]]
+[[audits.uffs.audits.colored]]
 who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
 criteria = "safe-to-deploy"
 version = "3.1.1"
 notes = "Reviewed v3.1.1 source. Scope: ANSI terminal coloring. One unsafe block in control.rs (Windows Console FFI via windows-sys: GetStdHandle / GetConsoleMode / SetConsoleMode) — standard Win32 terminal setup, properly cfg(windows)-gated. No network I/O, no filesystem writes, no process spawning. Only std types plus windows-sys on Windows. Dev-deps (rspec, insta, ansiterm) are standard testing crates. MPL-2.0 licensed, same as our workspace."
 
-[[audits.ultrafastfilesearch.audits.hermit-abi]]
+[[audits.uffs.audits.hermit-abi]]
 who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
 criteria = "safe-to-deploy"
 version = "0.5.2"
 notes = "Reviewed v0.5.2 source. Transitive dep of num_cpus. Two files: errno.rs is pure i32 constants (EPERM, ENOENT, ...); lib.rs is #![no_std] FFI declarations for the Hermit unikernel syscall interface (sys_mmap, sys_getpagesize, sys_errno, thread scheduling primitives, ...) plus two unsafe wrapper fns for get/set_priority. No network I/O, no filesystem I/O, no std dependency. On non-Hermit targets the extern C symbols are never linked and the functions are inert — num_cpus only touches hermit-abi when target_os=hermit, which none of our shipping targets hit. Apache-2.0 OR MIT; author Stefan Lankes, Hermit OS project lead."
 
-[[audits.ultrafastfilesearch.audits.itoa]]
+[[audits.uffs.audits.itoa]]
 who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
 criteria = "safe-to-deploy"
 version = "1.0.18"
 notes = "Full audit (488 LOC, no_std, zero deps). No fs/net/process/env capability; no build.rs. All 13 unsafe sites reviewed: digit-pair table reads are get_unchecked(pair*2+{0,1}) with pair<100 from divmod100 into a 200-byte ASCII table (in-bounds by construction); buffer writes are checked-index MaybeUninit writes covering exactly [offset, len); slice_buffer_to_str's from_utf8_unchecked is sound because only ASCII table bytes and b'0'+digit are ever written; Buffer::format's pointer cast goes from the largest buffer ([MaybeUninit<u8>; i128 MAX_STR_LEN]) to a smaller same-alignment array, and the unreachable_unchecked is an optimizer hint upheld because write() slices within the buffer. Publisher verified on crates.io: dtolnay."
 
-[[audits.ultrafastfilesearch.audits.unicode-ident]]
+[[audits.uffs.audits.unicode-ident]]
 who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
 criteria = "safe-to-deploy"
 version = "1.0.24"
