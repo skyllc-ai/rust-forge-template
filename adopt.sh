@@ -67,8 +67,14 @@ say "rust-forge adopt: scaffolding for an existing project"
 [[ -d .git ]] || die "run this from the ROOT of your git repository"
 [[ -f Cargo.toml ]] || die "no Cargo.toml here; this kit is for Rust projects"
 [[ -z "$(git status --porcelain)" ]] || die "working tree not clean; commit or stash first"
-if [[ -f justfile && -d scripts/ci ]]; then
-    die "this repo already looks scaffolded (justfile + scripts/ci exist)"
+if [[ -f docs/forge/FORGE-STAMP.toml ]]; then
+    die "this repo already has a forge stamp (docs/forge/FORGE-STAMP.toml) - already forged or adopted. If that's wrong (the file predates this repo's own history, or was copied in by hand), remove it and re-run."
+fi
+# The stamp lives on the adopt branch until that branch merges (adopt.sh
+# never touches your base branch), so re-running from base while a trial
+# is still in flight would NOT see it above - check for the branch too.
+if git rev-parse --verify --quiet adopt/rust-forge-scaffolding >/dev/null; then
+    die "branch adopt/rust-forge-scaffolding already exists - an adoption trial is in progress. 'just adopt-status' to see it, 'just adopt-undo' to discard it, or merge/delete the branch before re-running."
 fi
 command -v git >/dev/null || die "git is required"
 
@@ -104,6 +110,7 @@ MACHINERY=(
     deny.toml .taplo.toml .typos.toml clippy.toml rustfmt.toml
     rust-toolchain.toml supply-chain/config.toml
     crates/acmex-version AGENTS.md docs/policies docs/forge/ADOPTING.md
+    docs/forge/FORGE-STAMP.toml docs/forge/TEMPLATE_VERSION
 )
 SUGGESTED=()
 copied=0
@@ -128,6 +135,36 @@ copy_path() { # SRC_REL
 }
 for p in "${MACHINERY[@]}"; do copy_path "$p"; done
 ok "copied $copied new files"
+
+# ---- Detect just recipe-name collisions across files ------------------------
+# just's recipes share one flat namespace across every imported .just file:
+# two files defining the same recipe name breaks `just` entirely (not just
+# that recipe), regardless of which files they live in. The never-clobber
+# check above operates on FILE paths, so it cannot see this: a template file
+# that's new to you (like just/analysis.just) can still collide with a
+# recipe name already defined in a file of yours with a different name
+# (like your own just/dev.just). Warn, don't block - same posture as the
+# .forge-suggested list above.
+if [[ -d just ]]; then
+    COLLISIONS="$(
+        for f in just/*.just; do
+            [[ -f "$f" ]] || continue
+            grep -hE '^[a-zA-Z_][a-zA-Z0-9_-]*' "$f" 2>/dev/null \
+                | grep -E ':' | grep -vE ':=' \
+                | grep -oE '^[a-zA-Z_][a-zA-Z0-9_-]*' \
+                | sort -u \
+                | while IFS= read -r name; do printf '%s\t%s\n' "$name" "$f"; done
+        done | sort -u | awk -F'\t' '{c[$1]++; f[$1]=f[$1]" "$2} END{for (n in c) if (c[n]>1) print n":"f[n]}'
+    )"
+    if [[ -n "$COLLISIONS" ]]; then
+        warn "recipe name(s) defined in more than one just/*.just file - 'just' will refuse to run until resolved:"
+        printf '%s\n' "$COLLISIONS" | sort | while IFS= read -r line; do
+            note "   ${line/:/  ->}"
+        done
+        note "   rename one side (e.g. audit: -> audit-legacy: in your own file) - never delete without checking what it did first"
+    fi
+fi
+
 # If you already had a .gitignore we did not touch it; append (never
 # overwrite) the entries the machinery's runtime artifacts need.
 if [[ -e .gitignore ]]; then
@@ -176,6 +213,10 @@ for d in $(find . -type d -name '*acmex*' -not -path './.git/*' 2>/dev/null | so
     mv "$d" "$(dirname "$d")/$(basename "$d" | sed "s/acmex/${SLUG}/g")"
 done
 ok "placeholder renamed in the new files only"
+# The copied stamp says origin = "init" (the template's own default, for
+# `just init`); this run came through adopt.sh instead.
+[[ -f docs/forge/FORGE-STAMP.toml ]] && \
+    perl -pi -e 's/^origin = "init"/origin = "adopted"/' docs/forge/FORGE-STAMP.toml
 
 # ---- Snippets file: what to paste, nothing auto-edited ---------------------
 say "4/6 Recording the wiring plan (forge-adopt-snippets.md)"
