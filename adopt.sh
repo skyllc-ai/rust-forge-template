@@ -135,6 +135,36 @@ copy_path() { # SRC_REL
 }
 for p in "${MACHINERY[@]}"; do copy_path "$p"; done
 ok "copied $copied new files"
+
+# ---- Detect just recipe-name collisions across files ------------------------
+# just's recipes share one flat namespace across every imported .just file:
+# two files defining the same recipe name breaks `just` entirely (not just
+# that recipe), regardless of which files they live in. The never-clobber
+# check above operates on FILE paths, so it cannot see this: a template file
+# that's new to you (like just/analysis.just) can still collide with a
+# recipe name already defined in a file of yours with a different name
+# (like your own just/dev.just). Warn, don't block - same posture as the
+# .forge-suggested list above.
+if [[ -d just ]]; then
+    COLLISIONS="$(
+        for f in just/*.just; do
+            [[ -f "$f" ]] || continue
+            grep -hE '^[a-zA-Z_][a-zA-Z0-9_-]*' "$f" 2>/dev/null \
+                | grep -E ':' | grep -vE ':=' \
+                | grep -oE '^[a-zA-Z_][a-zA-Z0-9_-]*' \
+                | sort -u \
+                | while IFS= read -r name; do printf '%s\t%s\n' "$name" "$f"; done
+        done | sort -u | awk -F'\t' '{c[$1]++; f[$1]=f[$1]" "$2} END{for (n in c) if (c[n]>1) print n":"f[n]}'
+    )"
+    if [[ -n "$COLLISIONS" ]]; then
+        warn "recipe name(s) defined in more than one just/*.just file - 'just' will refuse to run until resolved:"
+        printf '%s\n' "$COLLISIONS" | sort | while IFS= read -r line; do
+            note "   ${line/:/  ->}"
+        done
+        note "   rename one side (e.g. audit: -> audit-legacy: in your own file) - never delete without checking what it did first"
+    fi
+fi
+
 # If you already had a .gitignore we did not touch it; append (never
 # overwrite) the entries the machinery's runtime artifacts need.
 if [[ -e .gitignore ]]; then
