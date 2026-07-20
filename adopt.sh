@@ -149,10 +149,22 @@ fi
 say "3/6 Renaming the internal placeholder to '$SLUG'"
 CAP="$(printf '%s' "${SLUG:0:1}" | tr '[:lower:]' '[:upper:]')${SLUG:1}"
 UP="$(printf '%s' "$SLUG" | tr '[:lower:]' '[:upper:]')"
+# Rust identifiers can't contain '-', but SLUG is validated as
+# [a-z][a-z0-9-]* (kebab-case is the norm for crate/tool names). Package
+# names and paths stay kebab-case (Cargo itself maps "foo-bar" -> the
+# `foo_bar` module path at compile time); *.rs files need that mapping
+# done here, or a hyphenated slug produces `use uffs-products_version;` -
+# invalid syntax, silently breaking every copied tool crate.
+SLUG_IDENT="${SLUG//-/_}"
+CAP_IDENT="${CAP//-/_}"
+UP_IDENT="${UP//-/_}"
 # Only files we just created (never the user's own files).
 git ls-files --others --exclude-standard -z | while IFS= read -r -d '' f; do
     case "$f" in *.forge-suggested) continue ;; esac
-    perl -pi -e "s/acmex/${SLUG}/g; s/Acmex/${CAP}/g; s/ACMEX/${UP}/g" "$f" 2>/dev/null || true
+    case "$f" in
+        *.rs) perl -pi -e "s/acmex/${SLUG_IDENT}/g; s/Acmex/${CAP_IDENT}/g; s/ACMEX/${UP_IDENT}/g" "$f" 2>/dev/null || true ;;
+        *)    perl -pi -e "s/acmex/${SLUG}/g; s/Acmex/${CAP}/g; s/ACMEX/${UP}/g" "$f" 2>/dev/null || true ;;
+    esac
 done
 # Path renames among the new files (deepest first)
 while IFS= read -r -d '' p; do
@@ -326,7 +338,13 @@ else:
 # the tool crates need edition 2024
 def fix_edition(mm):
     return mm.group(1) + '"2024"'
-s = re.sub(r"(?ms)^(\[workspace\.package\](?:(?!^\[).*\n)*?edition\s*=\s*)\"20(?:15|18|21)\"",
+# (?m) only - NOT (?ms). The `s` (DOTALL) flag makes `.` match `\n`, which
+# turns the repeated `(?:(?!^\[).*\n)*?` group into catastrophic
+# backtracking (ReDoS) whenever the tail fails to match - e.g. an adoptee
+# whose workspace.package is already edition = "2024" (nothing to bump).
+# Sibling regex three lines up (tbl_m, same idiom) never had `s` and never
+# hung; this is the fix, not a rewrite.
+s = re.sub(r"(?m)^(\[workspace\.package\](?:(?!^\[).*\n)*?edition\s*=\s*)\"20(?:15|18|21)\"",
            fix_edition, s)
 
 # 3. workspace.dependencies: add what is missing, merge features into what exists
