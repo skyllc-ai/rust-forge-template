@@ -326,7 +326,13 @@ else:
 # the tool crates need edition 2024
 def fix_edition(mm):
     return mm.group(1) + '"2024"'
-s = re.sub(r"(?ms)^(\[workspace\.package\](?:(?!^\[).*\n)*?edition\s*=\s*)\"20(?:15|18|21)\"",
+# (?m) only - NOT (?ms). The `s` (DOTALL) flag makes `.` match `\n`, which
+# turns the repeated `(?:(?!^\[).*\n)*?` group into catastrophic
+# backtracking (ReDoS) whenever the tail fails to match - e.g. an adoptee
+# whose workspace.package is already edition = "2024" (nothing to bump).
+# Sibling regex three lines up (tbl_m, same idiom) never had `s` and never
+# hung; this is the fix, not a rewrite.
+s = re.sub(r"(?m)^(\[workspace\.package\](?:(?!^\[).*\n)*?edition\s*=\s*)\"20(?:15|18|21)\"",
            fix_edition, s)
 
 # 3. workspace.dependencies: add what is missing, merge features into what exists
