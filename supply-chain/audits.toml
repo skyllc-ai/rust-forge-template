@@ -79,6 +79,18 @@ criteria = "safe-to-deploy"
 delta = "0.3.32 -> 0.3.33"
 notes = "Reviewed full crate-source diff 0.3.32 -> 0.3.33 across all 9 futures-family crates (crates.io tarballs), matching upstream CHANGELOG. Real fixes reviewed and confirmed sound: (1) io/read_until.rs reorders consume()/*read+= to fix ReadLine exception-safety on panic mid-consume; (2) compat/compat01as03.rs wraps NotifyWaker in UnsafeCell + adds unsafe impl Send/Sync, replacing UB (mut pointer cast from &self) with a legitimate UnsafeCell::get() derivation - same runtime behavior, fixes a real stacked-borrows violation; (3) futures_unordered/iter.rs fixes a genuine memory leak (IntoIter::next never released the Arc-refcounted Task node; now does) and tightens IterPinRef's Send bound from Fut: Send to the correct Fut: Sync (yields shared Pin<&Fut> refs - strictly more conservative, cannot introduce new unsoundness). Remainder of the diff is portable-atomic/portable-atomic-alloc feature-gating plumbing (additive, cfg-gated, dead code in this workspace - confirmed no crate here activates those features), doc-link cleanups, and a redundant cfg_attr->cfg simplification. No unsafe outside the two reviewed fixes above, no new I/O, no build.rs, no new required dependencies, no public-API break."
 
+[[audits.mio]]
+who = "Robert Nio <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "1.2.1 -> 1.2.2"
+notes = """Reviewed full diff (crates.io tarballs). Every changed file (poll.rs, sys/unix/mod.rs, pipe.rs, tcp.rs) plus the new selector/waker event_ports.rs is additive Solaris (target_os = "solaris", moved from opt-in to standard support) and NuttX RTOS (target_os = "nuttx", brand new) platform support, added to existing cfg match-arm lists. Neither target is in this workspace's CI matrix (macOS/Linux/Windows). No change to any code path compiled for our targets."""
+
+[[audits.portable-atomic]]
+who = "Robert Nio <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "1.13.1 -> 1.14.0"
+notes = "Reviewed the diff scoped to our CI matrix's architectures (x86_64, aarch64) plus the cross-platform fallback/lib/utils files; skimmed the remainder (avr/msp430/xtensa/riscv/powerpc64/s390x are not CI targets here). x86_64/aarch64 atomic128 changes are a strict-provenance migration (ptr as usize -> ptr.addr(), no behavior change) plus cfg-attribute de-duplication. detect/x86_64.rs and detect/aarch64_apple.rs: mechanical &mut CpuInfo -> CpuInfo return-value refactor, same detection logic; aarch64_apple.rs also trims FEAT_LSE128/LSFE/RCPC3 from the (unused) production detection path to test-only, and replaces a test-only custom raw-syscall+inline-asm sysctlbyname reimplementation with the documented hw.optional.arm.caps bitmap API - a test-code risk reduction, not shipped. fallback/seq_lock.rs (the software fallback for widths without hardware atomic support - not exercised on x86_64/aarch64) was refactored to extract shared logic into a new seq_lock_common.rs; Acquire load + Acquire fence + Release-store structure is unchanged. No new unsafe outside existing patterns, no new I/O, no new dependencies, no build.rs behavior change beyond the same strict-provenance detection. Author (taiki-e) is a well-established Rust atomics/concurrency specialist; no adversarial indicators anywhere in the diff."
+
 [[audits.regex]]
 who = "Robert M1 (via Claude review) <openclauderobert@nios.net>"
 criteria = "safe-to-deploy"
@@ -96,6 +108,18 @@ who = "Robert M1 (via Claude review) <openclauderobert@nios.net>"
 criteria = "safe-to-deploy"
 delta = "1.52.3 -> 1.53.0"
 notes = "Reviewed crate-source diff 1.52.3 -> 1.53.0 (crates.io tarballs), scoped to what our feature set actually compiles (default-features=false; io-util, macros, rt, rt-multi-thread, signal, sync, time, tracing - no fs/net/process/uring). Excluded from deep review as confirmed dead code for this build: io_uring (fs/net io-uring ops, tests/fs_uring_*, requires unstable uring feature + Linux), runtime/metrics (schedule_latency, opt-in histogram), runtime/time_alt (new alt timer wheel, gated #[cfg(all(tokio_unstable, feature='rt-multi-thread'))]), runtime/task/trace + runtime/dump.rs (taskdump, gated cfg_taskdump! which requires tokio_unstable) - none of these compile without RUSTFLAGS=--cfg tokio_unstable, which this workspace does not set. Of the 74 remaining stable-path src files: zero new 'unsafe' occurrences anywhere in the diff (grep-verified across the full set); manually read full diffs of the highest-risk concurrency files (scheduler/multi_thread/worker.rs, scheduler/multi_thread/queue.rs, task/state.rs, task/raw.rs) and confirmed each change is either (a) wiring for the new opt-in schedule-latency metric (cheap is_some() no-ops when unused) or (b) a cosmetic cfg_taskdump!-macro consolidation / non-behavioral refactor (e.g. queue.rs buffer-init loop -> iter::repeat_with().take().collect(), same elements) - no scheduling/stealing/timer algorithm changes. Cargo.toml: version bump + one new empty feature flag (schedule-latency = [], not activated by us) + new uring-only [[test]] entries; no new runtime dependencies, no build.rs (tokio has none). Changelog cross-checked: every listed Fixed/Changed item traces to either the excluded unstable subsystems or the reviewed cosmetic changes."
+
+[[audits.tokio]]
+who = "Robert Nio <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "1.53.0 -> 1.53.1"
+notes = "Reviewed diff scoped to what this workspace's feature set compiles (same scoping as the 1.52.3->1.53.0 audit; time_alt/taskdump/uring remain tokio_unstable-gated, excluded as dead code). runtime.rs: doc-comment removal only. signal/windows/sys.rs: genuine correctness fix - splits REGISTRY and HANDLER_RESULT into two separately-initialized OnceLocks so REGISTRY is guaranteed initialized before the OS console-ctrl handler is registered, letting the handler use a non-blocking get() instead of a wait(); SetConsoleCtrlHandler call itself unchanged. No new unsafe, no new dependencies."
+
+[[audits.tokio-macros]]
+who = "Robert Nio <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "2.7.0 -> 2.7.1"
+notes = "Reviewed full diff (crates.io tarballs). Doc-comment only change (adds a cross-reference link). No code change."
 
 [[audits.toml]]
 who = "Robert M1 (via Claude review) <openclauderobert@nios.net>"
@@ -120,3 +144,234 @@ who = "Robert M1 (via Claude review) <openclauderobert@nios.net>"
 criteria = "safe-to-deploy"
 delta = "1.23.5 -> 1.24.0"
 notes = "Reviewed full crate-source diff 1.23.5 -> 1.24.0 (crates.io tarballs). Continues today's 1.23.4->1.23.5 delta audit chain. Adds MaybeUninit-buffer encoding API (encode_lower_uninit/encode_upper_uninit on Hyphenated/Simple/Urn/Braced), matching upstream CHANGELOG. New unsafe code in src/fmt.rs, individually verified sound: slice_as_uninit_mut() widens &mut [u8] to &mut [MaybeUninit<u8>] (always-sound direction, MaybeUninit<u8> is layout-identical to u8); write_bytes() slices dst to src.len() (panics via normal slice-index bounds check if src is longer - debug_assert_eq is a redundant early check, not the safety boundary) then ptr::copy_nonoverlapping's src into dst (both slices non-aliasing in every call site: src is always a stack-local array or &'static byte-string literal, never the caller's buffer); assume_init_ascii_mut() (itself unsafe fn, documented caller-must-init-and-ASCII contract) reinterprets back to &mut str, mirroring the pre-existing str::from_utf8_unchecked_mut pattern used elsewhere in this file. Every encode_*_uninit call site pre-slices its buffer to the exact required LENGTH (panics per documented contract if too small) and immediately calls write_bytes with a same-length source, so lengths match by construction. New tests (encode_lower_uninit/encode_upper_uninit) exercise all four format variants and assert bytes outside the written region are untouched. No new dependencies (Cargo.toml diff is version-string only), no I/O, no build.rs, no public-API removal (only additions)."
+
+[[trusted.aho-corasick]]
+criteria = "safe-to-deploy"
+user-id = 189 # Andrew Gallant (BurntSushi)
+start = "2019-03-28"
+end = "2027-07-20"
+notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
+
+[[trusted.anstream]]
+criteria = "safe-to-deploy"
+user-id = 6743 # Ed Page (epage)
+start = "2023-03-16"
+end = "2027-07-20"
+notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
+
+[[trusted.anstyle]]
+criteria = "safe-to-deploy"
+user-id = 6743 # Ed Page (epage)
+start = "2022-05-18"
+end = "2027-07-20"
+notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
+
+[[trusted.anstyle-parse]]
+criteria = "safe-to-deploy"
+user-id = 6743 # Ed Page (epage)
+start = "2023-03-08"
+end = "2027-07-20"
+notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
+
+[[trusted.anstyle-query]]
+criteria = "safe-to-deploy"
+user-id = 6743 # Ed Page (epage)
+start = "2023-04-13"
+end = "2027-07-20"
+notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
+
+[[trusted.anstyle-wincon]]
+criteria = "safe-to-deploy"
+user-id = 6743 # Ed Page (epage)
+start = "2023-03-08"
+end = "2027-07-20"
+notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
+
+[[trusted.anyhow]]
+criteria = "safe-to-deploy"
+user-id = 3618 # David Tolnay (dtolnay)
+start = "2019-10-05"
+end = "2027-07-20"
+notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
+
+[[trusted.assert_cmd]]
+criteria = "safe-to-deploy"
+user-id = 6743 # Ed Page (epage)
+start = "2019-03-23"
+end = "2027-07-20"
+notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
+
+[[trusted.bstr]]
+criteria = "safe-to-deploy"
+user-id = 189 # Andrew Gallant (BurntSushi)
+start = "2019-04-02"
+end = "2027-07-20"
+notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
+
+[[trusted.cc]]
+criteria = "safe-to-deploy"
+trusted-publisher = "github:rust-lang/cc-rs"
+start = "2025-09-01"
+end = "2027-07-20"
+notes = "Official rust-lang org crate, trusted-publisher (GitHub Actions attestation) signature already vouched for by the imported ultrafastfilesearch audits."
+
+[[trusted.clap_builder]]
+criteria = "safe-to-deploy"
+user-id = 6743 # Ed Page (epage)
+start = "2023-03-28"
+end = "2027-07-20"
+notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
+
+[[trusted.clap_lex]]
+criteria = "safe-to-deploy"
+user-id = 6743 # Ed Page (epage)
+start = "2022-04-15"
+end = "2027-07-20"
+notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
+
+[[trusted.colorchoice]]
+criteria = "safe-to-deploy"
+user-id = 6743 # Ed Page (epage)
+start = "2023-04-13"
+end = "2027-07-20"
+notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
+
+[[trusted.is_terminal_polyfill]]
+criteria = "safe-to-deploy"
+user-id = 6743 # Ed Page (epage)
+start = "2024-05-02"
+end = "2027-07-20"
+notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
+
+[[trusted.memchr]]
+criteria = "safe-to-deploy"
+user-id = 189 # Andrew Gallant (BurntSushi)
+start = "2019-07-07"
+end = "2027-07-20"
+notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
+
+[[trusted.once_cell_polyfill]]
+criteria = "safe-to-deploy"
+user-id = 6743 # Ed Page (epage)
+start = "2025-05-22"
+end = "2027-07-20"
+notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
+
+[[trusted.proc-macro2]]
+criteria = "safe-to-deploy"
+user-id = 3618 # David Tolnay (dtolnay)
+start = "2019-04-23"
+end = "2027-07-20"
+notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
+
+[[trusted.quote]]
+criteria = "safe-to-deploy"
+user-id = 3618 # David Tolnay (dtolnay)
+start = "2019-04-09"
+end = "2027-07-20"
+notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
+
+[[trusted.regex]]
+criteria = "safe-to-deploy"
+user-id = 189 # Andrew Gallant (BurntSushi)
+start = "2019-02-27"
+end = "2027-07-20"
+notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
+
+[[trusted.regex-automata]]
+criteria = "safe-to-deploy"
+user-id = 189 # Andrew Gallant (BurntSushi)
+start = "2019-02-25"
+end = "2027-07-20"
+notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
+
+[[trusted.regex-syntax]]
+criteria = "safe-to-deploy"
+user-id = 189 # Andrew Gallant (BurntSushi)
+start = "2019-03-30"
+end = "2027-07-20"
+notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
+
+[[trusted.rustversion]]
+criteria = "safe-to-deploy"
+user-id = 3618 # David Tolnay (dtolnay)
+start = "2019-07-08"
+end = "2027-07-20"
+notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
+
+[[trusted.serde]]
+criteria = "safe-to-deploy"
+user-id = 3618 # David Tolnay (dtolnay)
+start = "2019-03-01"
+end = "2027-07-20"
+notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
+
+[[trusted.serde_core]]
+criteria = "safe-to-deploy"
+user-id = 3618 # David Tolnay (dtolnay)
+start = "2025-09-13"
+end = "2027-07-20"
+notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
+
+[[trusted.serde_derive]]
+criteria = "safe-to-deploy"
+user-id = 3618 # David Tolnay (dtolnay)
+start = "2019-03-01"
+end = "2027-07-20"
+notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
+
+[[trusted.serde_json]]
+criteria = "safe-to-deploy"
+user-id = 3618 # David Tolnay (dtolnay)
+start = "2019-02-28"
+end = "2027-07-20"
+notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
+
+[[trusted.serde_spanned]]
+criteria = "safe-to-deploy"
+user-id = 6743 # Ed Page (epage)
+start = "2023-01-20"
+end = "2027-07-20"
+notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
+
+[[trusted.syn]]
+criteria = "safe-to-deploy"
+user-id = 3618 # David Tolnay (dtolnay)
+start = "2019-03-01"
+end = "2027-07-20"
+notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
+
+[[trusted.toml_datetime]]
+criteria = "safe-to-deploy"
+user-id = 6743 # Ed Page (epage)
+start = "2022-10-21"
+end = "2027-07-20"
+notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
+
+[[trusted.toml_parser]]
+criteria = "safe-to-deploy"
+user-id = 6743 # Ed Page (epage)
+start = "2025-07-08"
+end = "2027-07-20"
+notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
+
+[[trusted.toml_writer]]
+criteria = "safe-to-deploy"
+user-id = 6743 # Ed Page (epage)
+start = "2025-07-08"
+end = "2027-07-20"
+notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
+
+[[trusted.winnow]]
+criteria = "safe-to-deploy"
+user-id = 6743 # Ed Page (epage)
+start = "2023-02-22"
+end = "2027-07-20"
+notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
+
+[[trusted.zmij]]
+criteria = "safe-to-deploy"
+user-id = 3618 # David Tolnay (dtolnay)
+start = "2025-12-18"
+end = "2027-07-20"
+notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
