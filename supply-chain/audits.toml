@@ -1,8 +1,122 @@
 
 # cargo-vet audits file
 
+[[audits.anyhow]]
+who = "Robert M1 (via Claude review) <openclauderobert@nios.net>"
+criteria = "safe-to-deploy"
+delta = "1.0.103 -> 1.0.104"
+notes = "Reviewed full crate-source diff 1.0.103 -> 1.0.104 (crates.io tarballs). Only change is a version-string bump (Cargo.toml, docs.rs URL in lib.rs) plus a dev-dependency bump (syn 2.0 -> 3, dev-only, does not affect the published library). No src/ logic change, build.rs unchanged, no unsafe, no new runtime dependencies, no public-API change."
+
+[[audits.clap]]
+who = "Robert M1 (via Claude review) <openclauderobert@nios.net>"
+criteria = "safe-to-deploy"
+delta = "4.6.1 -> 4.6.3"
+notes = "Reviewed full crate-source diff 4.6.1 -> 4.6.3 (crates.io tarballs). Only changes: doc-comment addition, CHANGELOG URL version bump, and example-file cosmetic cleanups (clippy-style .to_string()->.to_owned(), format-arg inlining). No library logic change, no unsafe, no new dependencies, no public-API change."
+
+[[audits.clap_builder]]
+who = "Robert M1 (via Claude review) <openclauderobert@nios.net>"
+criteria = "safe-to-deploy"
+delta = "4.6.0 -> 4.6.2"
+notes = "Reviewed full crate-source diff 4.6.0 -> 4.6.2 (crates.io tarballs). Changes: help_template.rs adds a pluralize() helper for 'alias'/'aliases' text (matches upstream CHANGELOG 4.6.2 'say alias when there is only one'); remaining diffs are non-behavioral clippy cleanups (match-with-return -> ?-operator sugar in arg.rs, .to_string()->.to_owned() in parser/validator/suggestions, a comment typo fix). No unsafe, no I/O, no new dependencies, no parsing/validation logic change beyond the cosmetic help-text pluralization."
+
+[[audits.clap_derive]]
+who = "Robert M1 (via Claude review) <openclauderobert@nios.net>"
+criteria = "safe-to-deploy"
+delta = "4.6.1 -> 4.6.3"
+notes = """Reviewed full crate-source diff 4.6.1 -> 4.6.3 (crates.io tarballs). attr.rs: refactors attribute-value parsing to fold the LitStr special case into the general Expr path, additionally allowing "literal".function() as an attribute value (matches upstream CHANGELOG 4.6.3 'allow "literal".function() as attribute values'). Proc-macro (build-time) code only; no unsafe, no I/O, no new dependencies, no change to the set of externally observable derive outputs for existing valid inputs."""
+
+[[audits.futures]]
+who = "Robert M1 (via Claude review) <openclauderobert@nios.net>"
+criteria = "safe-to-deploy"
+delta = "0.3.32 -> 0.3.33"
+notes = "Reviewed full crate-source diff 0.3.32 -> 0.3.33 across all 9 futures-family crates (crates.io tarballs), matching upstream CHANGELOG. Real fixes reviewed and confirmed sound: (1) io/read_until.rs reorders consume()/*read+= to fix ReadLine exception-safety on panic mid-consume; (2) compat/compat01as03.rs wraps NotifyWaker in UnsafeCell + adds unsafe impl Send/Sync, replacing UB (mut pointer cast from &self) with a legitimate UnsafeCell::get() derivation - same runtime behavior, fixes a real stacked-borrows violation; (3) futures_unordered/iter.rs fixes a genuine memory leak (IntoIter::next never released the Arc-refcounted Task node; now does) and tightens IterPinRef's Send bound from Fut: Send to the correct Fut: Sync (yields shared Pin<&Fut> refs - strictly more conservative, cannot introduce new unsoundness). Remainder of the diff is portable-atomic/portable-atomic-alloc feature-gating plumbing (additive, cfg-gated, dead code in this workspace - confirmed no crate here activates those features), doc-link cleanups, and a redundant cfg_attr->cfg simplification. No unsafe outside the two reviewed fixes above, no new I/O, no build.rs, no new required dependencies, no public-API break."
+
+[[audits.futures-channel]]
+who = "Robert M1 (via Claude review) <openclauderobert@nios.net>"
+criteria = "safe-to-deploy"
+delta = "0.3.32 -> 0.3.33"
+notes = "Reviewed full crate-source diff 0.3.32 -> 0.3.33 across all 9 futures-family crates (crates.io tarballs), matching upstream CHANGELOG. Real fixes reviewed and confirmed sound: (1) io/read_until.rs reorders consume()/*read+= to fix ReadLine exception-safety on panic mid-consume; (2) compat/compat01as03.rs wraps NotifyWaker in UnsafeCell + adds unsafe impl Send/Sync, replacing UB (mut pointer cast from &self) with a legitimate UnsafeCell::get() derivation - same runtime behavior, fixes a real stacked-borrows violation; (3) futures_unordered/iter.rs fixes a genuine memory leak (IntoIter::next never released the Arc-refcounted Task node; now does) and tightens IterPinRef's Send bound from Fut: Send to the correct Fut: Sync (yields shared Pin<&Fut> refs - strictly more conservative, cannot introduce new unsoundness). Remainder of the diff is portable-atomic/portable-atomic-alloc feature-gating plumbing (additive, cfg-gated, dead code in this workspace - confirmed no crate here activates those features), doc-link cleanups, and a redundant cfg_attr->cfg simplification. No unsafe outside the two reviewed fixes above, no new I/O, no build.rs, no new required dependencies, no public-API break."
+
+[[audits.futures-core]]
+who = "Robert M1 (via Claude review) <openclauderobert@nios.net>"
+criteria = "safe-to-deploy"
+delta = "0.3.32 -> 0.3.33"
+notes = "Reviewed full crate-source diff 0.3.32 -> 0.3.33 across all 9 futures-family crates (crates.io tarballs), matching upstream CHANGELOG. Real fixes reviewed and confirmed sound: (1) io/read_until.rs reorders consume()/*read+= to fix ReadLine exception-safety on panic mid-consume; (2) compat/compat01as03.rs wraps NotifyWaker in UnsafeCell + adds unsafe impl Send/Sync, replacing UB (mut pointer cast from &self) with a legitimate UnsafeCell::get() derivation - same runtime behavior, fixes a real stacked-borrows violation; (3) futures_unordered/iter.rs fixes a genuine memory leak (IntoIter::next never released the Arc-refcounted Task node; now does) and tightens IterPinRef's Send bound from Fut: Send to the correct Fut: Sync (yields shared Pin<&Fut> refs - strictly more conservative, cannot introduce new unsoundness). Remainder of the diff is portable-atomic/portable-atomic-alloc feature-gating plumbing (additive, cfg-gated, dead code in this workspace - confirmed no crate here activates those features), doc-link cleanups, and a redundant cfg_attr->cfg simplification. No unsafe outside the two reviewed fixes above, no new I/O, no build.rs, no new required dependencies, no public-API break."
+
+[[audits.futures-executor]]
+who = "Robert M1 (via Claude review) <openclauderobert@nios.net>"
+criteria = "safe-to-deploy"
+delta = "0.3.32 -> 0.3.33"
+notes = "Reviewed full crate-source diff 0.3.32 -> 0.3.33 across all 9 futures-family crates (crates.io tarballs), matching upstream CHANGELOG. Real fixes reviewed and confirmed sound: (1) io/read_until.rs reorders consume()/*read+= to fix ReadLine exception-safety on panic mid-consume; (2) compat/compat01as03.rs wraps NotifyWaker in UnsafeCell + adds unsafe impl Send/Sync, replacing UB (mut pointer cast from &self) with a legitimate UnsafeCell::get() derivation - same runtime behavior, fixes a real stacked-borrows violation; (3) futures_unordered/iter.rs fixes a genuine memory leak (IntoIter::next never released the Arc-refcounted Task node; now does) and tightens IterPinRef's Send bound from Fut: Send to the correct Fut: Sync (yields shared Pin<&Fut> refs - strictly more conservative, cannot introduce new unsoundness). Remainder of the diff is portable-atomic/portable-atomic-alloc feature-gating plumbing (additive, cfg-gated, dead code in this workspace - confirmed no crate here activates those features), doc-link cleanups, and a redundant cfg_attr->cfg simplification. No unsafe outside the two reviewed fixes above, no new I/O, no build.rs, no new required dependencies, no public-API break."
+
+[[audits.futures-io]]
+who = "Robert M1 (via Claude review) <openclauderobert@nios.net>"
+criteria = "safe-to-deploy"
+delta = "0.3.32 -> 0.3.33"
+notes = "Reviewed full crate-source diff 0.3.32 -> 0.3.33 across all 9 futures-family crates (crates.io tarballs), matching upstream CHANGELOG. Real fixes reviewed and confirmed sound: (1) io/read_until.rs reorders consume()/*read+= to fix ReadLine exception-safety on panic mid-consume; (2) compat/compat01as03.rs wraps NotifyWaker in UnsafeCell + adds unsafe impl Send/Sync, replacing UB (mut pointer cast from &self) with a legitimate UnsafeCell::get() derivation - same runtime behavior, fixes a real stacked-borrows violation; (3) futures_unordered/iter.rs fixes a genuine memory leak (IntoIter::next never released the Arc-refcounted Task node; now does) and tightens IterPinRef's Send bound from Fut: Send to the correct Fut: Sync (yields shared Pin<&Fut> refs - strictly more conservative, cannot introduce new unsoundness). Remainder of the diff is portable-atomic/portable-atomic-alloc feature-gating plumbing (additive, cfg-gated, dead code in this workspace - confirmed no crate here activates those features), doc-link cleanups, and a redundant cfg_attr->cfg simplification. No unsafe outside the two reviewed fixes above, no new I/O, no build.rs, no new required dependencies, no public-API break."
+
+[[audits.futures-macro]]
+who = "Robert M1 (via Claude review) <openclauderobert@nios.net>"
+criteria = "safe-to-deploy"
+delta = "0.3.32 -> 0.3.33"
+notes = "Reviewed full crate-source diff 0.3.32 -> 0.3.33 across all 9 futures-family crates (crates.io tarballs), matching upstream CHANGELOG. Real fixes reviewed and confirmed sound: (1) io/read_until.rs reorders consume()/*read+= to fix ReadLine exception-safety on panic mid-consume; (2) compat/compat01as03.rs wraps NotifyWaker in UnsafeCell + adds unsafe impl Send/Sync, replacing UB (mut pointer cast from &self) with a legitimate UnsafeCell::get() derivation - same runtime behavior, fixes a real stacked-borrows violation; (3) futures_unordered/iter.rs fixes a genuine memory leak (IntoIter::next never released the Arc-refcounted Task node; now does) and tightens IterPinRef's Send bound from Fut: Send to the correct Fut: Sync (yields shared Pin<&Fut> refs - strictly more conservative, cannot introduce new unsoundness). Remainder of the diff is portable-atomic/portable-atomic-alloc feature-gating plumbing (additive, cfg-gated, dead code in this workspace - confirmed no crate here activates those features), doc-link cleanups, and a redundant cfg_attr->cfg simplification. No unsafe outside the two reviewed fixes above, no new I/O, no build.rs, no new required dependencies, no public-API break."
+
+[[audits.futures-sink]]
+who = "Robert M1 (via Claude review) <openclauderobert@nios.net>"
+criteria = "safe-to-deploy"
+delta = "0.3.32 -> 0.3.33"
+notes = "Reviewed full crate-source diff 0.3.32 -> 0.3.33 across all 9 futures-family crates (crates.io tarballs), matching upstream CHANGELOG. Real fixes reviewed and confirmed sound: (1) io/read_until.rs reorders consume()/*read+= to fix ReadLine exception-safety on panic mid-consume; (2) compat/compat01as03.rs wraps NotifyWaker in UnsafeCell + adds unsafe impl Send/Sync, replacing UB (mut pointer cast from &self) with a legitimate UnsafeCell::get() derivation - same runtime behavior, fixes a real stacked-borrows violation; (3) futures_unordered/iter.rs fixes a genuine memory leak (IntoIter::next never released the Arc-refcounted Task node; now does) and tightens IterPinRef's Send bound from Fut: Send to the correct Fut: Sync (yields shared Pin<&Fut> refs - strictly more conservative, cannot introduce new unsoundness). Remainder of the diff is portable-atomic/portable-atomic-alloc feature-gating plumbing (additive, cfg-gated, dead code in this workspace - confirmed no crate here activates those features), doc-link cleanups, and a redundant cfg_attr->cfg simplification. No unsafe outside the two reviewed fixes above, no new I/O, no build.rs, no new required dependencies, no public-API break."
+
+[[audits.futures-task]]
+who = "Robert M1 (via Claude review) <openclauderobert@nios.net>"
+criteria = "safe-to-deploy"
+delta = "0.3.32 -> 0.3.33"
+notes = "Reviewed full crate-source diff 0.3.32 -> 0.3.33 across all 9 futures-family crates (crates.io tarballs), matching upstream CHANGELOG. Real fixes reviewed and confirmed sound: (1) io/read_until.rs reorders consume()/*read+= to fix ReadLine exception-safety on panic mid-consume; (2) compat/compat01as03.rs wraps NotifyWaker in UnsafeCell + adds unsafe impl Send/Sync, replacing UB (mut pointer cast from &self) with a legitimate UnsafeCell::get() derivation - same runtime behavior, fixes a real stacked-borrows violation; (3) futures_unordered/iter.rs fixes a genuine memory leak (IntoIter::next never released the Arc-refcounted Task node; now does) and tightens IterPinRef's Send bound from Fut: Send to the correct Fut: Sync (yields shared Pin<&Fut> refs - strictly more conservative, cannot introduce new unsoundness). Remainder of the diff is portable-atomic/portable-atomic-alloc feature-gating plumbing (additive, cfg-gated, dead code in this workspace - confirmed no crate here activates those features), doc-link cleanups, and a redundant cfg_attr->cfg simplification. No unsafe outside the two reviewed fixes above, no new I/O, no build.rs, no new required dependencies, no public-API break."
+
+[[audits.futures-util]]
+who = "Robert M1 (via Claude review) <openclauderobert@nios.net>"
+criteria = "safe-to-deploy"
+delta = "0.3.32 -> 0.3.33"
+notes = "Reviewed full crate-source diff 0.3.32 -> 0.3.33 across all 9 futures-family crates (crates.io tarballs), matching upstream CHANGELOG. Real fixes reviewed and confirmed sound: (1) io/read_until.rs reorders consume()/*read+= to fix ReadLine exception-safety on panic mid-consume; (2) compat/compat01as03.rs wraps NotifyWaker in UnsafeCell + adds unsafe impl Send/Sync, replacing UB (mut pointer cast from &self) with a legitimate UnsafeCell::get() derivation - same runtime behavior, fixes a real stacked-borrows violation; (3) futures_unordered/iter.rs fixes a genuine memory leak (IntoIter::next never released the Arc-refcounted Task node; now does) and tightens IterPinRef's Send bound from Fut: Send to the correct Fut: Sync (yields shared Pin<&Fut> refs - strictly more conservative, cannot introduce new unsoundness). Remainder of the diff is portable-atomic/portable-atomic-alloc feature-gating plumbing (additive, cfg-gated, dead code in this workspace - confirmed no crate here activates those features), doc-link cleanups, and a redundant cfg_attr->cfg simplification. No unsafe outside the two reviewed fixes above, no new I/O, no build.rs, no new required dependencies, no public-API break."
+
+[[audits.regex]]
+who = "Robert M1 (via Claude review) <openclauderobert@nios.net>"
+criteria = "safe-to-deploy"
+delta = "1.13.0 -> 1.13.1"
+notes = "Reviewed full crate-source diff 1.13.0 -> 1.13.1 (crates.io tarballs). regex itself has no source changes (only CHANGELOG.md, testdata/regression.toml, Cargo.toml version bump) - this release is purely a regex-automata dependency bump; see the regex-automata 0.4.15->0.4.16 audit for the real fix."
+
+[[audits.regex-automata]]
+who = "Robert M1 (via Claude review) <openclauderobert@nios.net>"
+criteria = "safe-to-deploy"
+delta = "0.4.15 -> 0.4.16"
+notes = "Reviewed full crate-source diff 0.4.15 -> 0.4.16 (crates.io tarballs). Matches upstream CHANGELOG: fixes unsound reverse-suffix/inner literal-optimization logic that could report incorrect match offsets (not incorrect match/no-match, just where a match is reported - upstream PR #1364). Touches meta/strategy.rs, meta/regex.rs, meta/wrappers.rs, meta/mod.rs, meta/limited.rs, meta/reverse_inner.rs, dfa/search.rs, hybrid/search.rs, util/look.rs, util/prefilter/*.rs, plus a new meta/reverse_suffix.rs (270 lines, extracted/refactored optimization logic) and reverse_suffix.rs (new). Confirmed via full-diff grep: zero new 'unsafe' blocks (the only matches are test names like reverse_suffix_rejects_unsafe_overlap), no new I/O, no build.rs changes, no new dependencies. New regression tests specifically target the fixed bug. Official upstream maintainer (BurntSushi), changelog + linked PR match the diff exactly. Worst-case impact of any residual bug in this refactor is a wrong match-offset report (the class of bug being fixed), not memory unsafety, since the whole diff is safe Rust."
+
+[[audits.tokio]]
+who = "Robert M1 (via Claude review) <openclauderobert@nios.net>"
+criteria = "safe-to-deploy"
+delta = "1.52.3 -> 1.53.0"
+notes = "Reviewed crate-source diff 1.52.3 -> 1.53.0 (crates.io tarballs), scoped to what our feature set actually compiles (default-features=false; io-util, macros, rt, rt-multi-thread, signal, sync, time, tracing - no fs/net/process/uring). Excluded from deep review as confirmed dead code for this build: io_uring (fs/net io-uring ops, tests/fs_uring_*, requires unstable uring feature + Linux), runtime/metrics (schedule_latency, opt-in histogram), runtime/time_alt (new alt timer wheel, gated #[cfg(all(tokio_unstable, feature='rt-multi-thread'))]), runtime/task/trace + runtime/dump.rs (taskdump, gated cfg_taskdump! which requires tokio_unstable) - none of these compile without RUSTFLAGS=--cfg tokio_unstable, which this workspace does not set. Of the 74 remaining stable-path src files: zero new 'unsafe' occurrences anywhere in the diff (grep-verified across the full set); manually read full diffs of the highest-risk concurrency files (scheduler/multi_thread/worker.rs, scheduler/multi_thread/queue.rs, task/state.rs, task/raw.rs) and confirmed each change is either (a) wiring for the new opt-in schedule-latency metric (cheap is_some() no-ops when unused) or (b) a cosmetic cfg_taskdump!-macro consolidation / non-behavioral refactor (e.g. queue.rs buffer-init loop -> iter::repeat_with().take().collect(), same elements) - no scheduling/stealing/timer algorithm changes. Cargo.toml: version bump + one new empty feature flag (schedule-latency = [], not activated by us) + new uring-only [[test]] entries; no new runtime dependencies, no build.rs (tokio has none). Changelog cross-checked: every listed Fixed/Changed item traces to either the excluded unstable subsystems or the reviewed cosmetic changes."
+
+[[audits.toml]]
+who = "Robert M1 (via Claude review) <openclauderobert@nios.net>"
+criteria = "safe-to-deploy"
+delta = "1.1.2+spec-1.1.0 -> 1.1.3+spec-1.1.0"
+notes = "Reviewed full crate-source diff (crates.io tarballs). Only change: two self.span.clone() -> self.span in src/de/deserializer/value.rs (span is Copy; removing the redundant .clone() is a no-op stylistic cleanup). No logic change, no unsafe, no new dependencies, no public-API change."
+
+[[audits.toml_writer]]
+who = "Robert M1 (via Claude review) <openclauderobert@nios.net>"
+criteria = "safe-to-deploy"
+delta = "1.1.1+spec-1.1.0 -> 1.1.2+spec-1.1.0"
+notes = "Reviewed full crate-source diff (crates.io tarballs). Matches upstream 'fix(writer): Don't overflow' (#1189): src/string.rs's consecutive-quote-run counters (prev_single_quotes/prev_double_quotes) switch from a plain usize += 1 to core::num::Saturating, preventing overflow on a pathological run of thousands of consecutive quote characters in a single TOML string value. Worst case pre-fix was a wrong escaping-metric count (or a debug-mode overflow panic), not memory unsafety. No unsafe, no new external dependencies (core::num::Saturating is a stdlib type), no public-API change."
+
 [[audits.uuid]]
 who = "Robert M1 (via Claude review) <openclauderobert@nios.net>"
 criteria = "safe-to-deploy"
 delta = "1.23.4 -> 1.23.5"
 notes = "Reviewed full crate-source diff 1.23.4 -> 1.23.5 (crates.io tarballs). Material changes are confined to src/fmt.rs and src/parser.rs: hex encode/decode refactored from static lookup tables (UPPER/LOWER, HEX_TABLE/SHL4_TABLE) to branchless const fns (nibble_to_hex, decode_hex32); format_hyphenated now derives from format_simple with the standard 8-4-4-4-12 offsets. Arithmetic verified: nibble+b'0'+0x27/0x07 maps 10..15 to a..f/A..F; decode rejects non-hex via accumulated bad flag. Remainder: rustdoc link fix in src/external/serde_support.rs, version-string bumps, and a dev-only benchmark harness (gungraun =0.19.2, cfg(not(wasm32)) dev-dependency; benches not packaged). No unsafe (0 occurrences in diff), no I/O, no build.rs, no new runtime dependencies, no public-API change."
+
+[[audits.uuid]]
+who = "Robert M1 (via Claude review) <openclauderobert@nios.net>"
+criteria = "safe-to-deploy"
+delta = "1.23.5 -> 1.24.0"
+notes = "Reviewed full crate-source diff 1.23.5 -> 1.24.0 (crates.io tarballs). Continues today's 1.23.4->1.23.5 delta audit chain. Adds MaybeUninit-buffer encoding API (encode_lower_uninit/encode_upper_uninit on Hyphenated/Simple/Urn/Braced), matching upstream CHANGELOG. New unsafe code in src/fmt.rs, individually verified sound: slice_as_uninit_mut() widens &mut [u8] to &mut [MaybeUninit<u8>] (always-sound direction, MaybeUninit<u8> is layout-identical to u8); write_bytes() slices dst to src.len() (panics via normal slice-index bounds check if src is longer - debug_assert_eq is a redundant early check, not the safety boundary) then ptr::copy_nonoverlapping's src into dst (both slices non-aliasing in every call site: src is always a stack-local array or &'static byte-string literal, never the caller's buffer); assume_init_ascii_mut() (itself unsafe fn, documented caller-must-init-and-ASCII contract) reinterprets back to &mut str, mirroring the pre-existing str::from_utf8_unchecked_mut pattern used elsewhere in this file. Every encode_*_uninit call site pre-slices its buffer to the exact required LENGTH (panics per documented contract if too small) and immediately calls write_bytes with a same-length source, so lengths match by construction. New tests (encode_lower_uninit/encode_upper_uninit) exercise all four format variants and assert bytes outside the written region are untouched. No new dependencies (Cargo.toml diff is version-string only), no I/O, no build.rs, no public-API removal (only additions)."
