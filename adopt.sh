@@ -70,6 +70,12 @@ say "rust-forge adopt: scaffolding for an existing project"
 if [[ -f docs/forge/FORGE-STAMP.toml ]]; then
     die "this repo already has a forge stamp (docs/forge/FORGE-STAMP.toml) - already forged or adopted. If that's wrong (the file predates this repo's own history, or was copied in by hand), remove it and re-run."
 fi
+# The stamp lives on the adopt branch until that branch merges (adopt.sh
+# never touches your base branch), so re-running from base while a trial
+# is still in flight would NOT see it above - check for the branch too.
+if git rev-parse --verify --quiet adopt/rust-forge-scaffolding >/dev/null; then
+    die "branch adopt/rust-forge-scaffolding already exists - an adoption trial is in progress. 'just adopt-status' to see it, 'just adopt-undo' to discard it, or merge/delete the branch before re-running."
+fi
 command -v git >/dev/null || die "git is required"
 
 SLUG="${SLUG:-$(ask "Short project slug (lowercase, for crate/tool names)" "$(basename "$(pwd)" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9-')")}"
