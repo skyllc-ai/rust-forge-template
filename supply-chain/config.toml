@@ -16,7 +16,7 @@ url = "https://raw.githubusercontent.com/divviup/libprio-rs/main/supply-chain/au
 [imports.mozilla]
 url = "https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml"
 
-[imports.ultrafastfilesearch]
+[imports.uffs]
 url = "https://raw.githubusercontent.com/skyllc-ai/UltraFastFileSearch/main/supply-chain/audits.toml"
 
 [imports.zcash]
