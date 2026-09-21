@@ -434,7 +434,7 @@ jobs:
           rustc --version
 
       - name: Cache dependencies
-        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           # `shared-key:` (not `key:`) so the action's built-in fallback
           # restores partial matches when `Cargo.lock` shifts between
@@ -895,7 +895,7 @@ jobs:
         # set to 'true' (attestations need Sigstore/Fulcio setup the
         # template repo may not want yet).
         if: vars.LANE_SLSA == 'true'
-        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: "final-release/*"
 
@@ -1037,7 +1037,7 @@ jobs:
         # No `target_commitish`: the tag was just created at the built
         # commit by the step above, so the release simply references the
         # existing tag - sidestepping the commit-SHA-target 403 entirely.
-        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
         with:
           tag_name: ${{ needs.release-preparation.outputs.tag }}
           name: ${{ needs.release-preparation.outputs.release-name }}
