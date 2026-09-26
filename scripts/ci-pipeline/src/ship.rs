@@ -495,8 +495,7 @@ fn working_tree_fingerprint() -> String {
         std::process::Command::new("git")
             .args(args)
             .output()
-            .map(|out| out.stdout)
-            .unwrap_or_default()
+            .map_or_else(|_error| Vec::new(), |out| out.stdout)
     }
 
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
@@ -530,8 +529,9 @@ pub(crate) async fn run_enhanced_phase2(
     // Version increment (Path B, 2026-06-10): restored after R5 retired it.
     // release-plz only versions the 2 publishable leaf libs - it cannot drive
     // binary releases - so the lockstep workspace bump happens HERE, at the end
-    // of `just ship`, gated behind the resumable `version_incremented` flag so a
-    // re-run after a mid-ship failure never double-bumps.  Default level: patch.
+    // of `just ship`, gated behind the resumable `version_incremented` flag so
+    // a re-run after a mid-ship failure never double-bumps.  Default level:
+    // patch.
     if !state.version_incremented {
         bump_workspace_version("patch").context("Failed to bump workspace version")?;
         let new_version = get_current_version().context("Failed to read bumped version")?;

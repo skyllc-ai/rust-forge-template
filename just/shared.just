@@ -42,7 +42,10 @@ export CARGO_TERM_COLOR := "always"
 # sccache-stats`. The `sccache rustc -vV` probe (not just `command -v`)
 # matters: a present-but-sandboxed sccache would otherwise fail every
 # build with "Operation not permitted".
-sccache_detected := `command -v sccache >/dev/null 2>&1 && sccache rustc -vV >/dev/null 2>&1 && echo sccache || true`
+# OS-guarded: just evaluates backticks under the windows-shell on Windows,
+# where `command -v` does not exist - a bare probe kills EVERY recipe there
+# ("Backtick failed"). just only evaluates the taken branch.
+sccache_detected := if os_family() == "windows" { "" } else { `command -v sccache >/dev/null 2>&1 && sccache rustc -vV >/dev/null 2>&1 && echo sccache || true` }
 export RUSTC_WRAPPER := sccache_detected
 export CARGO_INCREMENTAL := if sccache_detected == "sccache" { "0" } else { "" }
 

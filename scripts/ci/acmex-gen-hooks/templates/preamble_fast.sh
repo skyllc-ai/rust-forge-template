@@ -62,7 +62,7 @@ fi
 # same file is a pre-push dead-end, so we split ownership at the
 # pre-commit hook: taplo handles every other TOML; cargo-vet handles
 # the store.
-STAGED_ALL=$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null || true)
+STAGED_ALL=$(git diff --cached --name-only --diff-filter=ACMRD 2>/dev/null || true)
 STAGED_TOML=$(printf '%s\n' "$STAGED_ALL" | grep '\.toml$' || true)
 STAGED_TOML_NONVET=$(printf '%s\n' "$STAGED_TOML" | grep -v '^supply-chain/' || true)
 STAGED_VET=$(printf '%s\n' "$STAGED_TOML" | grep '^supply-chain/' || true)

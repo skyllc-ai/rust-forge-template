@@ -669,12 +669,40 @@ workspace = true
         let m = parse_member(MEMBER_CLEAN).unwrap();
         let d = disc("crates/acmex-core/Cargo.toml", &m);
         let exc = KnownExceptions::new();
-        assert!(audit_metadata_fields(&d, "acmex-core", &exc).is_empty());
-        assert!(audit_deps_inherit_workspace(&d, "acmex-core", &exc).is_empty());
-        assert!(audit_lints_inherit_workspace(&d, "acmex-core").is_empty());
-        assert!(audit_no_workspace_policy_blocks(&d, "acmex-core").is_empty());
-        assert!(audit_publish_partition(&d, "acmex-core", &exc).is_empty());
-        assert!(audit_docs_rs_metadata_present(&d, "acmex-core").is_empty());
+        // Each check NAMED, and its findings printed on failure: a bare
+        // `assert!(x.is_empty())` here reported only that one of six
+        // checks fired, never which or why.
+        for (check, findings) in [
+            (
+                "metadata fields",
+                audit_metadata_fields(&d, "acmex-core", &exc),
+            ),
+            (
+                "deps inherit workspace",
+                audit_deps_inherit_workspace(&d, "acmex-core", &exc),
+            ),
+            (
+                "lints inherit workspace",
+                audit_lints_inherit_workspace(&d, "acmex-core"),
+            ),
+            (
+                "no workspace policy blocks",
+                audit_no_workspace_policy_blocks(&d, "acmex-core"),
+            ),
+            (
+                "publish partition",
+                audit_publish_partition(&d, "acmex-core", &exc),
+            ),
+            (
+                "docs.rs metadata present",
+                audit_docs_rs_metadata_present(&d, "acmex-core"),
+            ),
+        ] {
+            assert!(
+                findings.is_empty(),
+                "{check} fired on a clean member: {findings:?}"
+            );
+        }
     }
 
     #[test]
@@ -763,7 +791,10 @@ workspace = true
         let listed_exc = listed_exceptions();
         let d_listed = disc("crates/acmex-listed/Cargo.toml", &m);
         let suppressed = audit_lib_bin_name_convention(&d_listed, "acmex-listed", &listed_exc);
-        assert!(suppressed.is_empty());
+        assert!(
+            suppressed.is_empty(),
+            "allow-listed crate should suppress: {suppressed:?}"
+        );
     }
 
     #[test]

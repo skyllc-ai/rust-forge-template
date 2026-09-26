@@ -198,6 +198,41 @@ lint-ci-linux-zig:
         cargo-zigbuild clippy --workspace --all-targets --all-features --target x86_64-unknown-linux-gnu --no-deps -- -D warnings
     @printf "\033[0;32m✅ Linux clippy gate (zigbuild) passed\033[0m\n"
 
+# Cross-target strict lint gate for Intel macOS (x86_64-apple-darwin).
+#
+# The fourth supported platform (macOS ARM + Intel, Linux, Windows with
+# identical behavior). Cross-compiling from an arm64 host needs no extra
+# toolchain: the host clang assembles x86_64 objects via `-arch x86_64`;
+# only the rustup target must be installed (rust-toolchain.toml lists it,
+# so `rustup show` brings it in).
+#
+# `target-cpu` is pinned to the `x86-64-v2` baseline for the same reason
+# `lint-ci-linux-zig` pins `v3`: user-level `target-cpu=native` tuning
+# (see .cargo/config.toml notes) would leak the arm64 host CPU name into
+# an x86_64 build and corrupt codegen for C/asm in transitive deps.
+#
+# Host-guarded and target-guarded: cross-compiling TO darwin FROM
+# Linux/Windows requires an Apple SDK those hosts do not have, and a host
+# without the rustup target has not opted into the lane; both soft-skip
+# with a hint (lane:cross-lint posture: install the tools, opt in).
+
+# Cross-target strict lint gate for Intel macOS (x86_64-apple-darwin).
+lint-ci-mac-intel:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    printf "\033[0;34m🍏 Intel macOS clippy (x86_64-apple-darwin cross from host)...\033[0m\n"
+    if [ "$(uname -s)" != "Darwin" ]; then
+        printf "\033[1;33m⚠  host is not macOS - skipping (needs an Apple SDK; covered on macOS machines)\033[0m\n"
+        exit 0
+    fi
+    if ! rustup target list --installed | grep -q '^x86_64-apple-darwin$'; then
+        printf "\033[1;33m⚠  target x86_64-apple-darwin not installed - skipping; opt in with: \033[0;36mrustup target add x86_64-apple-darwin\033[0m\n"
+        exit 0
+    fi
+    CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS="-C target-cpu=x86-64-v2" \
+        cargo clippy --workspace --all-targets --all-features --target x86_64-apple-darwin --no-deps -- -D warnings
+    printf "\033[0;32m✅ Intel macOS clippy gate passed\033[0m\n"
+
 # Gate-manifest drift detector (Phase 1 of
 # `docs/architecture/gates-manifest-plan.md`).
 #

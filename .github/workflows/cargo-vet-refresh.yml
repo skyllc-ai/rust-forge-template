@@ -113,7 +113,7 @@ jobs:
         run: rustup show
 
       - name: Cache dependencies
-        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           # Unique suffix so this workflow's cache doesn't evict the
           # main CI cache (and vice versa).  cargo-vet's compile is
@@ -121,7 +121,7 @@ jobs:
           prefix-key: "vet-refresh"
 
       - name: Install cargo-vet
-        uses: taiki-e/install-action@dfc84ffb7254b048a0a843316ff5a2714dcdc7bd # v2
+        uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # v2.87.20
         with:
           tool: cargo-vet
 

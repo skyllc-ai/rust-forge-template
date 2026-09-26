@@ -384,7 +384,8 @@ jobs:
       - run: echo
 ";
         let workflow = parse(yaml).unwrap();
-        assert!(workflow.jobs["alone"].needs.is_empty());
+        let needs = &workflow.jobs["alone"].needs;
+        assert!(needs.is_empty(), "a job with no dependencies: {needs:?}");
     }
 
     #[test]

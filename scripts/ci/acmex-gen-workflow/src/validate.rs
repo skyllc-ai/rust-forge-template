@@ -342,8 +342,7 @@ fn check_aggregator_coverage(
     let required_needs: BTreeSet<String> = workflow
         .jobs
         .get("required")
-        .map(|job| job.needs.iter().cloned().collect())
-        .unwrap_or_default();
+        .map_or_else(BTreeSet::new, |job| job.needs.iter().cloned().collect());
     let aggregator_ids = extract_aggregator_ids(workflow_text)?;
 
     // Each manifest job-id must appear in both lists.  We dedupe via

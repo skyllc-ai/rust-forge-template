@@ -54,11 +54,13 @@ check-windows:
     cargo xwin check --workspace --all-targets --all-features --target x86_64-pc-windows-msvc
     @printf "\033[0;32m✅ Windows cross-check passed\033[0m\n"
 
-# Cross-platform compile check across all three supported targets.
+# Cross-platform compile check across all four supported platforms
+# (macOS ARM native, macOS Intel cross, Linux, Windows).
 #
-# Runs native (host) + Linux (via cargo-zigbuild when `zig` is on PATH,
-# else Docker `lint-ci-linux`) + Windows (via xwin, through
-# `check-windows`).  Intended as a manual "pre-PR sweep"; the pre-push
+# Runs native (host) + macOS Intel (cross, macOS hosts only) + Linux
+# (via cargo-zigbuild when `zig` is on PATH, else Docker
+# `lint-ci-linux`) + Windows (via xwin, through `check-windows`).
+# Intended as a manual "pre-PR sweep"; the pre-push
 # hook runs the host + Windows subset only (Linux is too slow for a
 # commit-time gate - CI covers it).
 #
@@ -75,10 +77,17 @@ check-windows:
 check-all-targets:
     #!/usr/bin/env bash
     set -euo pipefail
-    printf "\033[0;34m🌐 Cross-platform compile check (macOS + Linux + Windows)...\033[0m\n"
-    printf "\033[0;36m   ── macOS (native host) ──\033[0m\n"
+    printf "\033[0;34m🌐 Cross-platform compile check (macOS ARM + Intel, Linux, Windows)...\033[0m\n"
+    printf "\033[0;36m   ── native host ──\033[0m\n"
     cargo check --workspace --all-targets --all-features
     printf "\033[0;32m   ✅ native host\033[0m\n\n"
+    printf "\033[0;36m   ── macOS Intel x86_64-apple-darwin (cross from host) ──\033[0m\n"
+    if [ "$(uname -s)" = "Darwin" ]; then
+        just lint-ci-mac-intel
+        printf "\033[0;32m   ✅ macOS Intel\033[0m\n\n"
+    else
+        printf "\033[1;33m   ⚠  host is not macOS - skipping (needs an Apple SDK)\033[0m\n\n"
+    fi
     printf "\033[0;36m   ── Windows x86_64-pc-windows-msvc (xwin) ──\033[0m\n"
     if command -v cargo-xwin >/dev/null 2>&1; then
         cargo xwin check --workspace --all-targets --all-features --target x86_64-pc-windows-msvc
@@ -219,3 +228,28 @@ update-tools:
     Write-Host "  nextest:  $(cargo nextest --version 2>$null | Select-Object -First 1)"
 
 
+
+# Run the criterion benchmark suite (pass `-- --test` for a compile+smoke
+# pass, or a filter like `just bench hashing`).
+
+# Run the criterion benchmark suite (`just bench -- --test` for a smoke pass).
+bench *ARGS:
+    cargo bench --workspace {{ ARGS }}
+
+# Replicate Tier 2's failure-prone legs LOCALLY, before any dispatch:
+# CI validates last, it never debugs (the donor project paid five
+# dispatches to find what these commands reproduce for free - a lagging
+# cargo-udeps release, exclusion regexes that matched nothing, and an
+# exit code that conflates timeouts with escapes). Prerequisite once:
+# `cargo install cargo-udeps --version 0.1.61 --locked` - the SAME
+# version tier-2.yml pins; "latest" is how the lag bites. The mutants leg
+# is the honest cost of local validation; scope it with
+# `-f crates/acmex-core/src/<file>.rs` while iterating and run the full
+# leg before the dispatch.
+
+# Replicate the Tier 2 udeps + mutants legs locally before dispatching CI.
+tier2-local:
+    cargo fetch --locked
+    cargo udeps --locked --workspace --all-targets --all-features
+    -cargo mutants --package acmex-core --jobs 4 --no-shuffle
+    @if [ -s mutants.out/missed.txt ]; then echo "MISSED MUTANTS:"; cat mutants.out/missed.txt; exit 1; else echo "mutants: no escapes (timeouts are kills)"; fi

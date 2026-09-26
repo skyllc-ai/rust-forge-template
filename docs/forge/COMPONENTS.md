@@ -96,16 +96,79 @@ growth is a recipe. Never delete scaffolding to "simplify".**
 - **secrets/vars:** `LANE_SLSA=true`
 - **verify:** `gh attestation verify <artifact> --repo <owner>/<repo>`.
 
-## lane:cross-lint, Windows/Linux cross-target lint gates
+## lane:cross-lint, Windows/Linux/Intel-macOS cross-target lint gates
 
 - **what:** `lint-ci-windows` (cargo-xwin clippy), `lint-ci-linux-zig`
-  (cargo-zigbuild), `check-all-targets`. Recipes ship in `just/test.just` +
-  `just/dev.just` and soft-skip when tooling is absent.
+  (cargo-zigbuild), `lint-ci-mac-intel` (x86_64-apple-darwin from an arm64
+  host), `check-all-targets`. Recipes ship in `just/test.just` +
+  `just/dev.just`; the three gates are in `scripts/ci/gates.toml` at
+  pre-push as `hard = false` and soft-skip with an install hint when the
+  tool or target is absent, so the lane costs nothing until you install.
 - **tooling:** `cargo install cargo-xwin cargo-zigbuild`; `zig` 0.14.x
-  (`just install-dev-tools` covers all three)
-- **touches:** to make them blocking, add the gate ids to the relevant `tiers`
-  arrays in `scripts/ci/gates.toml` and run `just acmex-gen-hooks`.
+  (`just install-dev-tools` covers all three); `rustup target add
+  x86_64-apple-darwin` (rust-toolchain.toml lists it).
+- **touches:** nothing to enable locally (install the tools). To make a gate
+  hard, flip its `hard` in `scripts/ci/gates.toml` and run
+  `just acmex-gen-hooks`.
 - **verify:** `just check-all-targets`, then `just gates-drift`.
+
+## lane:preview, preview binaries for a PR
+
+- **what:** `preview-artifacts.yml` builds real binaries (Windows via
+  cargo-xwin on Linux plus a Windows nextest-archive smoke, static-musl
+  Linux, optionally macOS arm64 + Intel) for one SHA and uploads them with a
+  SHA256 manifest. Never blocks a merge; refuses to build a SHA whose
+  `PR Fast CI / required` is not green.
+- **prerequisites:** none
+- **secrets/vars:** none; the labels `preview-artifacts` and `preview-macos`
+  (created by `bootstrap-github.sh`) or a `workflow_dispatch`.
+- **runbook:** label the PR `preview-artifacts` (+ `preview-macos`), or
+  `gh workflow run preview-artifacts.yml -f sha=<sha> -f targets=windows,linux,macos`.
+- **verify:** the run's `manifest-<sha>` artifact lists every file with its
+  hash, rustc and the tested SHA.
+
+## lane:brew, Homebrew tap formula per release
+
+- **what:** `brew-publish.yml` renders `packaging/homebrew/acmex.rb` with the
+  release's asset URLs and SHA256s and pushes it to the tap repository;
+  `release.yml` dispatches it after the release exists (same shape as winget).
+- **prerequisites:** lane:release live; a tap repository
+  (`<owner>/homebrew-acmex` by default, or the `HOMEBREW_TAP` variable).
+- **secrets/vars:** `LANE_BREW=true`; `HOMEBREW_TAP_TOKEN` (fine-grained PAT,
+  contents: write on the tap); optional `RELEASE_REPO` when releases live in a
+  separate public repository.
+- **verify:** `brew install <owner>/acmex/acmex` after the first release.
+
+## lane:codesign, stable macOS binary identity and notarized releases
+
+- **what:** `just/codesign.just` (`setup-codesign`, `build-signed`,
+  `sign-binaries`, `doctor-codesign`, `resign-installed`,
+  `secrets-sync-apple`), `packaging/macos/acmex.entitlements`, and the
+  secrets-gated Developer ID + notarization steps in `release.yml`.
+  Full story: `docs/forge/CODE-SIGNING.md`.
+- **prerequisites:** none for development (a self-signed identity); an Apple
+  Developer Program membership for notarized releases.
+- **secrets/vars:** none locally (`ACMEX_CODESIGN_IDENTITY` to pick an
+  identity); for releases the seven `APPLE_*` secrets listed in
+  `docs/forge/CODE-SIGNING.md` section 5. Absent secrets = ad-hoc signing.
+- **runbook:** `just setup-codesign`, then `just build-signed` instead of
+  `cargo build` while working on privacy-gated features.
+- **verify:** `just doctor-codesign` reports every built binary as
+  certificate-pinned.
+
+## lane:main-guard, server-side backstop for unverified merges
+
+- **what:** `main-merge-guard.yml` verifies every push to `main` came from a
+  PR whose head carries a successful `PR Fast CI / required` aggregate and
+  title check, auto-reverts one that did not (and files an issue); the
+  pre-push hook refuses direct, deleting and force pushes to `main`; and
+  `just merge` watches every check before merging. Together they make the
+  rules hold on a plan without rulesets.
+- **prerequisites:** none; always on. Once `just protect-main` has applied
+  `scripts/ci/main-ruleset.json` (rulesets need a public repo or GitHub
+  Pro/Team), the guard only ever confirms and can be retired.
+- **verify:** `just merge` on a PR with a red check refuses; a direct
+  `git push origin main` is refused by the hook.
 
 ## lane:brand-assets, trademarked brand files
 

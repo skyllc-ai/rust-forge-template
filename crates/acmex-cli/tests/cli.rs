@@ -7,11 +7,6 @@
 //! parse → validate → render → exit-code path is exercised exactly as a
 //! user would hit it.
 
-#![expect(
-    unused_crate_dependencies,
-    reason = "integration test - links the package's library deps it does not use"
-)]
-
 #[cfg(test)]
 mod tests {
     use assert_cmd::Command;

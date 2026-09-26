@@ -386,11 +386,13 @@ if [[ -n "$(git status --porcelain)" ]]; then
             git switch -c "chore/init-${pslug}"
             git add -A
             if git commit -m "chore: init ${pslug} from rust-forge-template"; then
+                # `just merge` (not `gh pr merge --auto`): without a ruleset
+                # nothing is "required" and --auto merges before CI runs.
                 git push -u origin "chore/init-${pslug}" \
                     && gh pr create --fill >/dev/null \
-                    && gh pr merge "chore/init-${pslug}" --auto \
-                    && ok "PR opened with auto-merge armed; it lands when CI is green" \
-                    || warn "commit made; push/PR needs a manual retry (see git output above)"
+                    && just merge "$(gh pr view --json number -q .number)" \
+                    && ok "init PR merged after every check passed" \
+                    || warn "commit made; push/PR/merge needs a manual retry (see output above; `just merge <PR>`)"
             else
                 warn "your hooks rejected the init commit; fix what they printed, then commit manually"
             fi
@@ -398,7 +400,7 @@ if [[ -n "$(git status --porcelain)" ]]; then
     else
         warn "init state left uncommitted: signing is not configured, and the pre-push"
         warn "gate would reject the push. Run 'just setup-signing', then:"
-        note "  git switch -c chore/init-${pslug} && git add -A && git commit -m 'chore: init ${pslug}' && git push -u origin chore/init-${pslug} && gh pr create --fill && gh pr merge chore/init-${pslug} --auto"
+        note "  git switch -c chore/init-${pslug} && git add -A && git commit -m 'chore: init ${pslug}' && git push -u origin chore/init-${pslug} && gh pr create --fill && just merge \$(gh pr view --json number -q .number)"
     fi
 fi
 

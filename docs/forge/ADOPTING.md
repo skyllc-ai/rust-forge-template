@@ -175,6 +175,49 @@ Everything here is reversible (rulesets can be disabled or set to
 core.hooksPath`), which is what makes the cutover safe to schedule rather
 than scary.
 
+## Upgrading later: `adopt.sh --upgrade` (and `just forge-upgrade`)
+
+The template keeps moving (new lints, a newer toolchain pin, gate and
+workflow fixes). A repo that was forged or adopted carries its baseline in
+`docs/forge/FORGE-STAMP.toml` (`template-version`, `template-commit`), and
+the same script that adopts brings it forward, on a branch, without erasing
+what you changed:
+
+```bash
+just forge-upgrade                # in any forged/adopted repo (clean tree)
+# = curl -fsSL .../adopt.sh | bash -s -- --upgrade
+just forge-upgrade-status         # branch, base, unresolved suggestions
+just go                           # keep it: push the branch, open a PR
+just forge-upgrade-undo           # or drop the whole thing
+```
+
+What it does, per class of file:
+
+- **machinery files** (`just/`, `scripts/ci`, hooks, workflows, configs,
+  policies, `AGENTS.md`, the version crate; for a repo born from the
+  template also the `docs/forge/*` guides): a 3-way merge. Base = the
+  template at the recorded `template-commit`; when that is unknown (a repo
+  forged before the stamp had it) the newest template revision whose
+  rendering equals your copy (compared modulo the rename, copyright lines
+  and comment reflow), or, for a file you edited, the nearest revision,
+  which the report lists as "merged against a nearest baseline: review the
+  diff". Untouched files fast-forward, edited files merge, a conflict
+  keeps yours and writes the template's version as `<name>.forge-suggested`.
+- **the lint posture**: merged key by key. Lints the template added land in
+  your `[workspace.lints.*]` tables with their comments; while your posture
+  is still at allow (an adoption ratchet in progress) they land at allow.
+  A level you changed is kept and reported; a lint the template dropped
+  (renamed or removed upstream) is reported, never deleted. `clippy.toml`
+  keys the template added are appended.
+- **the toolchain pin** follows the template (`--keep-toolchain` keeps yours).
+- **generated hooks** are regenerated from the merged `gates.toml`; the
+  stamp records the new version and commit.
+
+Never touched: your crates, `supply-chain/`, `CHANGELOG.md`, licenses. The
+upgrade is a commit on `forge/upgrade-<version>`; keeping it is a normal PR,
+undoing it is deleting the branch. `FORGE_TEMPLATE=/path/to/checkout` (or
+`OWNER/REPO`) upgrades from something other than the template's `main`.
+
 ## Caveats before you start
 
 - **Toolchain:** the template pins a nightly (for unstable rustfmt
@@ -185,6 +228,10 @@ than scary.
   `.forge-suggested` files are your diff targets.
 - **Layout:** the machinery assumes a Cargo workspace. A single-crate repo
   should first become a one-member workspace (10 minutes, mechanical).
+- **Version:** the machinery expects a real `0.1.x` start; a
+  `version = "0.0.0"` placeholder is bumped to `0.1.0` by the script and
+  the internal version crate's requirement follows whatever your workspace
+  version is.
 - **Effort scales with LOC.** Step 1-3 are days. Step 4 is a campaign you
   schedule, or skip: the hygiene + supply-chain layers plus enforcement
   on everything new is already a massive upgrade over nothing.

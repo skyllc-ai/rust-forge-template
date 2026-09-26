@@ -336,14 +336,14 @@ pub(crate) fn roll_unreleased(
     };
     let trimmed = trim_blank_edges(&body);
 
-    // Previous release version, parsed from the next `## [x] - ...` header - used
-    // for the new footer compare-link.  Absent on a first release.
+    // Previous release version, parsed from the next `## [x] - ...` header -
+    // used for the new footer compare-link.  Absent on a first release.
     let prev_version = lines
         .get(next_section_idx)
         .and_then(|header| parse_section_version(header));
 
-    // Rebuild: prefix (through the [Unreleased] header) / blank / dated header /
-    // blank / body / blank / the remaining sections.
+    // Rebuild: prefix (through the [Unreleased] header) / blank / dated header
+    // / blank / body / blank / the remaining sections.
     let mut out: Vec<String> = Vec::new();
     out.extend(lines.iter().take(body_start).map(|line| (*line).to_owned()));
     out.push(String::new());

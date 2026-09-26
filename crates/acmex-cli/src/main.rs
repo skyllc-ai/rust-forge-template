@@ -89,7 +89,7 @@ mod tests {
         let cli = Cli::parse_from(["acmex", "   "]);
         let mut output: Vec<u8> = Vec::new();
         let result = run(&cli, &mut output);
-        assert!(result.is_err());
-        assert!(output.is_empty());
+        assert!(result.is_err(), "blank recipient must be rejected");
+        assert!(output.is_empty(), "nothing is written on error: {output:?}");
     }
 }

@@ -56,6 +56,25 @@ pub(crate) struct Manifest {
     /// `gates` on the Rust side for readability.
     #[serde(rename = "gate")]
     pub(crate) gates: Vec<Gate>,
+
+    /// `[toolchain]`: tool versions every workflow must agree on
+    /// (property 6); empty when the table is absent.
+    #[serde(default)]
+    pub(crate) toolchain: BTreeMap<String, String>,
+
+    /// `[[target]]`: the RUSTFLAGS each build target carries
+    /// (property 7); empty when the table is absent.
+    #[serde(default, rename = "target")]
+    pub(crate) targets: Vec<TargetRow>,
+}
+
+/// One `[[target]]` row: a build target and its flags.
+#[derive(Debug, Deserialize, Clone, PartialEq, Eq)]
+pub(crate) struct TargetRow {
+    /// The Rust target triple.
+    pub(crate) target: String,
+    /// The RUSTFLAGS a job or matrix row for that target must carry.
+    pub(crate) rustflags: String,
 }
 
 /// A single gate entry - minimal subset.  Field ordering matches the

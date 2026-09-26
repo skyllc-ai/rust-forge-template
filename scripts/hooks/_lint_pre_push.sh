@@ -257,6 +257,10 @@ if (( CODE_CHANGED )); then
     if command -v cargo-xwin >/dev/null 2>&1; then
         run_seq "lint-ci-windows" just lint-ci-windows
     fi
+    if command -v cargo-zigbuild >/dev/null 2>&1; then
+        run_seq "lint-ci-linux-zig" just lint-ci-linux-zig
+    fi
+    run_seq "lint-ci-mac-intel" just lint-ci-mac-intel
 fi
 
 # ── Wait on Bucket 1 ───────────────────────────────────────────────────

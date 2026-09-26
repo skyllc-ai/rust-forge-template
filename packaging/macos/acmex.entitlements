@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  SPDX-License-Identifier: MIT OR Apache-2.0
+  Copyright (c) 2026 Acmex Placeholder LLC
+
+  Entitlements for the acmex binaries under the hardened runtime
+  (docs/forge/CODE-SIGNING.md). Applied by `just sign-release` /
+  `just resign-installed` when a Developer ID identity signs, and by
+  release.yml's Developer ID step. The self-signed dev identity does
+  not use the hardened runtime, so this file is inert for it.
+
+  Empty by design: a plain command-line tool needs nothing here. Add
+  ONLY what the program actually does, each with the reason:
+
+  - com.apple.security.device.audio-input      opens the microphone
+  - com.apple.security.device.camera           opens the camera
+  - com.apple.security.cs.disable-library-validation
+        dlopens a dylib signed by ANOTHER team (an ONNX runtime, a
+        vendor SDK); the notary service accepts it for Developer ID
+  - com.apple.security.cs.allow-unsigned-executable-memory
+        JITs; almost never right for a Rust CLI
+
+  A restricted entitlement (application-identifier, keychain-access-
+  groups, Secure Enclave) is honored only inside an .app bundle with
+  an embedded provisioning profile; a bare binary carrying one is
+  killed at launch.
+-->
+<plist version="1.0">
+<dict>
+</dict>
+</plist>

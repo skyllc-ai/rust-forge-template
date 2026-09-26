@@ -90,6 +90,14 @@ check-private-items = false
 # in const evaluation are compile-time errors, not runtime risks.
 suppress-restriction-lint-in-const = true
 
+# ── Documentation identifier allowlist ───────────────────────────────────────
+# Framework / product names that read as prose but trip `doc_markdown`'s
+# "missing backticks" heuristic (mixed-case identifiers).  `..` EXTENDS
+# Clippy's default list (macOS, iOS, GitHub, ...) rather than replacing it.
+# Add the names your docs use as prose, e.g.
+#   doc-valid-idents = ["FSEvents", "OpenSSL", ".."]
+# (the donor project needed `FSEvents`; the template needs none).
+
 # ── Struct field initializer order ────────────────────────────────────────────
 # Catches struct initializers where fields are in a different order than the
 # struct definition.  Clippy's own repo enables this.

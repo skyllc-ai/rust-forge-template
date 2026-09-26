@@ -2,8 +2,8 @@
 # cargo-vet imports lock
 
 [[publisher.aho-corasick]]
-version = "1.1.4"
-when = "2025-10-28"
+version = "1.1.5"
+when = "2026-08-03"
 user-id = 189
 user-login = "BurntSushi"
 user-name = "Andrew Gallant"
@@ -58,8 +58,8 @@ user-login = "epage"
 user-name = "Ed Page"
 
 [[publisher.bstr]]
-version = "1.13.0"
-when = "2026-07-14"
+version = "1.13.1"
+when = "2026-08-10"
 user-id = 189
 user-login = "BurntSushi"
 user-name = "Andrew Gallant"
@@ -72,20 +72,40 @@ user-login = "fitzgen"
 user-name = "Nick Fitzgerald"
 
 [[publisher.cc]]
-version = "1.3.0"
-when = "2026-07-18"
+version = "1.5.1"
+when = "2026-09-25"
 trusted-publisher = "github:rust-lang/cc-rs"
 
+[[publisher.cfg-if]]
+version = "1.0.5"
+when = "2026-09-16"
+user-id = 55123
+user-login = "rust-lang-owner"
+
+[[publisher.clap]]
+version = "4.6.7"
+when = "2026-09-14"
+user-id = 6743
+user-login = "epage"
+user-name = "Ed Page"
+
 [[publisher.clap_builder]]
-version = "4.6.2"
-when = "2026-07-15"
+version = "4.6.7"
+when = "2026-09-14"
+user-id = 6743
+user-login = "epage"
+user-name = "Ed Page"
+
+[[publisher.clap_derive]]
+version = "4.6.7"
+when = "2026-09-14"
 user-id = 6743
 user-login = "epage"
 user-name = "Ed Page"
 
 [[publisher.clap_lex]]
-version = "1.1.0"
-when = "2026-03-12"
+version = "1.1.1"
+when = "2026-09-14"
 user-id = 6743
 user-login = "epage"
 user-name = "Ed Page"
@@ -97,6 +117,18 @@ user-id = 6743
 user-login = "epage"
 user-name = "Ed Page"
 
+[[publisher.find-msvc-tools]]
+version = "0.1.14"
+when = "2026-09-25"
+trusted-publisher = "github:rust-lang/cc-rs"
+
+[[publisher.indexmap]]
+version = "2.14.2"
+when = "2026-09-05"
+user-id = 539
+user-login = "cuviper"
+user-name = "Josh Stone"
+
 [[publisher.is_terminal_polyfill]]
 version = "1.70.2"
 when = "2025-10-21"
@@ -104,12 +136,30 @@ user-id = 6743
 user-login = "epage"
 user-name = "Ed Page"
 
+[[publisher.js-sys]]
+version = "0.3.106"
+when = "2026-09-25"
+trusted-publisher = "github:wasm-bindgen/wasm-bindgen"
+
+[[publisher.libc]]
+version = "0.2.189"
+when = "2026-07-21"
+user-id = 55123
+user-login = "rust-lang-owner"
+
 [[publisher.memchr]]
 version = "2.8.3"
 when = "2026-07-08"
 user-id = 189
 user-login = "BurntSushi"
 user-name = "Andrew Gallant"
+
+[[publisher.mio]]
+version = "1.2.3"
+when = "2026-09-02"
+user-id = 6025
+user-login = "Thomasdezeeuw"
+user-name = "Thomas de Zeeuw"
 
 [[publisher.once_cell_polyfill]]
 version = "1.70.2"
@@ -140,8 +190,8 @@ user-login = "BurntSushi"
 user-name = "Andrew Gallant"
 
 [[publisher.regex-automata]]
-version = "0.4.16"
-when = "2026-07-15"
+version = "0.4.18"
+when = "2026-08-04"
 user-id = 189
 user-login = "BurntSushi"
 user-name = "Andrew Gallant"
@@ -152,6 +202,13 @@ when = "2026-06-09"
 user-id = 189
 user-login = "BurntSushi"
 user-name = "Andrew Gallant"
+
+[[publisher.rustix]]
+version = "1.1.5"
+when = "2026-09-16"
+user-id = 6825
+user-login = "sunfishcode"
+user-name = "Dan Gohman"
 
 [[publisher.rustversion]]
 version = "1.0.23"
@@ -203,11 +260,32 @@ user-login = "dtolnay"
 user-name = "David Tolnay"
 
 [[publisher.syn]]
-version = "3.0.2"
-when = "2026-07-20"
+version = "3.0.6"
+when = "2026-09-16"
 user-id = 3618
 user-login = "dtolnay"
 user-name = "David Tolnay"
+
+[[publisher.thiserror]]
+version = "2.0.21"
+when = "2026-09-23"
+user-id = 3618
+user-login = "dtolnay"
+user-name = "David Tolnay"
+
+[[publisher.thiserror-impl]]
+version = "2.0.21"
+when = "2026-09-23"
+user-id = 3618
+user-login = "dtolnay"
+user-name = "David Tolnay"
+
+[[publisher.toml]]
+version = "1.1.6+spec-1.1.0"
+when = "2026-09-10"
+user-id = 6743
+user-login = "epage"
+user-name = "Ed Page"
 
 [[publisher.toml_datetime]]
 version = "1.1.1+spec-1.1.0"
@@ -217,8 +295,8 @@ user-login = "epage"
 user-name = "Ed Page"
 
 [[publisher.toml_parser]]
-version = "1.1.2+spec-1.1.0"
-when = "2026-04-01"
+version = "1.1.3+spec-1.1.0"
+when = "2026-07-27"
 user-id = 6743
 user-login = "epage"
 user-name = "Ed Page"
@@ -230,12 +308,39 @@ user-id = 6743
 user-login = "epage"
 user-name = "Ed Page"
 
+[[publisher.unicode-ident]]
+version = "1.0.26"
+when = "2026-09-17"
+user-id = 3618
+user-login = "dtolnay"
+user-name = "David Tolnay"
+
 [[publisher.unicode-width]]
 version = "0.2.2"
 when = "2025-10-06"
 user-id = 1139
 user-login = "Manishearth"
 user-name = "Manish Goregaokar"
+
+[[publisher.wasm-bindgen]]
+version = "0.2.129"
+when = "2026-09-25"
+trusted-publisher = "github:wasm-bindgen/wasm-bindgen"
+
+[[publisher.wasm-bindgen-macro]]
+version = "0.2.129"
+when = "2026-09-25"
+trusted-publisher = "github:wasm-bindgen/wasm-bindgen"
+
+[[publisher.wasm-bindgen-macro-support]]
+version = "0.2.129"
+when = "2026-09-25"
+trusted-publisher = "github:wasm-bindgen/wasm-bindgen"
+
+[[publisher.wasm-bindgen-shared]]
+version = "0.2.129"
+when = "2026-09-25"
+trusted-publisher = "github:wasm-bindgen/wasm-bindgen"
 
 [[publisher.winnow]]
 version = "1.0.4"
@@ -257,12 +362,6 @@ criteria = "safe-to-deploy"
 user-id = 696 # Nick Fitzgerald (fitzgen)
 start = "2019-03-16"
 end = "2026-08-21"
-
-[[audits.bytecode-alliance.audits.cfg-if]]
-who = "Alex Crichton <alex@alexcrichton.com>"
-criteria = "safe-to-deploy"
-version = "1.0.0"
-notes = "I am the author of this crate."
 
 [[audits.bytecode-alliance.audits.encode_unicode]]
 who = "Alex Crichton <alex@alexcrichton.com>"
@@ -314,6 +413,12 @@ who = "Alex Crichton <alex@alexcrichton.com>"
 criteria = "safe-to-deploy"
 delta = "1.15.0 -> 1.16.0"
 notes = "Some minor platform updates but no major change to any code."
+
+[[audits.bytecode-alliance.audits.shlex]]
+who = "Alex Crichton <alex@alexcrichton.com>"
+criteria = "safe-to-deploy"
+version = "1.1.0"
+notes = "Only minor `unsafe` code blocks which look valid and otherwise does what it says on the tin."
 
 [[audits.bytecode-alliance.audits.terminal_size]]
 who = "Alex Crichton <alex@alexcrichton.com>"
@@ -451,21 +556,6 @@ who = "George Burgess IV <gbiv@google.com>"
 criteria = "safe-to-run"
 version = "0.2.0"
 aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
-
-[[audits.isrg.audits.cfg-if]]
-who = "David Cook <dcook@divviup.org>"
-criteria = "safe-to-deploy"
-delta = "1.0.0 -> 1.0.1"
-
-[[audits.isrg.audits.cfg-if]]
-who = "J.C. Jones <jc@divviup.org>"
-criteria = "safe-to-deploy"
-delta = "1.0.1 -> 1.0.3"
-
-[[audits.isrg.audits.cfg-if]]
-who = "David Cook <dcook@divviup.org>"
-criteria = "safe-to-deploy"
-delta = "1.0.3 -> 1.0.4"
 
 [[audits.isrg.audits.once_cell]]
 who = "Brandon Pitman <bran@bran.land>"
@@ -611,6 +701,21 @@ criteria = "safe-to-run"
 delta = "1.0.9 -> 1.0.13"
 aggregated-from = "https://raw.githubusercontent.com/mozilla/glean/main/supply-chain/audits.toml"
 
+[[audits.mozilla.audits.shlex]]
+who = "Max Inden <mail@max-inden.de>"
+criteria = "safe-to-deploy"
+delta = "1.1.0 -> 1.3.0"
+aggregated-from = "https://hg.mozilla.org/mozilla-central/raw-file/tip/supply-chain/audits.toml"
+
+[[audits.mozilla.audits.shlex]]
+who = "Emilio Cobos Álvarez <emilio@crisal.io>"
+criteria = "safe-to-deploy"
+delta = "1.3.0 -> 2.0.1"
+notes = """
+Mostly removes some deprecated and unsound APIs.
+"""
+aggregated-from = "https://hg.mozilla.org/mozilla-central/raw-file/tip/supply-chain/audits.toml"
+
 [[audits.mozilla.audits.strsim]]
 who = "Ben Dean-Kawamura <bdk@mozilla.com>"
 criteria = "safe-to-deploy"
@@ -648,6 +753,14 @@ criteria = "safe-to-deploy"
 delta = "0.1.1 -> 0.2.0"
 aggregated-from = "https://hg.mozilla.org/mozilla-central/raw-file/tip/supply-chain/audits.toml"
 
+[[audits.uffs.audits.android_system_properties]]
+who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "0.1.5 -> 0.1.6"
+notes = """
+Reviewed the full diff; the only source change is in src/lib.rs and it fixes two FFI defects. The property callback handed to __system_property_read_callback is now declared `unsafe extern "C" fn` rather than a plain `unsafe fn` (correcting a Rust/C ABI mismatch), and the callback return type is corrected from *const c_void to () to match the C prototype. The payload moved from *mut String to *mut Option<String>, replacing a to_str().unwrap() that could panic across an FFI boundary on non-UTF-8 property values. Remaining changes are the version bump, an SPDX-correct license field, and cargo-generated manifest stanzas. No new dependencies, no build script, no new unsafe surface.
+"""
+
 [[audits.uffs.audits.autocfg]]
 who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
 criteria = "safe-to-deploy"
@@ -660,11 +773,73 @@ criteria = "safe-to-deploy"
 delta = "2.13.0 -> 2.13.1"
 notes = "Reviewed diff (6 files, 30/18 lines): pure perf change in the generated all() macro body (computes the ALL flags mask in a const block instead of a runtime loop, per upstream changelog 'Lower the LLVM IR output'). No new unsafe, no capability changes."
 
+[[audits.uffs.audits.bitflags]]
+who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "2.13.1 -> 2.13.2"
+notes = """
+Reviewed the full diff (177 changed lines, 10 files). No API change and no behavioural change to generated flag types: the two upstream PRs are a documentation example reordering (#494) and a refactor that re-pulls const declarations out of a nested const block in the macro expansion (#496, src/public.rs / src/traits.rs). No unsafe added, no build.rs, no fs/net/process/env access, and no dependency changes.
+"""
+
 [[audits.uffs.audits.colored]]
 who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
 criteria = "safe-to-deploy"
 version = "3.1.1"
 notes = "Reviewed v3.1.1 source. Scope: ANSI terminal coloring. One unsafe block in control.rs (Windows Console FFI via windows-sys: GetStdHandle / GetConsoleMode / SetConsoleMode) — standard Win32 terminal setup, properly cfg(windows)-gated. No network I/O, no filesystem writes, no process spawning. Only std types plus windows-sys on Windows. Dev-deps (rspec, insta, ansiterm) are standard testing crates. MPL-2.0 licensed, same as our workspace."
+
+[[audits.uffs.audits.futures]]
+who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "0.3.33 -> 0.3.34"
+notes = "Reviewed the full diff; the facade crate bumps all sub-crate dependency versions to 0.3.34, updates a README CI badge, adds a Miri skip to a compat test, and adds a new regression test asserting a cloned FuturesUnordered child waker satisfies will_wake (matching the #[inline(always)] waker changes in futures-task/futures-util). No src/ changes, no dependency additions."
+
+[[audits.uffs.audits.futures-channel]]
+who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "0.3.33 -> 0.3.34"
+notes = "Reviewed the full diff; only the crate version bump and the futures-core/futures-sink dependency requirements moving to 0.3.34, mirrored in the lockfile. No source changes."
+
+[[audits.uffs.audits.futures-core]]
+who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "0.3.33 -> 0.3.34"
+notes = "Reviewed the full diff; it contains only the version bump in Cargo.toml/Cargo.toml.orig/Cargo.lock and the updated git sha in .cargo_vcs_info.json. Zero source changes, no dependency or feature changes, no build script."
+
+[[audits.uffs.audits.futures-executor]]
+who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "0.3.33 -> 0.3.34"
+notes = "Reviewed the full diff; only version bumps for the crate and its futures-core/futures-task/futures-util dependencies plus corresponding lockfile churn. No source changes."
+
+[[audits.uffs.audits.futures-io]]
+who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "0.3.33 -> 0.3.34"
+notes = "Reviewed the full diff; version-bump-only release (manifest, lockfile, vcs-info sha). No source, dependency, or feature changes."
+
+[[audits.uffs.audits.futures-macro]]
+who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "0.3.33 -> 0.3.34"
+notes = "Reviewed the full diff; no proc-macro source changes at all. The only substantive change widens the syn dependency from 2.0.52 to 3.0 (resolving to the already-vetted syn 3.x in our tree). Standard proc-macro2/quote/unicode-ident tree, nothing suspicious."
+
+[[audits.uffs.audits.futures-sink]]
+who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "0.3.33 -> 0.3.34"
+notes = "Reviewed the full diff; version-bump-only release (manifest, lockfile, vcs-info sha). No source, dependency, or feature changes."
+
+[[audits.uffs.audits.futures-task]]
+who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "0.3.33 -> 0.3.34"
+notes = "Reviewed the full diff; besides the version bump, the only code change adds #[inline(always)] to the existing noop_clone waker-vtable function in src/noop_waker.rs — an attribute on an already-existing unsafe fn, no new unsafe code, no behavioral or dependency changes."
+
+[[audits.uffs.audits.futures-util]]
+who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "0.3.33 -> 0.3.34"
+notes = "Reviewed the full diff; manifest changes are strictly sibling-dependency version bumps (including the pinned futures-macro =0.3.34). Code changes: #[inline(always)] added to two existing waker-vtable clone functions (compat03as01.rs, futures_unordered/task.rs) and three doctest guards skipping the futures-0.1 compat examples under Miri. No new unsafe blocks, no dependency additions, no behavioral concerns."
 
 [[audits.uffs.audits.hermit-abi]]
 who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
@@ -678,11 +853,39 @@ criteria = "safe-to-deploy"
 version = "1.0.18"
 notes = "Full audit (488 LOC, no_std, zero deps). No fs/net/process/env capability; no build.rs. All 13 unsafe sites reviewed: digit-pair table reads are get_unchecked(pair*2+{0,1}) with pair<100 from divmod100 into a 200-byte ASCII table (in-bounds by construction); buffer writes are checked-index MaybeUninit writes covering exactly [offset, len); slice_buffer_to_str's from_utf8_unchecked is sound because only ASCII table bytes and b'0'+digit are ever written; Buffer::format's pointer cast goes from the largest buffer ([MaybeUninit<u8>; i128 MAX_STR_LEN]) to a smaller same-alignment array, and the unreachable_unchecked is an optimizer hint upheld because write() slices within the buffer. Publisher verified on crates.io: dtolnay."
 
-[[audits.uffs.audits.unicode-ident]]
+[[audits.uffs.audits.log]]
+who = "Robert Nio <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "0.4.33 -> 0.4.34"
+notes = "Delta review: full diffstat, all risk-pattern additions (unsafe/process/net/fs/build), dependency and build-script changes scanned; nothing outside the crate domain, no new deps beyond same-family path bumps, no build scripts. Mirrored from the docenta and uffs-products repo supply-chain audits performed by the same auditor/owner."
+
+[[audits.uffs.audits.portable-atomic]]
 who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
 criteria = "safe-to-deploy"
-version = "1.0.24"
-notes = '''Full audit (934 LOC runtime, generated tables). No capability surface; no build.rs. Both unsafe sites are LEAF.get_unchecked(offset) where offset derives from the co-generated TRIE chunk table; the in-bounds invariant is machine-generated and exhaustively exercised by tests/compare.rs which checks EVERY char '\0'..=char::MAX against the reference UCD implementation, so any out-of-bounds offset is unreachable across the full input domain. Publisher verified on crates.io: dtolnay.'''
+delta = "1.13.1 -> 1.15.0"
+notes = """
+Reviewed the full diff (~9.1k lines). build.rs remains pure rustc-version/target-cfg probing with no network, filesystem writes or subprocess use beyond the existing rustc query. The headline change is a workaround for a core::sync::atomic miscompilation on pre-v6 ARM Linux/Android: a new module routes non-relaxed load/store/CAS through the kernel-provided __kuser_memory_barrier at the architecturally fixed address 0xFFFF0FA0, matching compiler-builtins, excluded under Miri and ThreadSanitizer. The fallback spin-lock refactor moves SeqCst fences from the lock's ordering parameter into an RAII guard that fences on entry and exit, no weaker than before, and the CPU-feature cache is now published with a CAS where the result affects lock-freeness so is_lock_free cannot change answers mid-run. Remaining asm edits (s390x register-pair ordering, aarch64 LSFE operand order, RISC-V interrupt restore, AVR RMW) correspond to documented bug fixes. No new dependencies and no proc macros.
+"""
+
+[[audits.uffs.audits.tokio-macros]]
+who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "2.7.0 -> 2.7.2"
+notes = "Delta upgrades the syn dependency from 2.x to 3.0 with a single source adaptation in src/entry.rs: `args.inputs.iter().any(contains_impl_trait)` becomes `.any(|arg| contains_impl_trait(&arg.ty))` to match syn 3's typed parenthesized-argument API; behavior of the impl-Trait detection is unchanged. The only other changes are rustdoc text clarifying the `#[tokio::main]` expansion, CHANGELOG, and Cargo.lock/manifest version churn. No unsafe code, no build.rs, no fs/net/process/env access; proc-macro attack surface is unchanged."
+
+[[audits.uffs.audits.uuid]]
+who = "Robert M1 <clauderobert@nios.net>"
+criteria = "safe-to-deploy"
+delta = "1.24.0 -> 1.24.1"
+notes = "Error-diagnostics fix in src/error.rs: invalid-character classification now matches on char (is_ascii_hexdigit) instead of truncating via 'as u8', so non-ASCII input is reported faithfully. Rest is lockfile/doc-link churn. No unsafe, no I/O."
+
+[[audits.uffs.audits.uuid]]
+who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "1.26.0 -> 1.26.1"
+notes = """
+Reviewed the full diff (281 changed lines). The substantive change is a rework of the v7 counter / `rand_a` bit-packing in src/v7.rs and src/timestamp.rs: the counter is now explicitly clamped to the 74 payload bits (12 `rand_a` + 62), shifted down when the supplied counter is wider, and the fully-random path is separated from the counter path. This is a correctness fix in UUIDv7 generation, not a new capability. No public API added, no unsafe, no build.rs, no fs/net/process/env access, no dependency changes. UFFS uses only `Uuid::new_v4`, which this diff does not touch.
+"""
 
 [[audits.zcash.audits.autocfg]]
 who = "Jack Grigg <jack@electriccoin.co>"

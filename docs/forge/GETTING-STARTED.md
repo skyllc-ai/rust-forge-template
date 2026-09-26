@@ -200,10 +200,14 @@ server-side:
 bash scripts/ci/bootstrap-github.sh
 ```
 
-Note: the branch ruleset (PR-required, required status checks, **merge
-queue**) needs a public repo or GitHub Pro/Team; on a private free-plan repo
-the script tells you and skips that part; re-run it when you go public. The
-same applies to CodeQL uploads (auto-enables on public repos).
+Note: the branch ruleset (PR-required, required status checks, signatures,
+**merge queue**; the data is `scripts/ci/main-ruleset.json`, re-applied any
+time with `just protect-main`) needs a public repo or GitHub Pro/Team; on a
+private free-plan repo the script tells you and skips that part; re-run it
+when you go public. Until then the pre-push hook refuses direct pushes to
+`main`, `just merge` waits for every check, and `main-merge-guard.yml`
+reverts a merge that slipped through unverified. The same eligibility rule
+applies to CodeQL uploads (auto-enables on public repos).
 
 ---
 
@@ -222,11 +226,16 @@ just test           # full test suite via nextest
 # 3. Commit; the pre-commit hook runs automatically (~2-15 s)
 git add -A && git commit -m "feat: describe the change"
 # 4. Push; the pre-push hook runs the big battery (~20-60 s)
-git switch -c feat/my-change   # never commit to main directly
+git switch -c feat/my-change   # never commit to main directly (the hook refuses it)
 git push -u origin feat/my-change
 # 5. Open a PR; CI runs the same gates, plus more
-gh pr create --fill
+just pr "feat: describe the change"   # title validated locally first
+# 6. Merge it: watches EVERY check, then merges (never raw `gh pr merge`)
+just merge <PR-number>
 ```
+
+`just pre-pr` rehearses the whole PR tier locally before step 4 when you
+would rather spend minutes here than paid minutes on a red PR.
 
 Commit messages follow Conventional Commits (`feat:`, `fix:`, `docs:`,
 `refactor:`, `test:`, `chore:`); the commit-msg hook rejects anything else,

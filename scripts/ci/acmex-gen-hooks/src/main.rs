@@ -208,8 +208,7 @@ fn emit_verbose_dump(manifest: &Manifest, manifest_path: &std::path::Path, tier:
             .header
             .plan_doc
             .as_deref()
-            .map(|plan| format!(", plan: {plan}"))
-            .unwrap_or_default(),
+            .map_or_else(String::new, |plan| format!(", plan: {plan}")),
     );
     if let Some(cls) = manifest.classification.as_ref() {
         let mut keys: Vec<&str> = cls.patterns.keys().map(String::as_str).collect();

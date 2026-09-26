@@ -1,0 +1,121 @@
+# SPDX-FileCopyrightText: 2026 Acmex Placeholder LLC
+# SPDX-License-Identifier: MIT OR Apache-2.0
+#
+# ─────────────────────────────────────────────────────────────────────
+# main-merge-guard - the server-side backstop for unverified merges.
+#
+# WHY: on a private repository without a paid plan, rulesets are
+# unavailable, so no check is "required" and ANY merge succeeds
+# instantly - `gh pr merge --auto` included. The donor project lost
+# three PRs that way: merged with their check suites cancelled unrun.
+# The client-side guard (`just merge`, AGENTS.md rule 7) closes the
+# front door; this workflow is the enforcement the platform will not
+# sell: it cannot BLOCK a bad merge, but it can make one SELF-UNDO
+# within minutes, which turns "silently unverified main" into "loud
+# revert plus an issue".
+#
+# WHAT IT ENFORCES, per commit pushed to main:
+#   - the commit belongs to a merged PR, and that PR's HEAD carries a
+#     SUCCESSFUL "PR Fast CI / required" check-run (the aggregate whose
+#     literal name is pinned by the workflow-drift gate) and a
+#     successful "PR title - Conventional Commits";
+#   - nothing on that head concluded failure / timed_out /
+#     action_required.
+#   A violation is auto-reverted (GITHUB_TOKEN pushes do not retrigger
+#   workflows, so no loops) and documented in an issue.
+#
+# WHAT IT DELIBERATELY DOES NOT DO: revert direct pushes that have no
+# PR at all. Release tooling may legitimately push to main; those get
+# an ISSUE for visibility, never an automatic revert. Commits authored
+# by github-actions[bot] (including this guard's own reverts) are
+# skipped entirely.
+#
+# Harmless once the `main-protection` ruleset is active (every merge
+# then already earned its checks, so the guard only ever confirms).
+# Retire it when the ruleset is live and the noise is not worth it.
+# ─────────────────────────────────────────────────────────────────────
+name: Main merge guard
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  issues: write
+  checks: read
+  pull-requests: read
+
+concurrency:
+  group: main-merge-guard
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify merged checks (auto-revert if unrun)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Verify the pushed commit earned its merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          author=$(gh api "repos/$REPO/commits/$SHA" -q '.author.login // ""')
+          if [ "$author" = "github-actions[bot]" ]; then
+            echo "commit by github-actions[bot] (this guard or release tooling) - skipping"
+            exit 0
+          fi
+
+          pr_number=$(gh api "repos/$REPO/commits/$SHA/pulls" -q '.[0].number // ""')
+          if [ -z "$pr_number" ]; then
+            echo "::warning::direct push to main with no associated PR - opening an issue, not reverting"
+            gh issue create \
+              --title "Direct push to main without a PR: ${SHA:0:10}" \
+              --body "Commit \`$SHA\` reached main without a pull request, so no checks gated it. AGENTS.md rule 7 forbids direct pushes; if this was release tooling, document it here and close. Otherwise revert it via a PR." \
+              || true
+            exit 0
+          fi
+
+          head_sha=$(gh api "repos/$REPO/pulls/$pr_number" -q '.head.sha')
+          echo "commit $SHA came from PR #$pr_number (head $head_sha)"
+
+          runs=$(gh api "repos/$REPO/commits/$head_sha/check-runs?per_page=100" \
+            -q '[.check_runs[] | {name, status, conclusion}]')
+          echo "$runs" | jq -r '.[] | "\(.name): \(.status)/\(.conclusion)"'
+
+          required_ok=$(echo "$runs" | jq -r \
+            '[.[] | select(.name == "PR Fast CI / required" and .conclusion == "success")] | length')
+          title_ok=$(echo "$runs" | jq -r \
+            '[.[] | select(.name == "PR title - Conventional Commits" and .conclusion == "success")] | length')
+          bad=$(echo "$runs" | jq -r \
+            '[.[] | select(.conclusion == "failure" or .conclusion == "timed_out" or .conclusion == "action_required")] | length')
+
+          if [ "$required_ok" -ge 1 ] && [ "$title_ok" -ge 1 ] && [ "$bad" -eq 0 ]; then
+            echo "PR #$pr_number merged green - required aggregate and title check both succeeded"
+            exit 0
+          fi
+
+          echo "::error::PR #$pr_number merged WITHOUT earned checks (required=$required_ok title=$title_ok bad=$bad) - reverting"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          subject=$(git log -1 --format=%s "$SHA")
+          git revert --no-edit "$SHA"
+          git commit --amend -q -m "revert: unverified merge of PR #$pr_number auto-backout" \
+            -m "Commit $SHA (\"$subject\") reached main without a successful 'PR Fast CI / required' aggregate on its PR head ($head_sha): required=$required_ok title=$title_ok failing/timed-out/action-required=$bad. Re-land it with 'just merge' after the checks actually pass (AGENTS.md rule 7)."
+          git push origin HEAD:main
+
+          gh issue create \
+            --title "Auto-reverted unverified merge of PR #$pr_number" \
+            --body "PR #$pr_number was merged before its checks completed (required=$required_ok, title=$title_ok, failing=$bad on head \`$head_sha\`). The squash \`$SHA\` has been reverted on main. Re-land through \`just merge\`, which watches every check first." \
+            || true
+          exit 1

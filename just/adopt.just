@@ -69,3 +69,62 @@ adopt-undo:
     printf "\033[0;36mkept on purpose: installed tools, your SSH key/GitHub registration,\033[0m\n"
     printf "\033[0;36mand any repo-local signing config from 'just setup-signing'.\033[0m\n"
     printf "\033[0;36mchanged your mind again? just re-run adopt.sh any time.\033[0m\n"
+
+# ─── Upgrading the machinery to the template's current state ──────────
+#
+# `adopt.sh --upgrade` (the same script that adopts) brings every
+# machinery file, the lint posture, clippy.toml and the toolchain pin to
+# the template's HEAD on a branch `forge/upgrade-<version>`: 3-way
+# merges keep your edits, new lints land (at allow while your posture is
+# still ratcheting), conflicts become <file>.forge-suggested. Runs in
+# repos born from the template (`just init`) and in adopted ones alike.
+# Set FORGE_TEMPLATE to a local checkout (or OWNER/REPO) to upgrade from
+# something other than skyllc-ai/rust-forge-template's main.
+
+# Upgrade the forge machinery to the template's current state (on a branch).
+forge-upgrade *FLAGS:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    tmpl="${FORGE_TEMPLATE:-skyllc-ai/rust-forge-template}"
+    if [[ -d "$tmpl/.git" ]]; then
+        bash "$tmpl/adopt.sh" --upgrade --template "$tmpl" {{ FLAGS }}
+    else
+        curl -fsSL "https://raw.githubusercontent.com/${tmpl}/main/adopt.sh" | bash -s -- --upgrade --template "$tmpl" {{ FLAGS }}
+    fi
+
+# Show where an upgrade stands (branch, base, commits, unresolved suggestions).
+forge-upgrade-status:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    branch=$(git branch --list 'forge/upgrade-*' --format='%(refname:short)' | head -1)
+    if [[ -z "$branch" ]]; then
+        printf "\033[0;36mno upgrade in progress (no forge/upgrade-* branch); baseline: %s\033[0m\n" \
+            "$(sed -n 's/^template-version *= *"\([^"]*\)".*/\1/p' docs/forge/FORGE-STAMP.toml)"
+        exit 0
+    fi
+    base=$(git config --get forge.upgradeBase 2>/dev/null || echo "?")
+    printf "\033[0;34mupgrade branch:\033[0m %s (base: %s)\n" "$branch" "$base"
+    git log --oneline "${base}..${branch}" 2>/dev/null | sed 's/^/    /' || true
+    pending=$(git ls-files --others --exclude-standard --ignored | grep '\.forge-suggested$' || true)
+    if [[ -n "$pending" ]]; then
+        printf "\033[1;33munresolved suggestions (diff against yours, merge by hand, delete):\033[0m\n%s\n" "$pending" | sed 's/^/    /'
+    fi
+    printf "\033[0;36m  keep it:  just go, then push the branch and open a PR\033[0m\n"
+    printf "\033[0;36m  drop it:  just forge-upgrade-undo\033[0m\n"
+
+# Undo the ENTIRE upgrade: back to the base branch, upgrade branch deleted.
+forge-upgrade-undo:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    branch=$(git branch --list 'forge/upgrade-*' --format='%(refname:short)' | head -1)
+    [[ -n "$branch" ]] || { printf "\033[1;33mnothing to undo: no forge/upgrade-* branch\033[0m\n"; exit 1; }
+    base=$(git config --get forge.upgradeBase 2>/dev/null || echo "")
+    [[ -n "$base" ]] || { printf "\033[1;33mno recorded base branch; git switch <branch> and delete %s yourself\033[0m\n" "$branch"; exit 1; }
+    if [[ -n "$(git status --porcelain)" ]]; then
+        printf "\033[1;33muncommitted changes present; commit or stash them, then re-run\033[0m\n"; exit 1
+    fi
+    git switch "$base"
+    git branch -D "$branch"
+    git config --unset forge.upgradeBase 2>/dev/null || true
+    find . -name '*.forge-suggested' -not -path './target/*' -delete 2>/dev/null || true
+    printf "\033[0;32mdone: back on %s, %s deleted.\033[0m\n" "$base" "$branch"

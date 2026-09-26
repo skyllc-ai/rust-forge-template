@@ -83,8 +83,16 @@ Never do these. No exceptions. Not even if a command fails repeatedly.
    `[workspace.dependencies]`, then reference it in the crate as
    `depname.workspace = true`.
 6. NEVER edit files under `supply-chain/` by hand. Use `cargo vet` commands.
-7. NEVER push directly to `main`. Always: branch → commit → push branch →
-   `gh pr create` → `gh pr merge <branch> --auto`.
+7. NEVER push directly to `main` (the pre-push hook refuses it; the
+   `main-protection` ruleset does too once applied). Always: branch →
+   commit → push branch → `just pr "<type>(<scope>): <subject>"` →
+   `just merge <PR-number>`. NEVER call `gh pr merge` directly, with ANY
+   flags: on a plan without required checks even `--auto` merges
+   instantly, before a single check has run. `just merge` watches every
+   check to completion, re-reads the head SHA so a mid-watch push
+   restarts the wait, requires the `PR Fast CI / required` aggregate to
+   be PRESENT and green, and only then merges. It has no bypass flag on
+   purpose.
 8. NEVER delete or weaken a lint, gate, or workflow to make an error go
    away. Fix the code instead. If you believe a gate is wrong, STOP and
    ask the user.
@@ -110,9 +118,12 @@ git switch -c feat/short-description
 git add -A
 git commit -m "feat: what changed"     # types: feat fix docs refactor test chore
 git push -u origin feat/short-description
-gh pr create --fill
-gh pr merge feat/short-description --auto
+just pr "feat: what changed"      # title validated locally first
+just merge <PR-number>            # watches ALL checks, then merges; never raw gh pr merge
 ```
+
+Before pushing a branch for a PR, `just pre-pr` rehearses the whole PR
+tier locally (minutes here instead of paid minutes on a red PR).
 
 If a hook rejects the commit or push, that is the system working. Read the
 gate name it prints, fix per section 6, retry the same command.
