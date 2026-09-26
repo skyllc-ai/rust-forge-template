@@ -170,6 +170,7 @@ template_files_at() { # COMMIT: every machinery file path at that template commi
     done | sort -u
 }
 dest_path() { printf '%s' "${1//acmex/$SLUG}"; }
+recipe_names() { grep -hE '^[a-zA-Z_][a-zA-Z0-9_-]*[^:]*:([^=]|$)' "$1" 2>/dev/null | grep -oE '^[a-zA-Z_][a-zA-Z0-9_-]*' | sort -u; }
 
 if [[ $UPGRADE -eq 1 ]]; then
     say "rust-forge upgrade: bring the machinery to the template's current state"
@@ -283,7 +284,6 @@ if [[ $UPGRADE -eq 1 ]]; then
     # A NEW just file must not redefine a recipe an existing file already
     # has: just's recipe namespace is flat across imports and one collision
     # breaks EVERY recipe. Such a file lands as a suggestion instead.
-    recipe_names() { grep -hE '^[a-zA-Z_][a-zA-Z0-9_-]*[^:]*:([^=]|$)' "$1" 2>/dev/null | grep -oE '^[a-zA-Z_][a-zA-Z0-9_-]*' | sort -u; }
     for i in "${!NEW[@]}"; do
         f="${NEW[$i]}"
         case "$f" in just/*.just) ;; *) continue ;; esac
@@ -297,6 +297,16 @@ if [[ $UPGRADE -eq 1 ]]; then
             fi
             warn "$f defines recipe(s) you already have ($(printf '%s' "$clash" | tr '\n' ' ')) - left as $f.forge-suggested (its justfile import is commented out); rename yours or theirs, then move it into place"
         fi
+    done
+    # A SUGGESTED just file (conflict, or no baseline) often carries recipes
+    # the repo already defines elsewhere - typically because the template
+    # ported them FROM this repo. Say so, so the manual merge starts with
+    # the collision list instead of `just` refusing a redefined recipe.
+    for f in "${CONFLICTS[@]}" "${SUGGESTED[@]}"; do
+        case "$f" in just/*.just) ;; *) continue ;; esac
+        [[ -f "${f}.forge-suggested" ]] || continue
+        clash="$(comm -12 <(recipe_names "${f}.forge-suggested") <(for o in just/*.just justfile; do [[ "$o" == "$f" ]] || recipe_names "$o"; done | sort -u))"
+        [[ -n "$clash" ]] && note "   $f.forge-suggested also defines recipe(s) another file of yours already has: $(printf '%s' "$clash" | tr '\n' ' ')"
     done
     ok "fast-forwarded ${#FF[@]}, merged ${#MERGED[@]} (+${#NEAREST[@]} against a nearest baseline), new ${#NEW[@]}, kept ${KEPT} (yours newer), conflicts ${#CONFLICTS[@]}, suggested ${#SUGGESTED[@]}"
     for f in "${NEAREST[@]}"; do note "   MERGED    $f  (3-way against the nearest template revision - review the diff)"; done

@@ -87,9 +87,14 @@ recipe that produces binaries can call `just sign-binaries` at its tail.
    hardened runtime and `packaging/macos/acmex.entitlements`.
 3. The self-signed `acmex-dev` from `just setup-codesign`.
 
-`ACMEX_CODESIGN_IDENTIFIER` (default `org.acmex-org.acmex`) is the
-identifier baked into every signature; TCC keys on it together with the
-certificate, so keep it stable and unique to the project.
+`ACMEX_CODESIGN_IDENTIFIER` is the identifier baked into every signature;
+TCC keys on it together with the certificate, so keep it stable and unique
+to the project. `just init` derives the default from the project's domain
+in reverse-DNS form plus the slug (`skyllc.com` becomes
+`com.skyllc.<slug>`, the shape bundle identifiers and launchd labels use);
+with the `.example` default domain it stays `org.<org>.<slug>`. Set the
+variable (for example in `.cargo/config.toml` under `[env]`) when the
+program already has a bundle identifier elsewhere; the two must agree.
 
 **Entitlements** (`packaging/macos/acmex.entitlements`) are empty by
 design: a plain command-line tool needs nothing under the hardened runtime.

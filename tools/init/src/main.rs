@@ -117,6 +117,14 @@ fn replacements(id: &Identity) -> Vec<(String, String)> {
             "Acmex Placeholder Dev <dev@acmex.example>".to_string(),
             id.author.clone(),
         ),
+        // The code-signing identifier (just/codesign.just): reverse-DNS of
+        // the project's domain plus the slug (`skyllc.com` -> `com.skyllc.<slug>`),
+        // the shape macOS bundle identifiers and launchd labels use. With the
+        // `<org>.example` default domain it stays `org.<org>.<slug>`.
+        (
+            "org.acmex-org.acmex".to_string(),
+            bundle_identifier(&id.domain, &id.org, &id.slug),
+        ),
         ("Acmex Placeholder LLC".to_string(), id.entity.clone()),
         ("acmex.example".to_string(), id.domain.clone()),
         ("acmex-org".to_string(), id.org.clone()),
@@ -130,6 +138,18 @@ fn replacements(id: &Identity) -> Vec<(String, String)> {
         table.push((DEFAULT_LICENSE.to_string(), id.license.clone()));
     }
     table
+}
+
+/// The default code-signing identifier: the domain's labels reversed, then
+/// the slug (`skyllc.com` + `docenta` -> `com.skyllc.docenta`); the
+/// placeholder shape `org.<org>.<slug>` when the domain is the `.example`
+/// default `just init` fills in.
+fn bundle_identifier(domain: &str, org: &str, slug: &str) -> String {
+    if domain.ends_with(".example") || domain.is_empty() {
+        return format!("org.{org}.{slug}");
+    }
+    let reversed: Vec<&str> = domain.split('.').rev().collect();
+    format!("{}.{slug}", reversed.join("."))
 }
 
 /// Winget-style capitalized org segment (`my-org` -> `MyOrg`).

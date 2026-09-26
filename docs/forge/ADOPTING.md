@@ -215,7 +215,28 @@ What it does, per class of file:
 
 Never touched: your crates, `supply-chain/`, `CHANGELOG.md`, licenses. The
 upgrade is a commit on `forge/upgrade-<version>`; keeping it is a normal PR,
-undoing it is deleting the branch. `FORGE_TEMPLATE=/path/to/checkout` (or
+undoing it is deleting the branch.
+
+What to expect after the upgrade, from the first real one (docenta,
+2026-09-26):
+
+- **New lints fire in your code.** Run `cargo clippy --workspace
+  --all-targets --all-features --keep-going -- -D warnings` to see the
+  whole workspace at once: without `--keep-going` clippy stops at the first
+  failing crate and the count is an undercount (19 reported, 101 real). Most
+  sites are machine-applicable (`cargo clippy --fix`); clippy's own
+  suggestion for `.map(f).unwrap_or_default()` is `map_or_default`.
+- **Exhaustive destructuring moves the line gate.** `rest_pattern_accessible_field`
+  turns `Foo { .. }` into named fields, so a wide dispatcher can cross the
+  100-line `too_many_lines` threshold; split it or add a scoped `#[expect]`
+  with a reason. An arm that ignores every field is written
+  `Foo { a: _, b: _ }`; `unneeded_field_pattern` is at allow for exactly
+  that reason.
+- **Ported recipes come back as collisions.** If the template ported a
+  recipe FROM your repo (`tier2-local`, the codesign recipes), the
+  template's just file lands as a suggestion listing the recipes you
+  already define; keep one copy, and prefer the template's so the next
+  upgrade fast-forwards it. `FORGE_TEMPLATE=/path/to/checkout` (or
 `OWNER/REPO`) upgrades from something other than the template's `main`.
 
 ## Caveats before you start

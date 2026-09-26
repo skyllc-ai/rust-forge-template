@@ -198,7 +198,7 @@ lint-ci-linux-zig:
         cargo-zigbuild clippy --workspace --all-targets --all-features --target x86_64-unknown-linux-gnu --no-deps -- -D warnings
     @printf "\033[0;32m✅ Linux clippy gate (zigbuild) passed\033[0m\n"
 
-# Cross-target strict lint gate for Intel macOS (x86_64-apple-darwin).
+# The Intel macOS leg of lane:cross-lint (x86_64-apple-darwin, strict clippy).
 #
 # The fourth supported platform (macOS ARM + Intel, Linux, Windows with
 # identical behavior). Cross-compiling from an arm64 host needs no extra
