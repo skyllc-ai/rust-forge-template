@@ -12,6 +12,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Template 1.1.2 (upgrade baseline fix)
+
+- `adopt.sh --upgrade`: the template's HEAD is never a merge base. With an
+  unknown baseline, the nearest-revision search could pick HEAD for a file
+  you edited, which read as "yours is newer" and silently dropped the
+  template's changes (docenta's `gen-workflow` never received the cargo-vet
+  matcher). A file that no template revision before HEAD explains is now
+  reported as UNMATCHED with the template's copy beside it, never kept
+  silently; the nearest-revision distance is measured per line; a
+  placeholder org is no longer treated as an identity to substitute.
+
 ### Template 1.1.1 (docenta's upgrade feedback)
 
 - `unneeded_field_pattern` yields to `rest_pattern_accessible_field`: the

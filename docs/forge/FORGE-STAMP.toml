@@ -10,7 +10,7 @@
 # `project` is rewritten by `just init` / `adopt.sh`. Do not delete this file.
 
 forged-from = "skyllc-ai/rust-forge-template"
-template-version = "1.1.1"
+template-version = "1.1.2"
 project = "acmex"
 # "init" for `just init` (born from the template); "adopted" for adopt.sh
 # (brought to an existing project). Rewritten by adopt.sh; do not edit by hand.

@@ -203,6 +203,10 @@ What it does, per class of file:
   which the report lists as "merged against a nearest baseline: review the
   diff". Untouched files fast-forward, edited files merge, a conflict
   keeps yours and writes the template's version as `<name>.forge-suggested`.
+  A file that no template revision explains (a donor repo's original, or
+  one edited past recognition) is reported as UNMATCHED with the template's
+  copy beside it: yours is kept, and the suggestion shows what the template
+  has that you lack. Never a silent "yours is newer".
 - **the lint posture**: merged key by key. Lints the template added land in
   your `[workspace.lints.*]` tables with their comments; while your posture
   is still at allow (an adoption ratchet in progress) they land at allow.
