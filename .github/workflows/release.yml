@@ -514,7 +514,7 @@ jobs:
           printf 'exec python3 -m ziglang "$@"\n' | sudo tee /usr/local/bin/zig >/dev/null
           sudo chmod +x /usr/local/bin/zig
           zig version
-          cargo install --locked cargo-zigbuild@0.22.3
+          cargo install --locked cargo-zigbuild@0.23.4
           # No `cargo zigbuild --version` smoke here: `cargo zigbuild <args>`
           # forwards to the `zigbuild` subcommand, which has no `--version`
           # (it errors "unexpected argument '--version'"). The real proof is

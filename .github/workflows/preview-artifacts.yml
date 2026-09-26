@@ -272,7 +272,7 @@ jobs:
           printf 'exec python3 -m ziglang "$@"\n' | sudo tee /usr/local/bin/zig >/dev/null
           sudo chmod +x /usr/local/bin/zig
           zig version
-          cargo install --locked cargo-zigbuild@0.22.3
+          cargo install --locked cargo-zigbuild@0.23.4
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: preview-linux
