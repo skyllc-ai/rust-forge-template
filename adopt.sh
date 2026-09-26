@@ -125,6 +125,10 @@ render_identity() { # sets the placeholder -> project substitution table
     # stamp's copyright line. Best effort; a miss only costs a fast-forward
     # (the file then goes through the 3-way merge or lands as a suggestion).
     ORG="$(sed -n 's#^repository *= *"https://github.com/\([^/"]*\)/.*#\1#p' Cargo.toml | head -1)"
+    # The placeholder org means the identity was never rewritten (the template
+    # itself, or a repo that kept the defaults): substituting would rewrite
+    # `acmex-owner` lines that init never touched and mislabel clean files.
+    [[ "$ORG" == "${SLUG}-org" ]] && ORG=""
     ENTITY="$(sed -n 's/^# Copyright (c) [0-9-]* \(.*\)$/\1/p' docs/forge/FORGE-STAMP.toml | head -1)"
     # `just init` also rewrites the license expression when the project is
     # not MIT OR Apache-2.0 (a proprietary LicenseRef-* id in every header).
@@ -162,7 +166,11 @@ render_file() { # SRC DST: the same substitution table as `just init`, most spec
 fingerprint() { grep -viE 'copyright' "$1" | sed -E 's@^[[:space:]]*(//[!/]?|#)[[:space:]]?@@' | tr -d '[:space:]'; }
 same_fingerprint() { cmp -s <(fingerprint "$1") <(fingerprint "$2"); }
 same_modulo_copyright() { same_fingerprint "$1" "$2"; }
-fingerprint_distance() { diff <(fingerprint "$1" | fold -w 80) <(fingerprint "$2" | fold -w 80) | grep -c '^[<>]' || true; }
+# Distance for the nearest-revision search: per-line normalization (comment
+# prefixes, whitespace and copyright lines removed) diffed line by line, so a
+# one-line edit costs one line, not every line after it.
+fingerprint_lines() { grep -viE 'copyright' "$1" | sed -E 's@^[[:space:]]*(//[!/]?|#)[[:space:]]?@@; s/[[:space:]]+//g' | grep -v '^$'; }
+fingerprint_distance() { diff <(fingerprint_lines "$1") <(fingerprint_lines "$2") | grep -c '^[<>]' || true; }
 template_files_at() { # COMMIT: every machinery file path at that template commit
     local commit="$1" p
     for p in "${MACHINERY[@]}" "${EXTRA_DOCS[@]}"; do
@@ -221,7 +229,7 @@ if [[ $UPGRADE -eq 1 ]]; then
     # ---- 2. Per-file 3-way merge --------------------------------------------
     say "2/6 Merging machinery files (fast-forward / 3-way / suggested)"
     WORK="$(mktemp -d)"; trap 'rm -rf "$TMPL_DIR" "$WORK"' EXIT
-    FF=(); MERGED=(); NEAREST=(); CONFLICTS=(); SUGGESTED=(); NEW=(); KEPT=0
+    FF=(); MERGED=(); NEAREST=(); CONFLICTS=(); SUGGESTED=(); UNMATCHED=(); NEW=(); KEPT=0
     while IFS= read -r p; do
         [[ -n "$p" ]] || continue
         for skip in "${UPGRADE_SKIP[@]}"; do [[ "$p" == "$skip" ]] && continue 2; done
@@ -252,6 +260,11 @@ if [[ $UPGRADE -eq 1 ]]; then
             # silent corruption, and the report names these files.
             nearest_dist=-1
             while IFS= read -r c; do
+                # HEAD is "theirs", never a base: with it in the candidate set an
+                # edited file whose nearest revision happened to be HEAD read as
+                # "yours is newer" and the template's changes were silently
+                # dropped (docenta's gen-workflow lost the cargo-vet matcher).
+                [[ "$c" == "$NEW_COMMIT" ]] && continue
                 git -C "$TMPL_DIR" show "${c}:${p}" > "$WORK/rawbase" 2>/dev/null || continue
                 render_file "$WORK/rawbase" "$WORK/cand"
                 if same_fingerprint "$ours" "$WORK/cand"; then have_base=1; cp "$ours" "$base"; nearest_dist=0; break; fi
@@ -260,14 +273,25 @@ if [[ $UPGRADE -eq 1 ]]; then
             done < <(git -C "$TMPL_DIR" log --format=%H -n 80 -- "$p")
         fi
         if [[ $have_base -eq 0 ]]; then
-            # No template history for this path at all (renamed upstream?):
+            # No template revision before HEAD for this path (new in this
+            # template version, or renamed upstream) while yours differs:
             # the template's version lands beside yours for a manual merge.
             cp "$theirs" "${dest}.forge-suggested"; SUGGESTED+=("$dest"); continue
         fi
         if same_fingerprint "$ours" "$base"; then
             cp "$theirs" "$dest"; FF+=("$dest"); continue
         fi
-        if same_fingerprint "$theirs" "$base"; then KEPT=$((KEPT + 1)); continue; fi
+        if same_fingerprint "$theirs" "$base"; then
+            if [[ $have_base -eq 2 ]]; then
+                # The nearest ancestor revision IS the template's current
+                # content, and yours differs from it: nothing in the template's
+                # history explains your copy (a donor repo's original, or a file
+                # edited past recognition). "Yours is newer" cannot be concluded;
+                # the template's copy lands beside yours for a manual review.
+                cp "$theirs" "${dest}.forge-suggested"; UNMATCHED+=("$dest"); continue
+            fi
+            KEPT=$((KEPT + 1)); continue
+        fi
         base_label="template@${OLD_COMMIT:0:10}"; [[ $have_base -eq 2 ]] && base_label="template@nearest"
         if git merge-file -p -L "yours" -L "$base_label" -L "template@${NEW_COMMIT:0:10}" "$ours" "$base" "$theirs" > "$WORK/merged"; then
             cp "$WORK/merged" "$dest"
@@ -302,17 +326,18 @@ if [[ $UPGRADE -eq 1 ]]; then
     # the repo already defines elsewhere - typically because the template
     # ported them FROM this repo. Say so, so the manual merge starts with
     # the collision list instead of `just` refusing a redefined recipe.
-    for f in "${CONFLICTS[@]}" "${SUGGESTED[@]}"; do
+    for f in "${CONFLICTS[@]}" "${SUGGESTED[@]}" "${UNMATCHED[@]}"; do
         case "$f" in just/*.just) ;; *) continue ;; esac
         [[ -f "${f}.forge-suggested" ]] || continue
         clash="$(comm -12 <(recipe_names "${f}.forge-suggested") <(for o in just/*.just justfile; do [[ "$o" == "$f" ]] || recipe_names "$o"; done | sort -u))"
         [[ -n "$clash" ]] && note "   $f.forge-suggested also defines recipe(s) another file of yours already has: $(printf '%s' "$clash" | tr '\n' ' ')"
     done
-    ok "fast-forwarded ${#FF[@]}, merged ${#MERGED[@]} (+${#NEAREST[@]} against a nearest baseline), new ${#NEW[@]}, kept ${KEPT} (yours newer), conflicts ${#CONFLICTS[@]}, suggested ${#SUGGESTED[@]}"
+    ok "fast-forwarded ${#FF[@]}, merged ${#MERGED[@]} (+${#NEAREST[@]} against a nearest baseline), new ${#NEW[@]}, kept ${KEPT} (yours newer), conflicts ${#CONFLICTS[@]}, suggested ${#SUGGESTED[@]}, unmatched ${#UNMATCHED[@]}"
     for f in "${NEAREST[@]}"; do note "   MERGED    $f  (3-way against the nearest template revision - review the diff)"; done
+    for f in "${UNMATCHED[@]}"; do note "   UNMATCHED $f  (yours differs from the template's copy and no earlier template revision matches yours; review $f.forge-suggested for what the template has that you lack)"; done
     for f in "${CONFLICTS[@]}"; do note "   CONFLICT  $f  (yours kept; template's version at $f.forge-suggested)"; done
     for f in "${SUGGESTED[@]}"; do note "   SUGGESTED $f  (no template history for this path; template's version at $f.forge-suggested)"; done
-    if [[ ${#CONFLICTS[@]} -gt 0 || ${#SUGGESTED[@]} -gt 0 ]]; then
+    if [[ ${#CONFLICTS[@]} -gt 0 || ${#SUGGESTED[@]} -gt 0 || ${#UNMATCHED[@]} -gt 0 ]]; then
         warn "a tool crate or generator may not compile until every suggestion above is resolved (they move together)"
     fi
     if [[ $KEEP_TOOLCHAIN -eq 1 ]]; then
@@ -432,7 +457,7 @@ PYLINT
     fi
     printf '%s\n' "$NEW_VER" > docs/forge/TEMPLATE_VERSION
     ok "stamp: ${OLD_VER:-?} -> ${NEW_VER} @ ${NEW_COMMIT:0:10}"
-    if [[ ${#CONFLICTS[@]} -eq 0 ]] && cargo metadata --format-version 1 --no-deps >/dev/null 2>&1; then
+    if [[ ${#CONFLICTS[@]} -eq 0 && ${#UNMATCHED[@]} -eq 0 ]] && cargo metadata --format-version 1 --no-deps >/dev/null 2>&1; then
         if cargo run -q --release -p "${SLUG}-gen-hooks" -- --target pre-push >/dev/null 2>&1 \
            && cargo run -q --release -p "${SLUG}-gen-hooks" -- --target pre-commit >/dev/null 2>&1; then
             ok "hooks regenerated from the merged gates.toml"
@@ -464,7 +489,7 @@ PYLINT
         echo
         printf "${C_YELLOW}Done, but NOT committed: the upgrade is staged on %s; %s is untouched.${C_OFF}\n" "$BRANCH" "$BASE_BRANCH"
     fi
-    if [[ ${#CONFLICTS[@]} -gt 0 || ${#SUGGESTED[@]} -gt 0 ]]; then
+    if [[ ${#CONFLICTS[@]} -gt 0 || ${#SUGGESTED[@]} -gt 0 || ${#UNMATCHED[@]} -gt 0 ]]; then
         printf "${C_YELLOW}Resolve the *.forge-suggested files listed above (diff against yours, take what you want, delete the suggestion), then commit.${C_OFF}\n"
     fi
     printf "${C_CYAN}Verify:   just setup && just go${C_OFF}\n"
