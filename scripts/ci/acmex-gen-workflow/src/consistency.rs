@@ -17,8 +17,8 @@
 //!
 //! 5. One pin per action: every `uses: owner/name@<sha>` for a given action
 //!    resolves to the same SHA across all workflows.
-//! 6. Toolchain versions: every `ziglang==<v>` and `cargo-zigbuild@<v>` matches
-//!    `[toolchain]` in the manifest.
+//! 6. Toolchain versions: every `ziglang==<v>`, `cargo-zigbuild@<v>` and
+//!    `cargo-vet@<v>` matches `[toolchain]` in the manifest.
 //! 7. Build targets: a matrix row `target: T` followed by `rustflags: "X"`, and
 //!    a job that names `--target T` under a `RUSTFLAGS: "X"`, carry the flags
 //!    `[[target]]` gives for `T`; `target-cpu=native` is refused anywhere.
@@ -142,19 +142,20 @@ fn check_action_pins(workflows: &[WorkflowText]) -> Result<Vec<String>> {
 
 /// Every toolchain mention that disagrees with `[toolchain]`.
 fn check_toolchain(manifest: &Manifest, workflows: &[WorkflowText]) -> Result<Vec<String>> {
-    let matchers: [(&str, Regex); 2] = [
+    let matchers: [(&str, Regex); 3] = [
         ("ziglang", Regex::new("ziglang==([0-9][0-9.]*)")?),
         (
             "cargo-zigbuild",
             Regex::new("cargo-zigbuild@([0-9][0-9.]*)")?,
         ),
+        ("cargo-vet", Regex::new("cargo-vet@([0-9][0-9.]*)")?),
     ];
     let mut issues = Vec::new();
     for (key, wanted) in &manifest.toolchain {
         let Some((_name, matcher)) = matchers.iter().find(|(name, _re)| name == key) else {
             issues.push(format!(
                 "property 6 (toolchain): `[toolchain] {key}` has no matcher in acmex-gen-workflow \
-                 (known: ziglang, cargo-zigbuild)"
+                 (known: ziglang, cargo-zigbuild, cargo-vet)"
             ));
             continue;
         };

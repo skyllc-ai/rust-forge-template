@@ -663,7 +663,7 @@ and dependabot workflows are where drift accumulates:
 | # | Property | Source of truth |
 | --- | --- | --- |
 | 5 | One pin per action: every `uses: owner/name@<sha>` of an action resolves to the same SHA across all workflows | the workflows themselves |
-| 6 | Toolchain versions: every `ziglang==<v>` / `cargo-zigbuild@<v>` matches the manifest | `[toolchain]` in `gates.toml` |
+| 6 | Toolchain versions: every `ziglang==<v>`, `cargo-zigbuild@<v>` and `cargo-vet@<v>` matches the manifest | `[toolchain]` in `gates.toml` |
 | 7 | Build targets: a matrix row `target: T` + `rustflags:`, or a job naming `--target T` under `RUSTFLAGS:`, carries the flags the manifest gives for `T`; `target-cpu=native` is refused anywhere | `[[target]]` rows in `gates.toml` |
 | 8 | Nextest profiles: every `nextest run/archive --profile <name>` names a defined profile | `.config/nextest.toml` |
 

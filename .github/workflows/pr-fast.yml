@@ -381,9 +381,13 @@ jobs:
 
       - name: Install cargo-vet
         if: needs.classify.outputs.dep == 'true'
-        uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # v2.87.20
-        with:
-          tool: cargo-vet
+        # 0.10.2 from crates.io, NOT install-action: its manifest and the
+        # GitHub releases stop at 0.10.0, which cannot parse the
+        # `trusted-publisher` entries (GitHub-org publisher trust, a 0.10.2
+        # feature) that this project's audits and the family's imports carry.
+        # rust-cache keeps ~/.cargo/bin, so the compile is paid once per key.
+        # The version is `[toolchain] cargo-vet` in scripts/ci/gates.toml.
+        run: cargo install --locked cargo-vet@0.10.2
 
       - name: cargo vet check --locked
         if: needs.classify.outputs.dep == 'true'
@@ -595,7 +599,12 @@ jobs:
 
       - uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # v2.87.20
         with:
-          tool: cargo-deny,cargo-vet,cargo-machete
+          tool: cargo-deny,cargo-machete
+
+      - name: Install cargo-vet
+        # 0.10.2 from crates.io (see the sanity job's note): the prebuilt
+        # 0.10.0 cannot parse trusted-publisher entries.
+        run: cargo install --locked cargo-vet@0.10.2
 
       - name: cargo deny check
         # cargo-deny does not accept --locked; it reads Cargo.lock directly.
