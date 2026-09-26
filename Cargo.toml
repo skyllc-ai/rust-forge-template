@@ -337,9 +337,9 @@ redundant_pub_crate = "allow"              # Conflicts with rustc::unreachable_p
 single_call_fn = "allow"                   # Intentional: helper functions improve readability even if called once
 unnecessary_self_imports = "deny"          # Remove unnecessary self imports
 unnecessary_struct_initialization = "deny" # Simplify struct initialization
-unneeded_field_pattern = "deny"            # Remove unneeded field patterns
+unneeded_field_pattern = "allow"           # YIELDS to rest_pattern_accessible_field: an all-ignored struct pattern can only be spelled `Foo { a: _, b: _ }` (this lint wants `..`) or `Foo { .. }` (that lint refuses it); exhaustive destructuring is the posture, so this one steps aside (docenta 2026-09-26)
 unnecessary_rest_pattern = "deny"          # `Foo { a, .. }` with nothing left to elide is noise (clippy 2026-09)
-rest_pattern_accessible_field = "deny"     # `..` must not hide fields the code could name - exhaustive destructuring, like wildcard_enum_match_arm (clippy 2026-09)
+rest_pattern_accessible_field = "deny"     # `..` must not hide fields the code could name - exhaustive destructuring, like wildcard_enum_match_arm; an arm that ignores every field is written `Foo { a: _, b: _ }` (clippy 2026-09)
 definition_in_module_root = "deny"         # `mod.rs` holds only `mod` declarations; definitions live in named files (clippy 2026-09)
 
 # ───── Filesystem ─────

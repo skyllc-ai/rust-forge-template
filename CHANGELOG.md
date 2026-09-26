@@ -12,6 +12,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Template 1.1.1 (docenta's upgrade feedback)
+
+- `unneeded_field_pattern` yields to `rest_pattern_accessible_field`: the
+  two contradicted each other on any match arm that ignores every field of
+  a struct variant (`Foo { .. }` vs `Foo { a: _, b: _ }`); exhaustive
+  destructuring is the posture, so the all-ignored spelling is now the
+  explicit one.
+- `just init` derives the code-signing identifier from the project's domain
+  (`com.skyllc.<slug>`), not from the GitHub org.
+- The upgrade report names recipe collisions inside suggested just files
+  (the template ports recipes FROM repos, so they come back as duplicates).
+- ADOPTING.md: what to expect after an upgrade (`clippy --keep-going`, the
+  line gate moving, `map_or_default`).
+- A duplicated recipe description in `just/test.just`.
+
 ### Template 1.1.0 (the forge machinery; product code unchanged)
 
 - Toolchain pinned to nightly-2026-09-26; dependencies refreshed and every
