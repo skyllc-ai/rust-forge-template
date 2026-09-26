@@ -25,6 +25,12 @@ criteria = "safe-to-deploy"
 delta = "4.6.1 -> 4.6.3"
 notes = """Reviewed full crate-source diff 4.6.1 -> 4.6.3 (crates.io tarballs). attr.rs: refactors attribute-value parsing to fold the LitStr special case into the general Expr path, additionally allowing "literal".function() as an attribute value (matches upstream CHANGELOG 4.6.3 'allow "literal".function() as attribute values'). Proc-macro (build-time) code only; no unsafe, no I/O, no new dependencies, no change to the set of externally observable derive outputs for existing valid inputs."""
 
+[[audits.console]]
+who = "Robert M1 (via Claude review) <openclauderobert@nios.net>"
+criteria = "safe-to-deploy"
+delta = "0.16.4 -> 0.16.6"
+notes = "Reviewed full crate-source diff 0.16.4 -> 0.16.6 (crates.io tarballs). ansi.rs: the escape-sequence scanner learns OSC (ESC ]) and DCS (ESC P) sequences via a small EscSequence trait over a Peekable<CharIndices>; all indexing is derived from char_indices offsets plus len_utf8, so it stays on char boundaries. utils.rs: str_width fast path for printable ASCII, truncate_str now cuts at a char_indices byte offset by column budget instead of a raw byte slice (fixes a latent char-boundary panic), tests moved into a mod. A test fixture log is added to the package include list. No unsafe, no I/O, no new dependencies."
+
 [[audits.futures]]
 who = "Robert M1 (via Claude review) <openclauderobert@nios.net>"
 criteria = "safe-to-deploy"
@@ -78,6 +84,12 @@ who = "Robert M1 (via Claude review) <openclauderobert@nios.net>"
 criteria = "safe-to-deploy"
 delta = "0.3.32 -> 0.3.33"
 notes = "Reviewed full crate-source diff 0.3.32 -> 0.3.33 across all 9 futures-family crates (crates.io tarballs), matching upstream CHANGELOG. Real fixes reviewed and confirmed sound: (1) io/read_until.rs reorders consume()/*read+= to fix ReadLine exception-safety on panic mid-consume; (2) compat/compat01as03.rs wraps NotifyWaker in UnsafeCell + adds unsafe impl Send/Sync, replacing UB (mut pointer cast from &self) with a legitimate UnsafeCell::get() derivation - same runtime behavior, fixes a real stacked-borrows violation; (3) futures_unordered/iter.rs fixes a genuine memory leak (IntoIter::next never released the Arc-refcounted Task node; now does) and tightens IterPinRef's Send bound from Fut: Send to the correct Fut: Sync (yields shared Pin<&Fut> refs - strictly more conservative, cannot introduce new unsoundness). Remainder of the diff is portable-atomic/portable-atomic-alloc feature-gating plumbing (additive, cfg-gated, dead code in this workspace - confirmed no crate here activates those features), doc-link cleanups, and a redundant cfg_attr->cfg simplification. No unsafe outside the two reviewed fixes above, no new I/O, no build.rs, no new required dependencies, no public-API break."
+
+[[audits.hermit-abi]]
+who = "Robert M1 (via Claude review) <openclauderobert@nios.net>"
+criteria = "safe-to-deploy"
+delta = "0.5.2 -> 0.5.3"
+notes = "Reviewed full crate-source diff 0.5.2 -> 0.5.3 (crates.io tarballs). Only changes: version bump, authors field dropped from the manifest, and doc-comment example tweaks in src/lib.rs (no_run/custom fences, an unsafe block around CString::from_raw in the example). No code change outside doc comments, no unsafe added, no new dependencies."
 
 [[audits.mio]]
 who = "Robert Nio <50460704+githubrobbi@users.noreply.github.com>"
@@ -144,6 +156,12 @@ who = "Robert M1 (via Claude review) <openclauderobert@nios.net>"
 criteria = "safe-to-deploy"
 delta = "1.23.5 -> 1.24.0"
 notes = "Reviewed full crate-source diff 1.23.5 -> 1.24.0 (crates.io tarballs). Continues today's 1.23.4->1.23.5 delta audit chain. Adds MaybeUninit-buffer encoding API (encode_lower_uninit/encode_upper_uninit on Hyphenated/Simple/Urn/Braced), matching upstream CHANGELOG. New unsafe code in src/fmt.rs, individually verified sound: slice_as_uninit_mut() widens &mut [u8] to &mut [MaybeUninit<u8>] (always-sound direction, MaybeUninit<u8> is layout-identical to u8); write_bytes() slices dst to src.len() (panics via normal slice-index bounds check if src is longer - debug_assert_eq is a redundant early check, not the safety boundary) then ptr::copy_nonoverlapping's src into dst (both slices non-aliasing in every call site: src is always a stack-local array or &'static byte-string literal, never the caller's buffer); assume_init_ascii_mut() (itself unsafe fn, documented caller-must-init-and-ASCII contract) reinterprets back to &mut str, mirroring the pre-existing str::from_utf8_unchecked_mut pattern used elsewhere in this file. Every encode_*_uninit call site pre-slices its buffer to the exact required LENGTH (panics per documented contract if too small) and immediately calls write_bytes with a same-length source, so lengths match by construction. New tests (encode_lower_uninit/encode_upper_uninit) exercise all four format variants and assert bytes outside the written region are untouched. No new dependencies (Cargo.toml diff is version-string only), no I/O, no build.rs, no public-API removal (only additions)."
+
+[[audits.uuid]]
+who = "Robert M1 (via Claude review) <openclauderobert@nios.net>"
+criteria = "safe-to-deploy"
+delta = "1.24.1 -> 1.26.0"
+notes = "Reviewed full crate-source diff 1.24.1 -> 1.26.0 (crates.io tarballs). Additive only: a new serde::bytes module (serialize_bytes/deserialize_bytes through the existing UuidBytesVisitor) and ContextV7::with_additional_precision_bits(bits) with the 12-bit method delegating to it (bits capped at 12 via cmp::min); a unit test for the new setter; version strings. No unsafe, no I/O, no new dependencies, no change to existing behavior."
 
 [[trusted.aho-corasick]]
 criteria = "safe-to-deploy"
@@ -215,12 +233,30 @@ start = "2025-09-01"
 end = "2027-07-20"
 notes = "Official rust-lang org crate, trusted-publisher (GitHub Actions attestation) signature already vouched for by the imported ultrafastfilesearch audits."
 
+[[trusted.cfg-if]]
+criteria = "safe-to-deploy"
+user-id = 55123 # rust-lang-owner
+start = "2025-06-09"
+end = "2027-09-26"
+
+[[trusted.clap]]
+criteria = "safe-to-deploy"
+user-id = 6743 # Ed Page (epage)
+start = "2021-12-08"
+end = "2027-09-26"
+
 [[trusted.clap_builder]]
 criteria = "safe-to-deploy"
 user-id = 6743 # Ed Page (epage)
 start = "2023-03-28"
 end = "2027-07-20"
 notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
+
+[[trusted.clap_derive]]
+criteria = "safe-to-deploy"
+user-id = 6743 # Ed Page (epage)
+start = "2021-12-08"
+end = "2027-09-26"
 
 [[trusted.clap_lex]]
 criteria = "safe-to-deploy"
@@ -236,6 +272,18 @@ start = "2023-04-13"
 end = "2027-07-20"
 notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
 
+[[trusted.find-msvc-tools]]
+criteria = "safe-to-deploy"
+trusted-publisher = "github:rust-lang/cc-rs"
+start = "2025-09-05"
+end = "2027-09-26"
+
+[[trusted.indexmap]]
+criteria = "safe-to-deploy"
+user-id = 539 # Josh Stone (cuviper)
+start = "2020-01-15"
+end = "2027-09-26"
+
 [[trusted.is_terminal_polyfill]]
 criteria = "safe-to-deploy"
 user-id = 6743 # Ed Page (epage)
@@ -243,12 +291,30 @@ start = "2024-05-02"
 end = "2027-07-20"
 notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
 
+[[trusted.js-sys]]
+criteria = "safe-to-deploy"
+trusted-publisher = "github:wasm-bindgen/wasm-bindgen"
+start = "2026-04-28"
+end = "2027-09-26"
+
+[[trusted.libc]]
+criteria = "safe-to-deploy"
+user-id = 55123 # rust-lang-owner
+start = "2024-08-15"
+end = "2027-09-26"
+
 [[trusted.memchr]]
 criteria = "safe-to-deploy"
 user-id = 189 # Andrew Gallant (BurntSushi)
 start = "2019-07-07"
 end = "2027-07-20"
 notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
+
+[[trusted.mio]]
+criteria = "safe-to-deploy"
+user-id = 6025 # Thomas de Zeeuw (Thomasdezeeuw)
+start = "2019-12-17"
+end = "2027-09-26"
 
 [[trusted.once_cell_polyfill]]
 criteria = "safe-to-deploy"
@@ -291,6 +357,12 @@ user-id = 189 # Andrew Gallant (BurntSushi)
 start = "2019-03-30"
 end = "2027-07-20"
 notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
+
+[[trusted.rustix]]
+criteria = "safe-to-deploy"
+user-id = 6825 # Dan Gohman (sunfishcode)
+start = "2021-10-29"
+end = "2027-09-26"
 
 [[trusted.rustversion]]
 criteria = "safe-to-deploy"
@@ -341,6 +413,24 @@ start = "2019-03-01"
 end = "2027-07-20"
 notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
 
+[[trusted.thiserror]]
+criteria = "safe-to-deploy"
+user-id = 3618 # David Tolnay (dtolnay)
+start = "2019-10-09"
+end = "2027-09-26"
+
+[[trusted.thiserror-impl]]
+criteria = "safe-to-deploy"
+user-id = 3618 # David Tolnay (dtolnay)
+start = "2019-10-09"
+end = "2027-09-26"
+
+[[trusted.toml]]
+criteria = "safe-to-deploy"
+user-id = 6743 # Ed Page (epage)
+start = "2022-12-14"
+end = "2027-09-26"
+
 [[trusted.toml_datetime]]
 criteria = "safe-to-deploy"
 user-id = 6743 # Ed Page (epage)
@@ -361,6 +451,36 @@ user-id = 6743 # Ed Page (epage)
 start = "2025-07-08"
 end = "2027-07-20"
 notes = "Well-established Rust ecosystem maintainer, already trusted as a publisher by multiple imported audit sources (mozilla/isrg/bytecode-alliance per cargo-vet's own trust suggestion). Wildcard-trusting the publisher avoids re-reviewing every routine release."
+
+[[trusted.unicode-ident]]
+criteria = "safe-to-deploy"
+user-id = 3618 # David Tolnay (dtolnay)
+start = "2021-10-02"
+end = "2027-09-26"
+
+[[trusted.wasm-bindgen]]
+criteria = "safe-to-deploy"
+trusted-publisher = "github:wasm-bindgen/wasm-bindgen"
+start = "2026-04-28"
+end = "2027-09-26"
+
+[[trusted.wasm-bindgen-macro]]
+criteria = "safe-to-deploy"
+trusted-publisher = "github:wasm-bindgen/wasm-bindgen"
+start = "2026-04-28"
+end = "2027-09-26"
+
+[[trusted.wasm-bindgen-macro-support]]
+criteria = "safe-to-deploy"
+trusted-publisher = "github:wasm-bindgen/wasm-bindgen"
+start = "2026-04-28"
+end = "2027-09-26"
+
+[[trusted.wasm-bindgen-shared]]
+criteria = "safe-to-deploy"
+trusted-publisher = "github:wasm-bindgen/wasm-bindgen"
+start = "2026-04-28"
+end = "2027-09-26"
 
 [[trusted.winnow]]
 criteria = "safe-to-deploy"

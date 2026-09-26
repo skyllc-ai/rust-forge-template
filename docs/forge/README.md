@@ -15,7 +15,8 @@ and the marker of this repository's template lineage:
 | `TEMPLATE_VERSION` | The template baseline this project started from |
 | `GETTING-STARTED.md` | Zero-knowledge onboarding: tools, signing, init, daily loop, gate fix-it table |
 | `COMPONENTS.md` | The growth catalog: dormant `lane:*` switches and `component:*` recipes |
-| `ADOPTING.md` | Bringing this machinery to an existing project |
+| `ADOPTING.md` | Bringing this machinery to an existing project, and upgrading it later (`just forge-upgrade`) |
+| `CODE-SIGNING.md` | Commit signing vs binary code signing: the macOS identity lane, TCC grants, Developer ID + notarized releases |
 
 Project-specific docs do **not** belong here; put those under `docs/`
 (e.g. `docs/architecture/`, alongside `docs/policies/`). Keeping this

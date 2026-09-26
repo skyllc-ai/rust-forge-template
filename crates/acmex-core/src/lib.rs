@@ -11,9 +11,10 @@
 //!
 //! - crate-level docs with a scope statement (this header)
 //! - a fallible constructor returning a domain error (never `panic!`)
-//! - an error type implementing [`core::error::Error`] by hand or via
-//!   `thiserror` (add it through `[workspace.dependencies]`)
-//! - unit tests plus at least one doc-test per public API
+//! - an error type deriving [`core::error::Error`] via `thiserror` (inherited
+//!   from `[workspace.dependencies]`)
+//! - unit tests, a table-driven invariants test, and at least one doc-test per
+//!   public API
 //!
 //! ## Scope
 //!
@@ -33,7 +34,7 @@
 // so the nightly-only feature is never exercised outside docs.rs builds.
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-use core::fmt;
+use thiserror::Error;
 
 /// A validated greeting for a named recipient.
 ///
@@ -97,31 +98,56 @@ impl Greeting {
 }
 
 /// Errors returned by [`Greeting::new`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
 #[non_exhaustive]
 pub enum GreetingError {
     /// The recipient was empty or whitespace-only after trimming.
+    #[error("recipient must contain at least one non-whitespace character")]
     EmptyRecipient,
 }
-
-impl fmt::Display for GreetingError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::EmptyRecipient => {
-                write!(
-                    f,
-                    "recipient must contain at least one non-whitespace character"
-                )
-            }
-        }
-    }
-}
-
-impl core::error::Error for GreetingError {}
 
 #[cfg(test)]
 mod tests {
     use super::{Greeting, GreetingError};
+
+    /// Invariants over a table of edge inputs: a constructed greeting
+    /// never carries surrounding whitespace and always renders its
+    /// recipient; an input with no non-whitespace character is always
+    /// rejected. (A property-based test with `proptest` is the natural
+    /// upgrade once the crate has real invariants; it is not pre-declared
+    /// in the workspace because its dependency tree must be vetted.)
+    #[test]
+    fn recipient_invariants_over_edge_inputs() {
+        let inputs = [
+            "",
+            " ",
+            "\t\n\r ",
+            "\u{a0}\u{2003}",
+            "a",
+            " a ",
+            "\u{2003}Ünïcödé\u{2003}",
+            "two words",
+            "trailing\t",
+            "\nleading",
+        ];
+        for input in inputs {
+            match Greeting::new(input) {
+                Ok(greeting) => {
+                    let recipient = greeting.recipient();
+                    assert_eq!(recipient, input.trim(), "recipient is the trimmed input");
+                    assert!(!recipient.is_empty(), "accepted recipient is never empty");
+                    assert_eq!(greeting.message(), format!("Hello, {recipient}!"));
+                }
+                Err(error) => {
+                    assert_eq!(error, GreetingError::EmptyRecipient);
+                    assert!(
+                        input.trim().is_empty(),
+                        "rejected input has no visible character: {input:?}"
+                    );
+                }
+            }
+        }
+    }
 
     /// A plain recipient round-trips into the rendered message.
     #[test]

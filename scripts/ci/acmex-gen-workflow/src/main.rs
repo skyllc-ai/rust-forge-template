@@ -71,6 +71,7 @@ use std::process::ExitCode;
 use anyhow::{Context as _, Result};
 use clap::Parser;
 
+mod consistency;
 mod manifest;
 mod validate;
 mod workflow;
@@ -83,6 +84,12 @@ const DEFAULT_MANIFEST_PATH: &str = "scripts/ci/gates.toml";
 /// Default path to the GitHub Actions PR workflow, relative to the
 /// workspace root.  Hidden CLI flag `--workflow` overrides for tests.
 const DEFAULT_WORKFLOW_PATH: &str = ".github/workflows/pr-fast.yml";
+
+/// Every workflow, for properties 5 to 8.
+const DEFAULT_WORKFLOWS_DIR: &str = ".github/workflows";
+
+/// The nextest config the workflows' `--profile` names must exist in.
+const DEFAULT_NEXTEST_PATH: &str = ".config/nextest.toml";
 
 /// Validate `.github/workflows/pr-fast.yml` against the gate manifest.
 ///
@@ -111,6 +118,14 @@ struct Args {
     /// workspace-relative `.github/workflows/pr-fast.yml`.
     #[arg(long, hide = true, default_value = DEFAULT_WORKFLOW_PATH)]
     workflow: PathBuf,
+
+    /// The directory holding every workflow (properties 5 to 8).
+    #[arg(long, hide = true, default_value = DEFAULT_WORKFLOWS_DIR)]
+    workflows_dir: PathBuf,
+
+    /// The nextest config (property 8).
+    #[arg(long, hide = true, default_value = DEFAULT_NEXTEST_PATH)]
+    nextest: PathBuf,
 
     /// Print per-property summary on success (default: silent on success).
     #[arg(long)]
@@ -141,15 +156,20 @@ fn run() -> Result<()> {
     let manifest = manifest::parse(&manifest_text).context("parse gate manifest")?;
     let workflow = workflow::parse(&workflow_text).context("parse pr-fast.yml")?;
 
-    let report = validate::validate(&manifest, &workflow, &workflow_text)
+    let mut report = validate::validate(&manifest, &workflow, &workflow_text)
         .context("run structural validator")?;
+    report.extend(
+        consistency::check(&manifest, &args.workflows_dir, &args.nextest)
+            .context("run cross-workflow consistency checks")?,
+    );
 
     if report.is_empty() {
         if args.verbose {
             eprintln!(
-                "✅ acmex-gen-workflow: pr-fast.yml is structurally consistent with gates.toml"
+                "✅ acmex-gen-workflow: pr-fast.yml is structurally consistent with gates.toml, \
+                 and every workflow agrees on pins, toolchain, targets and profiles"
             );
-            eprintln!("   (4 properties checked; see plan §4.2)");
+            eprintln!("   (8 properties checked; see docs/policies/lint-posture.md)");
         }
         Ok(())
     } else {
@@ -164,7 +184,8 @@ fn run() -> Result<()> {
         eprintln!("   Manifest: {}", args.manifest.display());
         eprintln!("   Workflow: {}", args.workflow.display());
         eprintln!(
-            "   Plan: docs/architecture/gates-manifest-plan.md §4.2 lists the four enforced properties."
+            "   Properties 1-4: pr-fast.yml structure; 5-8: pins, toolchain, targets, nextest \
+             profiles across every workflow (scripts/ci/gates.toml header)."
         );
         anyhow::bail!("structural drift detected");
     }

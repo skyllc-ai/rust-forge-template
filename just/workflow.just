@@ -111,17 +111,120 @@ go-justfile:
 # Signed-merge flow helpers (see scripts/ci/check_commit_signatures.sh)
 # ─────────────────────────────────────────────────────────────────────
 
-# Merge a PR through main's merge queue (the queue-correct incantation).
+# Merge a PR - the ONLY sanctioned way to merge (AGENTS.md rule 7 binds it).
 #
-# `main` uses a GitHub merge queue, so `gh pr merge <PR> --squash` is
-# silently rejected ("the merge strategy for main is set by the merge
-# queue") and does NOT enroll the PR.  This wrapper uses the right form -
-# `gh pr merge <PR> --auto` with NO method flag (the queue owns the
-# squash) - so the PR enters the queue and merges once its checks pass.
-merge PR:
-    @printf "\033[0;34m🔀 Enrolling PR #{{ PR }} into main's merge queue...\033[0m\n"
-    gh pr merge {{ PR }} --auto
-    @printf "\033[0;32m✅ PR #{{ PR }} queued - it merges when checks pass (watch: gh pr view {{ PR }}).\033[0m\n"
+# WHY THIS RECIPE IS THE GUARD, not GitHub alone: on a plan where
+# rulesets are unavailable (private repo, free plan), NO check is
+# "required" - which makes `gh pr merge --auto` merge INSTANTLY, before
+# a single check has run. The donor project merged three PRs that way
+# with their whole check suites cancelled unrun. Until the plan unlocks
+# required checks and the merge queue (`just protect-main` /
+# `bash scripts/ci/bootstrap-github.sh`), the waiting happens HERE:
+#
+#   1. `gh pr checks --watch --fail-fast` blocks until every check on
+#      the PR's CURRENT head completes, failing on the first red one.
+#   2. The head SHA is re-read after the watch: a push that landed
+#      mid-watch restarts the wait instead of merging unverified code.
+#   3. ABSENCE is not success: the `PR Fast CI / required` aggregate
+#      must be PRESENT and green (a dropped Actions trigger shows a
+#      green page with the aggregate simply missing).
+#   4. Only then does `--auto` run - which merges immediately when the
+#      checks are already green, and the day the merge queue exists
+#      enrolls into it (the queue-refusal fallback below), so this
+#      recipe stays correct on both plans.
+#
+# There is deliberately NO bypass flag on this recipe. METHOD is squash
+# by default; `just merge <PR> merge` when a branch's history must land
+# intact (the ruleset allows squash only until you widen it).
+
+# Merge a PR: watches EVERY check first, then merges (the only sanctioned way).
+merge PR METHOD="squash":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for _attempt in 1 2 3; do
+        head_before=$(gh pr view {{ PR }} --json headRefOid -q .headRefOid)
+        printf "\033[0;34m⏳ PR #{{ PR }}: waiting for ALL checks on %s...\033[0m\n" "${head_before:0:10}"
+        if ! gh pr checks {{ PR }} --watch --fail-fast; then
+            printf "\033[0;31m❌ a check FAILED - fix it and re-run; this recipe never merges red.\033[0m\n" >&2
+            exit 1
+        fi
+        head_after=$(gh pr view {{ PR }} --json headRefOid -q .headRefOid)
+        if [[ "$head_after" == "$head_before" ]]; then
+            agg=$(gh pr checks {{ PR }} --json name,state \
+                --jq '[.[] | select(.name == "PR Fast CI / required")] | first | .state // "MISSING"')
+            if [[ "$agg" != "SUCCESS" ]]; then
+                printf "\033[0;31m❌ the 'PR Fast CI / required' aggregate is %s on this head - not merging (the main guard would revert). Wait for PR Fast CI to run, or re-push to retrigger it.\033[0m\n" "$agg" >&2
+                exit 1
+            fi
+            printf "\033[0;32m✅ all checks green on %s (required aggregate SUCCESS) - merging.\033[0m\n" "${head_after:0:10}"
+            # Retries with the error VISIBLE: right after a watch
+            # completes, GitHub's mergeability can lag a few seconds. The
+            # bare --auto fallback fires ONLY on the merge-queue refusal
+            # it exists for ("the merge strategy for main is set by the
+            # merge queue").
+            for _try in 1 2 3; do
+                if output=$(gh pr merge {{ PR }} --auto --{{ METHOD }} 2>&1); then
+                    exit 0
+                fi
+                printf "\033[0;33m⚠️  merge attempt failed:\033[0m %s\n" "$output" >&2
+                if [[ "$output" == *"merge strategy"*"merge queue"* ]]; then
+                    gh pr merge {{ PR }} --auto
+                    exit 0
+                fi
+                sleep 5
+            done
+            printf "\033[0;31m❌ merge refused three times - the error above is the real one.\033[0m\n" >&2
+            exit 1
+        fi
+        printf "\033[0;33m⚠️  head moved during the watch (%s -> %s) - re-watching the new head.\033[0m\n" \
+            "${head_before:0:10}" "${head_after:0:10}"
+    done
+    printf "\033[0;31m❌ head kept moving across 3 watches - merge it when the branch settles.\033[0m\n" >&2
+    exit 1
+
+# Rehearse the whole PR tier locally before pushing a branch for a PR:
+# the phase-1 validation (check, file-size, the full test suite, doc
+# tests, rustdoc, the clippy trio, deny), the cross-target clippy
+# passes, the workflow drift and consistency check, the anti-pattern
+# gate, and the conventional subjects of every commit the PR would
+# carry. Minutes locally instead of paid minutes on a red PR.
+
+# Rehearse the whole PR tier locally before pushing a branch for a PR.
+pre-pr:
+    just phase1-test
+    just check-all-targets
+    cargo run -q --release -p acmex-gen-workflow -- --check
+    just audit-gate
+    bash scripts/ci/check_commit_subjects.sh range origin/main..HEAD
+    @printf "\033[0;32m✅ pre-pr: the branch is ready for `just pr`\033[0m\n"
+
+# Open the PR for the current branch with a title the server-side title
+# check will accept: the title is validated locally against the same
+# conventional-commit regex first, so a rejected title never costs a CI
+# run. The body lists the branch's commits.
+
+# Open the PR for this branch with a locally validated conventional title.
+pr TITLE:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    title_file="$(mktemp)"
+    printf '%s\n' "{{ TITLE }}" > "$title_file"
+    bash scripts/ci/check_commit_subjects.sh file "$title_file"
+    rm -f "$title_file"
+    body="$(git log --reverse --format='- %s' origin/main..HEAD)"
+    gh pr create --base main --title "{{ TITLE }}" --body "$body"
+
+# Apply the main-branch ruleset on GitHub from scripts/ci/main-ruleset.json
+# (no deletion, no force push, signatures, linear history, a PR with every
+# thread resolved, the two required checks, the merge queue). Needs a
+# plan with rulesets on private repositories; until then the pre-push
+# hook is the local mirror and main-merge-guard.yml the server-side
+# backstop. `just protect-main --without-signatures` defers the
+# signature rule until every committer's `just doctor-signing` is green.
+
+# Apply the main-branch ruleset on GitHub from scripts/ci/main-ruleset.json.
+protect-main *FLAGS:
+    bash scripts/ci/apply_main_ruleset.sh {{ FLAGS }}
 
 # Self-heal: re-sign every commit on the current branch, then re-push.
 #

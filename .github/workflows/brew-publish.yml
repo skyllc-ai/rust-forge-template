@@ -1,0 +1,91 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Acmex Placeholder LLC
+#
+# Homebrew Publish (lane:brew) - update the tap's formula on every release.
+#
+# Mirrors winget-publish.yml: `workflow_dispatch` only, dispatched by
+# release.yml once the GitHub Release exists; never `on: release`.
+# Renders packaging/homebrew/acmex.rb with the release's asset URLs and
+# SHA256s and pushes it to the tap repository named by the HOMEBREW_TAP
+# variable (default <owner>/homebrew-acmex) with the HOMEBREW_TAP_TOKEN
+# secret (a fine-grained PAT with contents: write on that one
+# repository). Without the token it warns and skips.
+#
+# Dormant until the LANE_BREW repository variable is `true`
+# (docs/forge/COMPONENTS.md, lane:brew).
+
+name: Homebrew Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      release-tag:
+        description: 'Git tag to publish to the Homebrew tap (e.g. v0.1.2)'
+        required: true
+        type: string
+
+concurrency:
+  group: brew-publish-${{ inputs.release-tag }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Update the tap formula
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    if: vars.LANE_BREW == 'true' && github.repository_owner == 'acmex-org'
+    steps:
+      - name: Check HOMEBREW_TAP_TOKEN is configured
+        id: token
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        shell: bash
+        run: |
+          if [[ -z "${HOMEBREW_TAP_TOKEN:-}" ]]; then
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=HOMEBREW_TAP_TOKEN missing::Skipping the Homebrew tap update for ${{ inputs.release-tag }} - set the secret, then re-run this workflow manually."
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.token.outputs.present == 'true'
+      - name: Render the formula from the release assets
+        if: steps.token.outputs.present == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_REPO: ${{ vars.RELEASE_REPO || github.repository }}
+          TAG: ${{ inputs.release-tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          base="https://github.com/${RELEASE_REPO}/releases/download/${TAG}"
+          sha_of() { gh release download "$TAG" --repo "$RELEASE_REPO" --pattern "$1" --output - | sha256sum | awk '{print $1}'; }
+          ARM_SHA="$(sha_of acmex-macos-arm64.zip)"
+          X64_SHA="$(sha_of acmex-macos-x64.zip)"
+          LINUX_SHA="$(sha_of acmex-linux-x64.zip)"
+          sed -e "s|@VERSION@|${version}|g" -e "s|@BASE@|${base}|g" \
+              -e "s|@ARM_SHA@|${ARM_SHA}|g" -e "s|@X64_SHA@|${X64_SHA}|g" -e "s|@LINUX_SHA@|${LINUX_SHA}|g" \
+              packaging/homebrew/acmex.rb > "$RUNNER_TEMP/acmex.rb"
+          ruby -c "$RUNNER_TEMP/acmex.rb"
+      - name: Push the formula to the tap
+        if: steps.token.outputs.present == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          TAP: ${{ vars.HOMEBREW_TAP || format('{0}/homebrew-acmex', github.repository_owner) }}
+          TAG: ${{ inputs.release-tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/${TAP}.git" "$RUNNER_TEMP/tap"
+          mkdir -p "$RUNNER_TEMP/tap/Formula"
+          cp "$RUNNER_TEMP/acmex.rb" "$RUNNER_TEMP/tap/Formula/acmex.rb"
+          cd "$RUNNER_TEMP/tap"
+          git config user.name "acmex-release"
+          git config user.email "release@acmex.example"
+          git add Formula/acmex.rb
+          git commit -m "acmex ${TAG}" || { echo "formula unchanged"; exit 0; }
+          git push origin HEAD

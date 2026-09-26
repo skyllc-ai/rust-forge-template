@@ -49,9 +49,15 @@ use crate::audit::{DiscoveredMember, Finding, audit_all};
 /// Workspace-relative path to the root `Cargo.toml`.
 const ROOT_MANIFEST: &str = "Cargo.toml";
 
-/// Workspace-relative roots under which member manifests are discovered.
-/// Mirrors the discovery pattern used by Phase 1 §3.1 audit scripts.
-const MEMBER_ROOTS: &[&str] = &["crates", "scripts/ci-pipeline", "scripts/ci"];
+/// Directory names never descended into during member discovery:
+/// build output, vendored trees, and anything hidden. Everything else
+/// is walked, so a NEW member root (a `scripts/analysis`, a future
+/// `tools/`) is discovered the day it appears instead of failing the
+/// gate until someone extends a hardcoded list. The audit's own
+/// invariant 3.1 depends on discovery being INDEPENDENT of the declared
+/// member list, so the fix is a full walk rather than deriving roots
+/// from `[workspace.members]`.
+const SKIPPED_DIRS: &[&str] = &["target", "node_modules", "vendor"];
 
 /// Validate the workspace manifest set against the 15 invariants.
 ///
@@ -105,14 +111,11 @@ fn run() -> Result<()> {
 
     let mut discovered_paths: BTreeSet<String> = BTreeSet::new();
     let mut member_texts: Vec<(String, String)> = Vec::new(); // (path, raw text)
-    for member_root in MEMBER_ROOTS {
-        let member_root_path = root.join(member_root);
-        if !member_root_path.exists() {
-            continue;
-        }
-        discover_members_recursive(&member_root_path, member_root, &mut discovered_paths)
-            .with_context(|| format!("discover members under {member_root}"))?;
-    }
+    discover_members_recursive(root, "", &mut discovered_paths)
+        .context("discover members under the workspace root")?;
+    // The workspace root's own Cargo.toml is the ROOT manifest, not a
+    // member; the walk records it as the empty prefix.
+    let _root_itself = discovered_paths.remove("");
     for path in &discovered_paths {
         let manifest_file = root.join(path).join("Cargo.toml");
         let text = std::fs::read_to_string(&manifest_file)
@@ -165,36 +168,53 @@ fn run() -> Result<()> {
 
 /// Walk `dir` (workspace-relative `prefix`) looking for member
 /// `Cargo.toml` files.  Records each *directory* (relative to the
-/// workspace root) in `out`.  Does not descend into `target/`.
+/// workspace root) in `out`.  Descends the whole tree except
+/// [`SKIPPED_DIRS`] and hidden directories.
 fn discover_members_recursive(
     dir: &Path,
     workspace_relative_prefix: &str,
     out: &mut BTreeSet<String>,
 ) -> Result<()> {
-    // Direct child Cargo.toml?
-    if dir.join("Cargo.toml").is_file() {
+    let manifest = dir.join("Cargo.toml");
+    if manifest.is_file() {
+        // A nested `[workspace]` root (the standalone `tools/init` ceremony
+        // crate, a vendored tree) is its own workspace, never a member of
+        // this one: neither audited nor descended into.
+        if !workspace_relative_prefix.is_empty() && declares_workspace(&manifest)? {
+            return Ok(());
+        }
         out.insert(workspace_relative_prefix.to_owned());
     }
-    // Recurse into subdirectories (one level - ACMEX nests at most
-    // `scripts/ci/<crate>` deep).
     let entries = std::fs::read_dir(dir).with_context(|| format!("read_dir {}", dir.display()))?;
     for entry_result in entries {
         let entry = entry_result.context("read_dir entry")?;
         let name = entry.file_name();
         let name_str = name.to_string_lossy();
-        if name_str == "target" || name_str.starts_with('.') {
+        if SKIPPED_DIRS.contains(&name_str.as_ref()) || name_str.starts_with('.') {
             continue;
         }
         let path = entry.path();
         if !path.is_dir() {
             continue;
         }
-        let child_prefix = format!("{workspace_relative_prefix}/{name_str}");
-        if path.join("Cargo.toml").is_file() {
-            out.insert(child_prefix);
-        }
+        let child_prefix = if workspace_relative_prefix.is_empty() {
+            name_str.into_owned()
+        } else {
+            format!("{workspace_relative_prefix}/{name_str}")
+        };
+        discover_members_recursive(&path, &child_prefix, out)?;
     }
     Ok(())
+}
+
+/// Whether a manifest declares a `[workspace]` table of its own (a
+/// nested workspace root, skipped by discovery).
+fn declares_workspace(manifest: &Path) -> Result<bool> {
+    let text = std::fs::read_to_string(manifest)
+        .with_context(|| format!("read {}", manifest.display()))?;
+    Ok(text
+        .lines()
+        .any(|line| line.trim_start().starts_with("[workspace]")))
 }
 
 /// Print findings to stderr, grouped by invariant for human

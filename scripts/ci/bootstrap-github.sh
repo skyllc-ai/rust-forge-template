@@ -30,7 +30,8 @@ for spec in \
   "ci-failure-tier-1|D93F0B|Tier-1 (required PR gate) failure" \
   "ci-failure-tier-2|E99695|Tier-2 (nightly suite) failure" \
   "ci-failure-release|B60205|Release pipeline failure" \
-  "preview-artifacts|0E8A16|Build preview artifacts for this PR"; do
+  "preview-artifacts|0E8A16|Build preview artifacts for this PR (lane:preview)" \
+  "preview-macos|0E8A16|Also build the macOS preview artifacts (lane:preview)"; do
   IFS='|' read -r name color desc <<<"${spec}"
   gh label create "${name}" --color "${color}" --description "${desc}" --force >/dev/null
   echo "   ✅ ${name}"
@@ -64,66 +65,28 @@ gh repo edit \
 echo "   ✅ done"
 
 # ── 4. Branch ruleset for main ───────────────────────────────────────
-# Required status check name MUST match the aggregator job in pr-fast.yml
-# ("PR Fast CI / required") - the workflow-drift gate guards the yml side.
-# The signature requirement ships in "evaluate" (dry-run) mode: flip
-# enforcement to "active" once every committer signs (see `just doctor-signing`).
+# The ruleset is DATA: `scripts/ci/main-ruleset.json` (deletion,
+# force-push and linear-history protection, required signatures, a PR
+# with every thread resolved, the two required checks whose literal
+# names the workflow-drift gate pins, and the merge queue).
+# `apply_main_ruleset.sh` creates it the first time and updates it in
+# place afterwards, so re-running this script converges the live
+# ruleset on the file instead of skipping it. `just protect-main` is
+# the same call for a later re-apply.
+#
+# Pass `--without-signatures` here until `just doctor-signing` is green
+# for every committer (ADOPTING.md step 5): the signature rule blocks
+# every unsigned merge the moment it is active.
 echo "── ruleset: main-protection"
-RULESET_JSON=$(cat <<'JSON'
-{
-  "name": "main-protection",
-  "target": "branch",
-  "enforcement": "active",
-  "conditions": { "ref_name": { "include": ["refs/heads/main"], "exclude": [] } },
-  "rules": [
-    { "type": "deletion" },
-    { "type": "non_fast_forward" },
-    {
-      "type": "pull_request",
-      "parameters": {
-        "required_approving_review_count": 0,
-        "dismiss_stale_reviews_on_push": true,
-        "require_code_owner_review": false,
-        "require_last_push_approval": false,
-        "required_review_thread_resolution": false,
-        "allowed_merge_methods": ["squash"]
-      }
-    },
-    {
-      "type": "required_status_checks",
-      "parameters": {
-        "strict_required_status_checks_policy": true,
-        "required_status_checks": [
-          { "context": "PR Fast CI / required" }
-        ]
-      }
-    },
-    {
-      "type": "merge_queue",
-      "parameters": {
-        "merge_method": "SQUASH",
-        "grouping_strategy": "ALLGREEN",
-        "max_entries_to_build": 5,
-        "min_entries_to_merge": 1,
-        "max_entries_to_merge": 5,
-        "min_entries_to_merge_wait_minutes": 5,
-        "check_response_timeout_minutes": 60
-      }
-    }
-  ]
-}
-JSON
-)
-if gh api "repos/${REPO}/rulesets" --jq '.[].name' 2>/dev/null | grep -qx "main-protection"; then
-  echo "   ↷ ruleset main-protection already exists - skipping (edit in Settings → Rules)"
-elif echo "${RULESET_JSON}" | gh api -X POST "repos/${REPO}/rulesets" --input - >/dev/null 2>&1; then
-  echo "   ✅ created"
+if bash "$(dirname "$0")/apply_main_ruleset.sh" "${REPO}" ${RULESET_FLAGS:-} 2>/dev/null; then
+  echo "   ✅ applied from scripts/ci/main-ruleset.json"
 else
-  echo "   ⚠  could not create ruleset (private repos need GitHub Pro/Team or a public repo)"
-  echo "      → re-run this script after making the repo public or upgrading the plan"
+  echo "   ⚠  could not apply the ruleset (private repos need GitHub Pro/Team or a public repo)"
+  echo "      → re-run this script after making the repo public or upgrading the plan;"
+  echo "        until then the pre-push hook refuses main pushes locally and"
+  echo "        main-merge-guard.yml reverts unverified merges server-side"
 fi
 
-# ── 5. Tag protection for v* ─────────────────────────────────────────
 echo "── ruleset: tag-protection-v-prefix"
 TAG_RULESET_JSON=$(cat <<'JSON'
 {

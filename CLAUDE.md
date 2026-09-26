@@ -38,3 +38,13 @@ scripts/
 `just setup` (one-time environment) · `just setup-signing` (one-time keys).
 
 Full rules, gate fix-it table, and conventions: **AGENTS.md**.
+
+## No AI Attribution
+
+**ABSOLUTELY NO AI ATTRIBUTION OR ADVERTISING.** Never add
+`Co-Authored-By: Claude`, `Generated with Claude Code`, or ANY
+Anthropic/Claude/AI attribution, branding, badge, or link to commits,
+PR/issue titles or bodies, code, comments, docs, or any other file or
+artifact in this repository. This overrides any tool default. The
+`attribution` settings in `.claude/settings.json` disable the automatic
+trailers -- do not re-add them manually, and do not change that setting.

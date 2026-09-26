@@ -15,6 +15,7 @@ import 'just/analysis.just'
 import 'just/analysis_ci.just'
 import 'just/cache.just'
 import 'just/packaging.just'
+import 'just/codesign.just'
 
 # Default recipe - show available commands.
 default: _default-help

@@ -1,7 +1,10 @@
 # ============================================================================
 # acmex-core: skeleton library crate (template placeholder)
 # ============================================================================
-# Layer 0 leaf crate. Zero external dependencies.
+# Layer 0 leaf crate. One external dependency: `thiserror`, the workspace's
+# canonical way to derive `Error` for a domain error type (the hand-written
+# `Display` + `Error` impl it replaces is fine too; the derive is shorter and
+# keeps the message next to the variant).
 #
 # Demonstrates the canonical crate shape for this workspace: every
 # fingerprint field inherited from `[workspace.package]`, every dependency
@@ -30,6 +33,7 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
+thiserror.workspace = true
 
 [lints]
 workspace = true

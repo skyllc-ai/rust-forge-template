@@ -37,8 +37,11 @@ same PR**. A stale GOTO.md is worse than none.
 ### Pending (external / needs a human decision)
 
 - [ ] **main-protection ruleset + merge queue**: needs a public repo or
-      GitHub Pro/Team. When eligible: `bash scripts/ci/bootstrap-github.sh`
-      (idempotent; also unlocks CodeQL uploads)
+      GitHub Pro/Team. When eligible: `just protect-main` (the data is
+      `scripts/ci/main-ruleset.json`; `bash scripts/ci/bootstrap-github.sh`
+      does the same plus labels and lane variables, and unlocks CodeQL
+      uploads). Until then: the pre-push hook, `just merge` and
+      `main-merge-guard.yml` hold the same rules
 - [ ] Dependabot alerts + security updates: repo Settings → Code security
 - [ ] If publishing is ever planned: reserve the crate name(s) on crates.io
       early (a placeholder publish is cheap; losing the name is not)
@@ -57,7 +60,9 @@ just test                       # nextest suite
 just go                         # the definition of done
 git add -A && git commit -m "feat: ..."   # hooks run, ~2-15s
 git push -u origin feat/<topic>           # gate battery, ~20-60s
-gh pr create --fill && gh pr merge <branch> --auto
+just pre-pr                     # optional: rehearse the PR tier locally first
+just pr "feat: ..."             # validated title, opens the PR
+just merge <PR-number>          # watches every check, then merges (never raw gh pr merge)
 ```
 
 - Gate fails? `docs/forge/GETTING-STARTED.md` has the human fix-it table; `AGENTS.md` §6
@@ -102,7 +107,11 @@ variable plus, at most, a TOML flag. Full runbooks with verify steps:
 
 | Lane | Turns on | How (short form) | When |
 |---|---|---|---|
-| `lane:cross-lint` | Windows (cargo-xwin) + Linux (zigbuild) lint/check gates | install the tools, add gate ids to `scripts/ci/gates.toml` tiers, `just acmex-gen-hooks` | Week one, if the product is cross-platform |
+| `lane:cross-lint` | Windows (cargo-xwin), Linux (zigbuild), Intel-macOS lint gates at pre-push, soft-skipping until the tools are installed | install the tools (`just install-dev-tools`); flip `hard` in `scripts/ci/gates.toml` to make one blocking | Week one, if the product is cross-platform |
+| `lane:preview` | real binaries for one PR SHA (Windows + Linux, macOS on request) with a SHA256 manifest | label the PR `preview-artifacts` (+ `preview-macos`) or dispatch `preview-artifacts.yml` | When a human must try a build before it merges |
+| `lane:codesign` | stable macOS binary identity (TCC grants survive rebuilds), Developer ID + notarized releases | `just setup-codesign`; for releases the `APPLE_*` secrets (`docs/forge/CODE-SIGNING.md`) | The day the program asks macOS for a privacy grant |
+| `lane:main-guard` | `just merge` waits for every check, the hook refuses direct pushes, `main-merge-guard.yml` reverts unverified merges | always on; `just protect-main` applies the ruleset once the plan allows | Day 0 (already on) |
+| `lane:brew` | Homebrew tap formula per release | `LANE_BREW=true`, `HOMEBREW_TAP_TOKEN`, a tap repo | After a v1 that Mac/Linux users install |
 | `lane:release` | GitHub release binaries (3-target matrix, archives + SHA256SUMS) | `gh variable set LANE_RELEASE --body true`, then `just ship` | First shippable binary |
 | `lane:slsa` | build provenance attestation on release artifacts (no secrets) | `gh variable set LANE_SLSA --body true` | Same moment as lane:release; it is free |
 | `lane:release-plz` | automated version/changelog PRs on main | `gh variable set LANE_RELEASE_PLZ --body true` | Optional alternative to `just ship`-driven versioning; pick one driver |

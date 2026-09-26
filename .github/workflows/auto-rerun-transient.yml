@@ -147,7 +147,22 @@ jobs:
           # clippy violations) do NOT match these - they produce
           # distinct error strings (`error[E0`, `assertion failed`,
           # `error: ...`, etc.) that we deliberately don't list.
-          TRANSIENT_PATTERN: 'Too Many Requests|\b429\b|failed to download|Failed to download archive|ECONNRESET|Connection reset by peer|EAI_AGAIN|unable to resolve host|Network is unreachable|runner has lost contact|The runner was forced to stop|context deadline exceeded|No space left on device'
+          # `no matching package named` after a git-source fetch is the
+          # git-dependency equivalent of a download flake: the fetch
+          # landed incomplete or raced a tag update, so cargo resolved
+          # against a tree that momentarily lacked the package. A
+          # clean-slate resolve of the SAME pin succeeds afterwards, so
+          # a rerun heals it; if the break is real the rerun fails again
+          # and the issue is filed as before - the cost of being wrong
+          # here is one retry.
+          #
+          # DELIBERATELY ABSENT: `GLIBC_x.y' not found`. That failure
+          # (a prebuilt tool binary needing a newer libc than the
+          # pinned runner image) CANNOT self-heal - a rerun reproduces
+          # it exactly. Listing it here would burn a retry and delay
+          # the issue. It is fixed at the cause instead, by the runner
+          # image the job pins (see tier-2.yml's mutants job).
+          TRANSIENT_PATTERN: 'Too Many Requests|\b429\b|failed to download|Failed to download archive|ECONNRESET|Connection reset by peer|EAI_AGAIN|unable to resolve host|Network is unreachable|runner has lost contact|The runner was forced to stop|context deadline exceeded|No space left on device|no matching package named'
         shell: bash
         run: |
           set -euo pipefail

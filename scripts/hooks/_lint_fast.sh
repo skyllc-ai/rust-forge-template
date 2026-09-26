@@ -81,7 +81,7 @@ fi
 # same file is a pre-push dead-end, so we split ownership at the
 # pre-commit hook: taplo handles every other TOML; cargo-vet handles
 # the store.
-STAGED_ALL=$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null || true)
+STAGED_ALL=$(git diff --cached --name-only --diff-filter=ACMRD 2>/dev/null || true)
 STAGED_TOML=$(printf '%s\n' "$STAGED_ALL" | grep '\.toml$' || true)
 STAGED_TOML_NONVET=$(printf '%s\n' "$STAGED_TOML" | grep -v '^supply-chain/' || true)
 STAGED_VET=$(printf '%s\n' "$STAGED_TOML" | grep '^supply-chain/' || true)
@@ -106,6 +106,8 @@ spawn() {
     PIDS+=($!)
 }
 
+
+has_staged_code() { ! has_any_staged || printf '%s\n' "$STAGED_ALL" | grep -Eq '\.rs$|^(.*Cargo\.toml$|Cargo\.lock$|supply-chain/)|^(\.github/|scripts/|\.cargo/|\.config/|just/|rust-toolchain|clippy\.toml$|rustfmt\.toml$|deny\.toml$|REUSE\.toml$|codecov\.yml$)'; }
 # ── Dispatch (generated from gates.toml) ──────────────────────────────
 
 if has_staged_rs || ! has_any_staged; then

@@ -649,3 +649,23 @@ how the project stays "world-class strict, machine-enforced".
 
 The single rule that makes all of the above work: **the doc and the
 config land together, or not at all.**
+
+## Appendix: the workflow consistency properties (acmex-gen-workflow)
+
+`acmex-gen-workflow --check` runs at pre-push and in `pr-fast.yml` and
+checks eight properties. 1-4 read `pr-fast.yml` structurally against
+`scripts/ci/gates.toml` (every pr-fast gate has a job, the job's `if:`
+matches the gate's `gate_when`, the `required` aggregator needs every
+gate job, no job exists without a gate). 5-8 read EVERY workflow under
+`.github/workflows`, because the hand-written release, preview, nightly
+and dependabot workflows are where drift accumulates:
+
+| # | Property | Source of truth |
+| --- | --- | --- |
+| 5 | One pin per action: every `uses: owner/name@<sha>` of an action resolves to the same SHA across all workflows | the workflows themselves |
+| 6 | Toolchain versions: every `ziglang==<v>`, `cargo-zigbuild@<v>` and `cargo-vet@<v>` matches the manifest | `[toolchain]` in `gates.toml` |
+| 7 | Build targets: a matrix row `target: T` + `rustflags:`, or a job naming `--target T` under `RUSTFLAGS:`, carries the flags the manifest gives for `T`; `target-cpu=native` is refused anywhere | `[[target]]` rows in `gates.toml` |
+| 8 | Nextest profiles: every `nextest run/archive --profile <name>` names a defined profile | `.config/nextest.toml` |
+
+Change a version or a flag in the manifest and the gate names every
+workflow still carrying the old one; the tool never rewrites a workflow.

@@ -21,7 +21,11 @@ ignore = [
 ]
 
 [licenses]
-# Allow only specific licenses for file search tool
+# Workspace crates are the project's own (publish = false by default)
+# and are not subject to the dependency allowlist below - a proprietary
+# or LicenseRef-* project license must not trip its own license gate.
+private = { ignore = true }
+# Allow only specific licenses for dependencies
 version = 2
 confidence-threshold = 0.8
 allow = [

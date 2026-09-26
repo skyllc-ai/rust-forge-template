@@ -290,6 +290,42 @@ fn reset_version() -> Result<(), String> {
 
 /// Replaces the inherited CHANGELOG (the template's release history) with a
 /// fresh Keep-a-Changelog skeleton for the new project.
+/// Records the template's HEAD commit in `docs/forge/FORGE-STAMP.toml`
+/// (`template-commit = "<sha>"`), replacing the placeholder value the
+/// template ships. Best effort: without git the placeholder stays, and
+/// the upgrade tool then finds each file's baseline from history.
+fn stamp_template_commit() -> Result<(), String> {
+    let stamp = Path::new("docs/forge/FORGE-STAMP.toml");
+    if !stamp.exists() {
+        return Ok(());
+    }
+    let output = Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .map_err(|error| format!("git rev-parse HEAD: {error}"))?;
+    if !output.status.success() {
+        println!("⚠️  git rev-parse HEAD failed - template-commit stays unknown");
+        return Ok(());
+    }
+    let sha = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let text = std::fs::read_to_string(stamp).map_err(|error| error.to_string())?;
+    let rewritten: String = text
+        .lines()
+        .map(|line| {
+            if line.starts_with("template-commit = ") {
+                format!("template-commit = \"{sha}\"")
+            } else {
+                line.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+        + "\n";
+    std::fs::write(stamp, rewritten).map_err(|error| error.to_string())?;
+    println!("🏷️  stamped template-commit {}", &sha[..12.min(sha.len())]);
+    Ok(())
+}
+
 fn reset_changelog(id: &Identity) -> Result<(), String> {
     // REUSE-IgnoreStart -- the SPDX line below is CONTENT for the generated
     // CHANGELOG, not this file's own license metadata.
@@ -348,6 +384,10 @@ fn ceremony() -> Result<(), String> {
 
     // 2c. Changelog reset: the template's release history is not yours.
     reset_changelog(&id)?;
+
+    // 2d. Provenance: the template commit this project was born from, so
+    //     `adopt.sh --upgrade` has an exact 3-way merge base later.
+    stamp_template_commit()?;
 
     // 3. Refresh the lockfile for the renamed internal packages.
     run("cargo", &["update", "--workspace"])?;

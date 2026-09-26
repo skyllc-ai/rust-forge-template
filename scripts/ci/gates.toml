@@ -42,6 +42,47 @@ docs = '\.md$'
 # code = (rust OR dep OR infra) - derived; not a regex
 
 # ─────────────────────────────────────────────────────────────────────
+# Workflow consistency (acmex-gen-workflow properties 5-8)
+#
+# The drift validator covers pr-fast.yml structurally (properties 1-4)
+# and EVERY workflow under .github/workflows for the things they share
+# and drift on: action pins (one SHA per action, property 5), the
+# toolchain versions below (property 6), the build-target flags below
+# (property 7), and the nextest profiles they name (property 8, against
+# .config/nextest.toml). Change a version or a flag HERE and the gate
+# names every workflow still carrying the old one.
+# ─────────────────────────────────────────────────────────────────────
+
+[toolchain]
+# `python3 -m pip install --user "ziglang==<v>"` in every zig job.
+ziglang = "0.14.1"
+# `cargo install --locked cargo-zigbuild@<v>` in every zig job.
+cargo-zigbuild = "0.23.4"
+# `cargo install --locked cargo-vet@<v>` in every vet job (crates.io: the
+# prebuilt releases stop at 0.10.0, which predates trusted-publisher).
+cargo-vet = "0.10.2"
+
+# One row per build target a workflow compiles for: the RUSTFLAGS a
+# matrix row or a job that names `--target <target>` must carry.
+# Never `target-cpu=native` anywhere (a binary built on one runner
+# would SIGILL on the next); property 7 refuses it outright.
+[[target]]
+target = "x86_64-pc-windows-msvc"
+rustflags = "-C target-cpu=x86-64-v3"
+
+[[target]]
+target = "aarch64-apple-darwin"
+rustflags = "-C target-cpu=apple-m1 -C link-arg=-Wl,-dead_strip"
+
+[[target]]
+target = "x86_64-apple-darwin"
+rustflags = "-C link-arg=-Wl,-dead_strip"
+
+[[target]]
+target = "x86_64-unknown-linux-musl"
+rustflags = "-C target-cpu=x86-64-v3 -C link-arg=-Wl,--gc-sections"
+
+# ─────────────────────────────────────────────────────────────────────
 # Always-on gates - fire regardless of change classification
 # ─────────────────────────────────────────────────────────────────────
 
@@ -769,6 +810,49 @@ equivalent strict clippy NATIVELY on `windows-latest`.
 # ─────────────────────────────────────────────────────────────────────
 # Optional / advisory gates - soft-skip with install hint
 # ─────────────────────────────────────────────────────────────────────
+
+[[gate]]
+id = "lint-ci-linux-zig"
+label = "Linux zigbuild clippy (-D warnings)"
+command = ["just", "lint-ci-linux-zig"]
+tiers = ["pre-push"]
+gate_when = "code_changed"
+hard = false
+tool = "cargo-zigbuild"
+expected_runtime_secs = 8
+bucket = "seq"
+order = 101
+notes = """
+lane:cross-lint (docs/forge/COMPONENTS.md): the Linux leg of the
+cross-target lint, cross-compiled clippy via cargo-zigbuild (zig cc
+drives the C build of bundled deps). Soft-skips with an install hint
+when cargo-zigbuild is missing, so a machine without the lane's tools
+loses nothing; a machine with them catches Linux-only drift at push
+time instead of on the PR.
+
+Authoritative Linux coverage is pr-fast's native ubuntu jobs; this
+gate is the local early-warning mirror, hence pre-push only.
+"""
+
+[[gate]]
+id = "lint-ci-mac-intel"
+label = "Intel macOS clippy (-D warnings)"
+command = ["just", "lint-ci-mac-intel"]
+tiers = ["pre-push"]
+gate_when = "code_changed"
+hard = false
+tool = "cargo"
+expected_runtime_secs = 8
+bucket = "seq"
+order = 102
+notes = """
+lane:cross-lint: the fourth supported platform. Cross-compiles
+x86_64-apple-darwin from an arm64 host (host clang assembles x86_64;
+only the rustup target is required, and the recipe soft-skips with the
+`rustup target add` hint when it is absent, and on non-macOS hosts
+where no Apple SDK exists). No pr-fast consumer: macOS Intel coverage
+in CI arrives with the release build matrix (lane:release).
+"""
 
 [[gate]]
 id = "typos"

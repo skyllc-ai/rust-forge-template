@@ -2,26 +2,54 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2025-2026 Acmex Placeholder LLC.
 #
-# Tracked pre-push git hook for the ACMEX workspace.
+# pre-push: the local half of the main-branch rules, then the gate runner.
 #
-# Purpose: run the full local quality-gate bundle (clippy + fmt-check +
-# rustdoc + cargo deny + file-size + typos + reuse) in parallel before
-# every `git push`, so locally-reproducible CI failures cannot reach
-# the remote.
+# Git feeds one line per ref on stdin: `<local ref> <local oid> <remote
+# ref> <remote oid>`. The refusals below mirror the server ruleset
+# (`scripts/ci/main-ruleset.json`, applied with `just protect-main`) so
+# a machine without the paid plan's ruleset behaves the same way:
 #
-# The implementation lives in `scripts/hooks/_lint_pre_push.sh` so the
-# same logic runs via `just lint-pre-push` (manual) and through the
-# git hook (automated) - single source of truth.
+#   1. nothing is pushed to `main` directly (AGENTS.md rule 7: branch,
+#      push the branch, open a PR, `just merge`); release tooling that
+#      must push `main` sets ACMEX_ALLOW_MAIN_PUSH=1 for that one push;
+#   2. `main` is never deleted;
+#   3. `main` is never force-pushed (a remote commit that is not an
+#      ancestor of what is being pushed).
+#
+# Everything else - the gate set itself - is `_lint_pre_push.sh`,
+# generated from `scripts/ci/gates.toml`. The refs are handed on to it
+# unchanged so its commit-range checks see the same push.
 #
 # Install via: `just install-hooks` (sets core.hooksPath to scripts/hooks/).
-# Bypass once: `git push --no-verify`.
 # Uninstall:   `just uninstall-hooks`.
-#
-# Mirrors the CI lint gate in `.github/workflows/pr-fast.yml`.  The
-# Linux-only drift gate (`just lint-ci-linux`) is deliberately NOT
-# invoked here - that class of regression is caught by CI on push to
-# the remote.
 
 set -euo pipefail
 
-exec bash "$(dirname "$0")/_lint_pre_push.sh"
+refs="$(cat)"
+zero="0000000000000000000000000000000000000000"
+allow="${ACMEX_ALLOW_MAIN_PUSH:-0}"
+while IFS=' ' read -r local_ref local_oid remote_ref remote_oid; do
+    [[ -z "${remote_ref:-}" ]] && continue
+    case "$remote_ref" in
+        refs/heads/main|refs/heads/master) ;;
+        *) continue ;;
+    esac
+    if [[ "$local_oid" == "$zero" ]]; then
+        printf '\033[0;31mpre-push: refusing to delete %s\033[0m\n' "$remote_ref" >&2
+        exit 1
+    fi
+    if [[ "$allow" != "1" ]]; then
+        printf '\033[0;31mpre-push: refusing a direct push to %s (AGENTS.md rule 7).\033[0m\n' "$remote_ref" >&2
+        printf 'Push a branch and open a PR (`just pr "<type>(<scope>): <subject>"`), then `just merge <PR>`.\n' >&2
+        printf 'Release tooling that must push main sets ACMEX_ALLOW_MAIN_PUSH=1 for that one push.\n' >&2
+        exit 1
+    fi
+    if [[ "$remote_oid" != "$zero" ]] && ! git merge-base --is-ancestor "$remote_oid" "$local_oid" 2>/dev/null; then
+        printf '\033[0;31mpre-push: refusing a force-push to %s (%s is not an ancestor of %s)\033[0m\n' \
+            "$remote_ref" "${remote_oid:0:10}" "${local_oid:0:10}" >&2
+        exit 1
+    fi
+done <<< "$refs"
+
+# The gate runner reads the same ref lines from its stdin.
+printf '%s\n' "$refs" | exec bash "$(dirname "$0")/_lint_pre_push.sh"

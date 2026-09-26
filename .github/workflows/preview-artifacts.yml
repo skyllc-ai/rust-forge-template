@@ -1,0 +1,393 @@
+# SPDX-FileCopyrightText: 2026 Acmex Placeholder LLC
+# SPDX-License-Identifier: MIT OR Apache-2.0
+#
+# Preview Artifacts (lane:preview) - the opt-in artifact-producing lane.
+#
+# "Is this SHA worth human validation on real binaries?" is a different
+# question from "is this PR mergeable?". The former is rare and
+# expensive; the latter is frequent and cheap. This workflow answers
+# the former and never blocks a merge.
+#
+# Triggered only when a maintainer
+#   (a) applies the `preview-artifacts` label to a PR (Windows + Linux),
+#       optionally `preview-macos` as well (adds the macOS job), or
+#   (b) invokes workflow_dispatch with a SHA and a target list.
+#
+# The `verify-pr-fast-green` job refuses to build unless
+# `PR Fast CI / required` is already green on the exact SHA: a preview
+# of a commit that would not merge is wasted human time and paid
+# minutes.
+#
+# Cost: Linux minutes at 1x, Windows at 2x, macOS at 10x. The default
+# lane builds Windows binaries by cross-compiling through cargo-xwin on
+# ubuntu plus one Windows runner for the nextest archive and smoke; the
+# macOS job (arm64 native plus Intel by cross-compile) is opt-in and
+# roughly as expensive as the rest together.
+#
+# One preview per PR (or per dispatch): a new push or label cancels an
+# in-progress run against the previous SHA.
+#
+# The rustflags per target are the `[[target]]` rows of
+# scripts/ci/gates.toml (the workflow-drift gate checks every job that
+# names `--target`).
+
+name: Preview Artifacts
+
+on:
+  pull_request:
+    types: [labeled, synchronize]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: 'Commit SHA to build (default: the workflow ref)'
+        required: false
+      targets:
+        description: 'Comma list of windows, linux, macos (default: windows,linux)'
+        required: false
+        default: 'windows,linux'
+
+permissions:
+  contents: read
+  checks: read
+  pull-requests: read
+
+concurrency:
+  group: preview-${{ github.workflow }}-${{ github.event.pull_request.number || github.event.inputs.sha || github.sha }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  RUSTC_WRAPPER: ""
+  RUST_BACKTRACE: 1
+  CARGO_TARGET_DIR: target
+
+jobs:
+  gate:
+    name: Gate (label / dispatch)
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' &&
+       contains(github.event.pull_request.labels.*.name, 'preview-artifacts'))
+    runs-on: ubuntu-22.04
+    timeout-minutes: 2
+    outputs:
+      sha: ${{ steps.s.outputs.sha }}
+      windows: ${{ steps.t.outputs.windows }}
+      linux: ${{ steps.t.outputs.linux }}
+      macos: ${{ steps.t.outputs.macos }}
+    steps:
+      - name: Resolve target SHA
+        id: s
+        env:
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          DISPATCH_SHA: ${{ github.event.inputs.sha }}
+          FALLBACK_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          SHA="${PR_HEAD_SHA:-${DISPATCH_SHA:-$FALLBACK_SHA}}"
+          if [[ -z "$SHA" ]]; then
+            echo "::error::Could not resolve a target SHA"
+            exit 1
+          fi
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "::notice::preview: building SHA $SHA"
+      - name: Resolve targets (labels or dispatch input)
+        id: t
+        env:
+          EVENT: ${{ github.event_name }}
+          TARGETS: ${{ github.event.inputs.targets }}
+          MACOS_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'preview-macos') }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT" == "workflow_dispatch" ]]; then
+            list="${TARGETS:-windows,linux}"
+          else
+            list="windows,linux"
+            if [[ "$MACOS_LABEL" == "true" ]]; then list="$list,macos"; fi
+          fi
+          for t in windows linux macos; do
+            if [[ ",$list," == *",$t,"* ]]; then echo "$t=true" >> "$GITHUB_OUTPUT"; else echo "$t=false" >> "$GITHUB_OUTPUT"; fi
+          done
+          echo "::notice::preview targets: $list"
+
+  verify-pr-fast-green:
+    name: Verify PR Fast CI is green
+    needs: gate
+    runs-on: ubuntu-22.04
+    timeout-minutes: 32
+    steps:
+      - name: Poll check-runs for PR Fast CI / required
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const sha = '${{ needs.gate.outputs.sha }}';
+            const want = 'PR Fast CI / required';
+            // 120 x 15 s = 30 min: covers a cold full-matrix PR Fast CI run.
+            const MAX_RETRIES = 120;
+            const RETRY_DELAY_MS = 15_000;
+            for (let i = 0; i < MAX_RETRIES; i++) {
+              const { data } = await github.rest.checks.listForRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: sha,
+                per_page: 100,
+              });
+              const run = data.check_runs.find(r => r.name === want);
+              if (run && run.status === 'completed') {
+                if (run.conclusion === 'success') {
+                  core.info(`${want} is success on ${sha.slice(0, 7)}`);
+                  return;
+                }
+                core.setFailed(`${want} on ${sha.slice(0, 7)}: ${run.conclusion}`);
+                return;
+              }
+              core.info(`${want} not complete yet (status=${run?.status ?? 'missing'}); retry ${i + 1}/${MAX_RETRIES}`);
+              await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+            }
+            core.setFailed(`Timed out waiting for ${want} on ${sha.slice(0, 7)}`);
+
+  build-windows:
+    name: Build Windows binaries (xwin on Linux)
+    needs: [gate, verify-pr-fast-green]
+    if: needs.gate.outputs.windows == 'true'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    env:
+      RUSTFLAGS: "-C target-cpu=x86-64-v3"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.gate.outputs.sha }}
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+          sudo rm -rf /usr/local/share/boost /usr/local/graalvm
+          df -h /
+      - run: rustup show
+      - run: rustup target add x86_64-pc-windows-msvc
+      - uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # v2.87.20
+        with:
+          tool: cargo-xwin
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: preview-windows
+      - name: cargo xwin build --release --bins --locked
+        run: |
+          cargo xwin build --release --bins --locked --workspace \
+            --target x86_64-pc-windows-msvc
+      - name: Stage Windows artifacts
+        run: |
+          set -euo pipefail
+          mkdir -p dist/windows
+          shopt -s nullglob
+          for exe in target/x86_64-pc-windows-msvc/release/acmex*.exe; do
+            cp "$exe" dist/windows/
+          done
+          ls -la dist/windows/
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: windows-preview-${{ needs.gate.outputs.sha }}
+          path: dist/windows/
+          if-no-files-found: error
+
+  build-test-archive:
+    name: Build Windows nextest archive
+    needs: [gate, verify-pr-fast-green]
+    if: needs.gate.outputs.windows == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 45
+    outputs:
+      nextest_version: ${{ steps.nxv.outputs.version }}
+    env:
+      RUSTFLAGS: "-C target-cpu=x86-64-v3"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.gate.outputs.sha }}
+      - run: rustup show
+      - uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # v2.87.20
+        with:
+          tool: nextest
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: preview-test-archive-windows
+      - id: nxv
+        name: Capture nextest version for the manifest
+        shell: bash
+        run: echo "version=$(cargo nextest --version | head -n1)" >> "$GITHUB_OUTPUT"
+      - name: cargo nextest archive
+        shell: bash
+        run: |
+          cargo nextest archive --workspace --locked \
+            --target x86_64-pc-windows-msvc \
+            --archive-file "acmex-tests-${{ needs.gate.outputs.sha }}.tar.zst"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: nextest-archive-${{ needs.gate.outputs.sha }}
+          path: acmex-tests-${{ needs.gate.outputs.sha }}.tar.zst
+          if-no-files-found: error
+
+  smoke-windows:
+    name: Windows smoke (run nextest archive)
+    needs: [gate, build-windows, build-test-archive]
+    if: needs.gate.outputs.windows == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.gate.outputs.sha }}
+      - uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # v2.87.20
+        with:
+          tool: nextest
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: nextest-archive-${{ needs.gate.outputs.sha }}
+      - name: Run the archived tests
+        shell: bash
+        run: |
+          cargo nextest run \
+            --archive-file "acmex-tests-${{ needs.gate.outputs.sha }}.tar.zst" \
+            --profile ci
+
+  build-linux:
+    name: Build Linux binaries (static musl)
+    needs: [gate, verify-pr-fast-green]
+    if: needs.gate.outputs.linux == 'true'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    env:
+      RUSTFLAGS: "-C target-cpu=x86-64-v3 -C link-arg=-Wl,--gc-sections"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.gate.outputs.sha }}
+      - run: rustup show
+      - name: Set up cargo-zigbuild for static musl
+        run: |
+          set -euo pipefail
+          rustup target add x86_64-unknown-linux-musl
+          python3 -m pip install --user "ziglang==0.14.1"
+          printf 'exec python3 -m ziglang "$@"\n' | sudo tee /usr/local/bin/zig >/dev/null
+          sudo chmod +x /usr/local/bin/zig
+          zig version
+          cargo install --locked cargo-zigbuild@0.23.4
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: preview-linux
+      - name: cargo zigbuild --release --bins --locked
+        run: |
+          cargo zigbuild --locked --release --workspace --bins \
+            --target x86_64-unknown-linux-musl
+      - name: Stage Linux artifacts
+        run: |
+          set -euo pipefail
+          mkdir -p dist/linux
+          for bin in target/x86_64-unknown-linux-musl/release/acmex*; do
+            if [[ -f "$bin" && -x "$bin" ]]; then cp "$bin" dist/linux/; fi
+          done
+          ls -la dist/linux/
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: linux-preview-${{ needs.gate.outputs.sha }}
+          path: dist/linux/
+          if-no-files-found: error
+
+  build-macos:
+    name: Build macOS binaries (arm64 native, Intel by cross-compile)
+    needs: [gate, verify-pr-fast-green]
+    if: needs.gate.outputs.macos == 'true'
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.gate.outputs.sha }}
+      - run: rustup show
+      - run: rustup target add x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: preview-macos
+      - name: cargo build --release --bins --locked (arm64)
+        env:
+          RUSTFLAGS: "-C target-cpu=apple-m1 -C link-arg=-Wl,-dead_strip"
+        run: cargo build --locked --release --workspace --bins --target aarch64-apple-darwin
+      - name: cargo build --release --bins --locked (Intel, cross-compiled)
+        env:
+          RUSTFLAGS: "-C link-arg=-Wl,-dead_strip"
+        run: cargo build --locked --release --workspace --bins --target x86_64-apple-darwin
+      - name: Stage macOS artifacts
+        run: |
+          set -euo pipefail
+          mkdir -p dist/macos-arm64 dist/macos-x86_64
+          for bin in target/aarch64-apple-darwin/release/acmex*; do
+            if [[ -f "$bin" && -x "$bin" ]]; then cp "$bin" dist/macos-arm64/; fi
+          done
+          for bin in target/x86_64-apple-darwin/release/acmex*; do
+            if [[ -f "$bin" && -x "$bin" ]]; then cp "$bin" dist/macos-x86_64/; fi
+          done
+          ls -la dist/macos-arm64/ dist/macos-x86_64/
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: macos-preview-${{ needs.gate.outputs.sha }}
+          path: dist/
+          if-no-files-found: error
+
+  manifest:
+    name: Emit manifest.json
+    needs: [gate, build-windows, build-test-archive, smoke-windows, build-linux, build-macos]
+    if: always() && needs.gate.result == 'success'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.gate.outputs.sha }}
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: preview
+      - name: Write the per-file SHA256 manifest
+        env:
+          SHA: ${{ needs.gate.outputs.sha }}
+          NXV: ${{ needs.build-test-archive.outputs.nextest_version }}
+          WINDOWS: ${{ needs.build-windows.result }}
+          SMOKE: ${{ needs.smoke-windows.result }}
+          LINUX: ${{ needs.build-linux.result }}
+          MACOS: ${{ needs.build-macos.result }}
+        run: |
+          set -euo pipefail
+          RUSTC="$(rustc --version | head -n1)"
+          LOCK_SHA="$(sha256sum Cargo.lock | awk '{print $1}')"
+          export RUSTC LOCK_SHA
+          python3 - > manifest.json <<'PY'
+          import hashlib, json, os
+          files = []
+          for root, _dirs, names in os.walk("preview"):
+              for n in sorted(names):
+                  p = os.path.join(root, n)
+                  with open(p, "rb") as fh:
+                      h = hashlib.sha256(fh.read()).hexdigest()
+                  files.append({"path": p, "sha256": h, "bytes": os.path.getsize(p)})
+          files.sort(key=lambda f: f["path"])
+          print(json.dumps({
+              "git_sha": os.environ["SHA"],
+              "tested_sha": os.environ["SHA"],
+              "cargo_lock_sha256": os.environ["LOCK_SHA"],
+              "rustc_version": os.environ["RUSTC"],
+              "nextest_version": os.environ.get("NXV", ""),
+              "jobs": {
+                  "windows": os.environ.get("WINDOWS", ""),
+                  "windows_smoke": os.environ.get("SMOKE", ""),
+                  "linux": os.environ.get("LINUX", ""),
+                  "macos": os.environ.get("MACOS", ""),
+              },
+              "files": files,
+          }, indent=2))
+          PY
+          cat manifest.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: manifest-${{ needs.gate.outputs.sha }}
+          path: manifest.json
+          if-no-files-found: error

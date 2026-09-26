@@ -113,7 +113,7 @@ jobs:
         run: rustup show
 
       - name: Cache dependencies
-        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           # Unique suffix so this workflow's cache doesn't evict the
           # main CI cache (and vice versa).  cargo-vet's compile is
@@ -121,9 +121,25 @@ jobs:
           prefix-key: "vet-refresh"
 
       - name: Install cargo-vet
-        uses: taiki-e/install-action@dfc84ffb7254b048a0a843316ff5a2714dcdc7bd # v2
-        with:
-          tool: cargo-vet
+        # 0.10.2 from crates.io, NOT install-action: its manifest and the
+        # GitHub releases stop at 0.10.0, which cannot parse the
+        # `trusted-publisher` entries (GitHub-org publisher trust, a 0.10.2
+        # feature) that this project's audits and the family's imports carry.
+        # rust-cache keeps ~/.cargo/bin, so the compile is paid once per key.
+        # The version is `[toolchain] cargo-vet` in scripts/ci/gates.toml.
+        # rust-cache restores ~/.cargo/bin, so a plain `cargo install` refuses
+        # to overwrite whatever binary the cache holds ("already exists in
+        # destination"); install only when the cached one is not the pin.
+        run: |
+          if ! cargo vet --version 2>/dev/null | grep -qx 'cargo-vet 0.10.2'; then
+            # Built with STABLE, not the pinned nightly: cargo-vet pulls rustix 0.37,
+            # whose linux_raw backend uses reserved `rustc_` attributes the current
+            # nightly rejects on Linux (it compiles on macOS, where the libc backend
+            # is used, so a Mac proof is not one). cargo-vet's own CI is stable.
+            rustup toolchain install stable --profile minimal --no-self-update
+            cargo +stable install --force cargo-vet@0.10.2
+          fi
+          cargo vet --version
 
       - name: Regenerate imports
         # `regenerate imports` fetches the latest audits.toml from

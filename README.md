@@ -201,6 +201,13 @@ mind. Repo-global pieces (hooks config, signing, rulesets) stay deferred
 to an explicitly sequenced cutover step: see
 **[ADOPTING.md](docs/forge/ADOPTING.md)**.
 
+**Already forged or adopted, and the template moved on?** `just
+forge-upgrade` (the same script with `--upgrade`) brings the machinery,
+the lint posture and the toolchain pin to the template's current state
+on a branch: 3-way merges keep your edits, new lints land, conflicts
+become `.forge-suggested` files; undo is deleting the branch. Details in
+ADOPTING.md, "Upgrading later".
+
 After init, `rg -i acmex` returns nothing; that emptiness is the proof the
 rename ceremony completed.
 

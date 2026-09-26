@@ -45,6 +45,8 @@ const FOOTER_PRE_PUSH: &str = include_str!("../templates/footer.sh");
 /// inventory, `has_staged_*` helpers, `spawn` helper.  Pure bash; no
 /// per-gate knowledge.
 const PREAMBLE_PRE_COMMIT: &str = include_str!("../templates/preamble_fast.sh");
+
+mod fast_conditions;
 /// Embedded scaffolding emitted after `_lint_fast.sh`'s dispatch
 /// section - wait loop, per-job report, optional-tool hint, failure
 /// dump.  Pure bash; no per-gate knowledge.
@@ -107,6 +109,7 @@ fn render_pre_commit(manifest: &Manifest) -> String {
     let mut out = String::with_capacity(8 * 1024);
     out.push_str(banner_pre_commit());
     out.push_str(PREAMBLE_PRE_COMMIT);
+    out.push_str(&fast_conditions::helpers(manifest));
     out.push_str(&render_dispatch_fast(manifest));
     out.push_str(FOOTER_PRE_COMMIT);
     out
@@ -261,6 +264,12 @@ fn render_dispatch_fast(manifest: &Manifest) -> String {
                 out.push_str(&emit_fast_rust_staged_block(&rust_staged));
                 emitted_rust_block = true;
             }
+            continue;
+        }
+        if gate.when == "code_changed" {
+            out.push_str("\nif has_staged_code; then\n");
+            out.push_str(&emit_fast_default(gate));
+            out.push_str("fi\n");
             continue;
         }
         out.push_str(&emit_fast_default(gate));
@@ -963,7 +972,8 @@ order     = 20
         assert!(out.contains("if has_staged_vet && command -v cargo-vet >/dev/null 2>&1; then"));
         assert!(out.contains("spawn \"vet-fmt\" bash scripts/hooks/_check_vet_fmt.sh"));
 
-        // Rust-staged group: ONE block, three spawns inside, manifest-order sorted.
+        // Rust-staged group: ONE block, three spawns inside, manifest-order
+        // sorted.
         assert!(
             out.contains("if has_staged_rs; then"),
             "missing rust-staged guard:\n{out}"

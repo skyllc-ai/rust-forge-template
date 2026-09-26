@@ -79,13 +79,13 @@ jobs:
         run: rustup show
 
       - name: Cache dependencies
-        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: tier-2-coverage
           cache-on-failure: 'true'
 
       - name: Install tools
-        uses: taiki-e/install-action@dfc84ffb7254b048a0a843316ff5a2714dcdc7bd # v2
+        uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # v2.87.20
         with:
           tool: cargo-llvm-cov,cargo-nextest
 
@@ -97,7 +97,7 @@ jobs:
         run: cargo llvm-cov nextest --locked --workspace --all-features --lcov --output-path lcov.info
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v6
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           files: lcov.info
           # Explicit slug so the uploader doesn't have to infer the repo
@@ -142,7 +142,7 @@ jobs:
         run: rustup show
 
       - name: Cache dependencies
-        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: tier-2-build-validation
           cache-on-failure: 'true'
@@ -183,15 +183,27 @@ jobs:
         run: rustup show
 
       - name: Cache dependencies
-        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: tier-2-udeps
           cache-on-failure: 'true'
 
       - name: Install cargo-udeps
-        uses: taiki-e/install-action@dfc84ffb7254b048a0a843316ff5a2714dcdc7bd # v2
+        uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # v2.87.20
         with:
-          tool: cargo-udeps
+          # Pinned, not "latest": install-action's manifest lags the
+          # releases, and a lagging cargo-udeps embeds an older libcargo
+          # that can resolve a lockfile differently from the driving
+          # cargo (the donor project lost a day to exactly that). Bump
+          # deliberately, together with `just tier2-local`'s hint.
+          tool: cargo-udeps@0.1.61
+
+      - name: Pre-fetch dependencies with the driving cargo
+        # cargo-udeps embeds its own libcargo; handing it a cache the
+        # driving cargo already fetched and validated (instead of
+        # letting it build its own on a cold runner) removes the one
+        # class of divergence between "passes locally" and "fails here".
+        run: cargo fetch --locked
 
       - name: Run cargo-udeps
         # --locked per §2.8; cargo-udeps resolves through the same
@@ -228,13 +240,13 @@ jobs:
         run: rustup show
 
       - name: Cache dependencies
-        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: tier-2-hack
           cache-on-failure: 'true'
 
       - name: Install cargo-hack
-        uses: taiki-e/install-action@dfc84ffb7254b048a0a843316ff5a2714dcdc7bd # v2
+        uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # v2.87.20
         with:
           tool: cargo-hack
 
@@ -275,7 +287,7 @@ jobs:
         run: rustup show
 
       - name: Cache dependencies
-        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: tier-2-miri
           cache-on-failure: 'true'
@@ -351,7 +363,7 @@ jobs:
         run: rustup show
 
       - name: Cache dependencies
-        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           # Dedicated cache key - cargo-careful's `-Zbuild-std`
           # rebuild produces a distinct sysroot / target-dir layout
@@ -361,7 +373,7 @@ jobs:
           cache-on-failure: 'true'
 
       - name: Install cargo-careful
-        uses: taiki-e/install-action@dfc84ffb7254b048a0a843316ff5a2714dcdc7bd # v2
+        uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # v2.87.20
         with:
           tool: cargo-careful
 
@@ -438,8 +450,16 @@ jobs:
   # Tier R3-04 of `docs/policies/lint-posture.md`.
   mutants:
     name: Tier 2 / cargo-mutants (acmex-core)
-    runs-on: ubuntu-22.04
-    timeout-minutes: 60
+    # ubuntu-24.04 EXPLICITLY, not ubuntu-latest and not ubuntu-22.04:
+    # the prebuilt cargo-mutants that install-action fetches is linked
+    # against GLIBC_2.39, which 22.04 (glibc 2.35) does not have, so
+    # the job dies with "libc.so.6: version `GLIBC_2.39' not found"
+    # before running a single mutant. `ubuntu-latest` is a pool
+    # request, not a guarantee, and has served a 22.04 image for that
+    # label. A rerun cannot heal it - it is the image, not a flake -
+    # so the image is PINNED.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
     # Advisory in the initial rollout - see header comment.  Promote
     # to a hard gate via a follow-up PR once we have a baseline of
     # "expected missed mutations" and can fail on regression.
@@ -452,7 +472,7 @@ jobs:
         run: rustup show
 
       - name: Cache dependencies
-        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           # Dedicated cache key - cargo-mutants does many short
           # per-mutant rebuilds and benefits from its own cache so
@@ -462,7 +482,7 @@ jobs:
           cache-on-failure: 'true'
 
       - name: Install cargo-mutants
-        uses: taiki-e/install-action@dfc84ffb7254b048a0a843316ff5a2714dcdc7bd # v2
+        uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # v2.87.20
         with:
           tool: cargo-mutants
 
@@ -470,14 +490,35 @@ jobs:
         # `--jobs 4` matches the runner's 4-core capacity.
         # `--no-shuffle` gives deterministic mutant ordering, which
         # is useful when comparing successive runs.
-        # `mutants.toml` at repo root supplies `additional_cargo_args
-        # = ["--locked"]`, `timeout_multiplier = 2.0`, and exclusion
+        # `.cargo/mutants.toml` supplies `additional_cargo_args =
+        # ["--locked"]`, `timeout_multiplier = 2.0`, and exclusion
         # globs / regexes - see that file for justification of each.
+        # (The file lived at the repo root until 2026-09, a path
+        # cargo-mutants never reads - none of its policy had ever
+        # applied in CI.)
         run: |
+          set +e
           cargo mutants \
             --package acmex-core \
             --jobs 4 \
             --no-shuffle
+          status=$?
+          set -e
+          # The exit code cannot gate alone: cargo-mutants exits 3
+          # whenever ANY mutant timed out - even beside genuine
+          # misses. And a TIMED-OUT mutant is a DETECTED mutant: an
+          # infinite-loop mutation that hangs the suite cannot ship
+          # unnoticed; the timeout is the kill. missed.txt is the
+          # precise verdict - fail iff a mutant truly escaped, and
+          # still fail on any status that is not the timeouts-only 3.
+          if [ -s mutants.out/missed.txt ]; then
+            echo "missed mutants:"
+            cat mutants.out/missed.txt
+            exit 1
+          fi
+          if [ "$status" -ne 0 ] && [ "$status" -ne 3 ]; then
+            exit "$status"
+          fi
 
       - name: Upload mutants.out artifact
         # Keep the directory for 30 days so triage on missed

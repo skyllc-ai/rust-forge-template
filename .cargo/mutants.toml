@@ -5,9 +5,11 @@
 # cargo-mutants configuration (consumed by the weekly tier-2 `mutants`
 # job; see `docs/policies/lint-posture.md` for the tier rationale).
 #
-# Default repo-root config consulted by both:
+# `.cargo/mutants.toml` is THE path cargo-mutants reads (a `mutants.toml`
+# at the repo root is silently ignored - the donor project shipped one
+# there for months with none of this policy applied).  Consulted by:
 #   * Tier 2 weekly `.github/workflows/tier-2.yml::mutants` (CI)
-#   * Maintainer ad-hoc `cargo mutants` invocations (local)
+#   * `just tier2-local` and ad-hoc `cargo mutants` invocations (local)
 #
 # Both call paths inherit the same exclusion / args / timeout policy
 # so the local-vs-CI delta is exactly the runner-environment shape
