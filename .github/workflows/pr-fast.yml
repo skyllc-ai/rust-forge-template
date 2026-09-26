@@ -392,7 +392,7 @@ jobs:
         # destination"); install only when the cached one is not the pin.
         run: |
           if ! cargo vet --version 2>/dev/null | grep -qx 'cargo-vet 0.10.2'; then
-            cargo install --locked --force cargo-vet@0.10.2
+            cargo install --force cargo-vet@0.10.2   # not --locked: its lockfile pins a rustix the pinned nightly no longer builds
           fi
           cargo vet --version
 
@@ -616,7 +616,7 @@ jobs:
         # destination"); install only when the cached one is not the pin.
         run: |
           if ! cargo vet --version 2>/dev/null | grep -qx 'cargo-vet 0.10.2'; then
-            cargo install --locked --force cargo-vet@0.10.2
+            cargo install --force cargo-vet@0.10.2   # not --locked: its lockfile pins a rustix the pinned nightly no longer builds
           fi
           cargo vet --version
 
