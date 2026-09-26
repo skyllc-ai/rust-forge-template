@@ -127,7 +127,14 @@ jobs:
         # feature) that this project's audits and the family's imports carry.
         # rust-cache keeps ~/.cargo/bin, so the compile is paid once per key.
         # The version is `[toolchain] cargo-vet` in scripts/ci/gates.toml.
-        run: cargo install --locked cargo-vet@0.10.2
+        # rust-cache restores ~/.cargo/bin, so a plain `cargo install` refuses
+        # to overwrite whatever binary the cache holds ("already exists in
+        # destination"); install only when the cached one is not the pin.
+        run: |
+          if ! cargo vet --version 2>/dev/null | grep -qx 'cargo-vet 0.10.2'; then
+            cargo install --locked --force cargo-vet@0.10.2
+          fi
+          cargo vet --version
 
       - name: Regenerate imports
         # `regenerate imports` fetches the latest audits.toml from
