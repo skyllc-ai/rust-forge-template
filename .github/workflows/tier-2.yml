@@ -85,7 +85,7 @@ jobs:
           cache-on-failure: 'true'
 
       - name: Install tools
-        uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # v2.87.20
+        uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
         with:
           tool: cargo-llvm-cov,cargo-nextest
 
@@ -189,7 +189,7 @@ jobs:
           cache-on-failure: 'true'
 
       - name: Install cargo-udeps
-        uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # v2.87.20
+        uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
         with:
           # Pinned, not "latest": install-action's manifest lags the
           # releases, and a lagging cargo-udeps embeds an older libcargo
@@ -246,7 +246,7 @@ jobs:
           cache-on-failure: 'true'
 
       - name: Install cargo-hack
-        uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # v2.87.20
+        uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
         with:
           tool: cargo-hack
 
@@ -373,7 +373,7 @@ jobs:
           cache-on-failure: 'true'
 
       - name: Install cargo-careful
-        uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # v2.87.20
+        uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
         with:
           tool: cargo-careful
 
@@ -482,7 +482,7 @@ jobs:
           cache-on-failure: 'true'
 
       - name: Install cargo-mutants
-        uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # v2.87.20
+        uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
         with:
           tool: cargo-mutants
 
@@ -526,7 +526,7 @@ jobs:
         # per-mutant diff, log, and overall summary in
         # `outcomes.json`.
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: cargo-mutants-output-${{ github.run_id }}
           path: mutants.out/
