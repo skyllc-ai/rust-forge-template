@@ -30,7 +30,7 @@ same PR**. A stale GOTO.md is worse than none.
 - [ ] Gate tools installed + git hooks wired (`just setup`)
 - [ ] Commit signing configured (`just setup-signing`, `just doctor-signing` green)
 - [ ] `just go` green (the definition of done for any change)
-- [ ] Init state merged through the real flow (branch → PR → CI → auto-merge)
+- [ ] Init state merged through the real flow (branch → PR → CI → `just merge`)
 - [ ] GitHub-side state (`bash scripts/ci/bootstrap-github.sh`): labels, lane
       variables, merge settings, rulesets
 

@@ -207,7 +207,7 @@ release_commits = "^(feat|fix|perf)(\\(.+\\))?:"
 # Coexistence semantics during the R4 → R5 transition window:
 #
 #   • Maintainer runs `just ship` → bumps version on a `release/vX.Y.Z`
-#     branch → opens PR → squash-merges to `main`.  The merge commit is
+#     branch → opens PR → `just merge` lands it on `main`.  The merge commit is
 #     associated with a `release/*` PR, NOT `release-plz-*`.
 #     release-plz `release` job NO-OPS (clean exit).
 #     `auto-tag-release.yml` detects the Cargo.toml version diff and

@@ -190,7 +190,7 @@ jobs:
         # `continue-on-error`: if the secrets are set but minting fails,
         # that's a misconfiguration we want loud, not a silent fallback.
         if: steps.gate.outputs.eligible == 'true' && env.HAS_APP_CREDS == 'true'
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
@@ -203,7 +203,7 @@ jobs:
         # rejected ("the merge strategy for main is set by the merge queue") and
         # leaves auto-merge armed but NOT enrolled in the queue, so the PR sits
         # CLEAN-but-stuck (cf. #494). `--auto` alone lets the queue own the
-        # squash and enrolls correctly. This step also fires on `synchronize`,
+        # merge method (merge commits) and enrolls correctly. This step also fires on `synchronize`,
         # so it now re-arms (self-heals enrollment) after an Update-branch.
         #
         # Token preference: app token when minted (actually enrolls in the

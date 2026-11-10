@@ -50,9 +50,10 @@
 #
 # What this does NOT do:
 #
-#   • Validate individual commit messages on the feature branch.  ACMEX
-#     uses squash-merge exclusively, so the PR title (which becomes the
-#     squash subject) is the only commit message that lands on `main`.
+#   • Validate individual commit messages on the feature branch.  PRs
+#     land as merge commits (never squash), so every branch commit
+#     reaches `main`; their subjects are validated locally by the
+#     commit-msg hook and the pre-push `commit-subjects` gate.
 #   • Validate the PR description / body.  Only the title is parsed for
 #     release-plz's version inference.
 #
@@ -78,7 +79,7 @@ on:
   # merge queue requires every required status check to also report on
   # the `merge_group` event, but that event carries no PR title.  We
   # recover the PR from the queue ref (`gh-readonly-queue/<base>/pr-<N>-
-  # <sha>`) and re-lint its title (the squash subject that will land).
+  # <sha>`) and re-lint its title (it names the merge that will land).
   # Without this, a title-required check would deadlock the queue.
   merge_group:
 
@@ -113,9 +114,10 @@ jobs:
     steps:
       - name: Validate PR title against Conventional Commits
         env:
-          # `pull_request.title` is the canonical squash-merge subject.
-          # We deliberately do NOT inspect commits on the branch - those
-          # get squashed away on merge and are noise for release-plz.
+          # `pull_request.title` names the merge on main.  The branch
+          # commits land as they are (merge commits, never squash); their
+          # subjects are checked locally by the commit-msg hook and the
+          # pre-push `commit-subjects` gate, not here.
           # (Empty on `merge_group`; that path derives the title below.)
           TITLE: ${{ github.event.pull_request.title }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -145,8 +147,8 @@ jobs:
 
           # ── Merge-queue path (merge_group event) ───────────────────
           # The merge_group event has no PR payload, so recover the PR
-          # number from the queue ref and re-lint its title (the squash
-          # subject that will land on main).  No sticky comment here -
+          # number from the queue ref and re-lint its title (it names
+          # the merge that will land on main).  No sticky comment here -
           # that already happened at PR-open time on the pull_request
           # run; the queue only needs a pass/fail gate.  The queue is
           # configured for single-PR groups (max_entries_to_{build,

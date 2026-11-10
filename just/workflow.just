@@ -133,14 +133,23 @@ go-justfile:
 #      enrolls into it (the queue-refusal fallback below), so this
 #      recipe stays correct on both plans.
 #
-# There is deliberately NO bypass flag on this recipe. METHOD is squash
-# by default; `just merge <PR> merge` when a branch's history must land
-# intact (the ruleset allows squash only until you widen it).
+# There is deliberately NO bypass flag on this recipe. A PR lands as a
+# MERGE COMMIT, its signed commits kept one by one: the history is the
+# record. Squash collapses every commit message into one, and a rebase
+# rewrites (and unsigns) the signed commits, so both are refused here;
+# the repo settings (`bootstrap-github.sh`) and the ruleset
+# (`main-ruleset.json`) allow merge commits only, to match. The commits
+# are signed locally (`just setup-signing`), so the signed-commit rule
+# needs no squash.
 
 # Merge a PR: watches EVERY check first, then merges (the only sanctioned way).
-merge PR METHOD="squash":
+merge PR METHOD="merge":
     #!/usr/bin/env bash
     set -euo pipefail
+    if [[ "{{ METHOD }}" != "merge" ]]; then
+        printf "\033[0;31m❌ '{{ METHOD }}' refused: merge commits only (never squash, never rebase).\033[0m\n" >&2
+        exit 1
+    fi
     for _attempt in 1 2 3; do
         head_before=$(gh pr view {{ PR }} --json headRefOid -q .headRefOid)
         printf "\033[0;34m⏳ PR #{{ PR }}: waiting for ALL checks on %s...\033[0m\n" "${head_before:0:10}"
@@ -215,7 +224,7 @@ pr TITLE:
     gh pr create --base main --title "{{ TITLE }}" --body "$body"
 
 # Apply the main-branch ruleset on GitHub from scripts/ci/main-ruleset.json
-# (no deletion, no force push, signatures, linear history, a PR with every
+# (no deletion, no force push, signatures, merge commits only, a PR with every
 # thread resolved, the two required checks, the merge queue). Needs a
 # plan with rulesets on private repositories; until then the pre-push
 # hook is the local mirror and main-merge-guard.yml the server-side

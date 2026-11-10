@@ -159,7 +159,7 @@ ACMEX uses [Conventional Commits](https://www.conventionalcommits.org/) to drive
 
 **What matters for you**:
 
-- The **PR title** (which becomes the squash-merge commit subject) should follow conventional commits.  Intermediate commits on a feature branch don't need to; only what lands on `main`.
+- Every commit subject AND the PR title follow conventional commits: PRs land as merge commits (never squash), so each branch commit reaches `main` as written and feeds the changelog.
 - The local `commit-msg` hook (`scripts/ci/check_commit_subjects.sh`) and the commitlint workflow (`.github/workflows/commitlint.yml`) enforce the convention.
 
 **Recognized types and their release impact**:

@@ -26,7 +26,7 @@
 //!   `execute_parallel*`, `execute_step_with_tracking`).
 //! * [`version`]     - version discovery + bump helpers.
 //! * [`git_ops`]     - `git` + `gh` CLI orchestration for Phase 2 (commit,
-//!   push, open PR, enable auto-merge).
+//!   push, open the release PR).
 //! * [`phases`]      - non-resumable `phase1_optimized` / `phase2_optimized`
 //!   driver functions.
 //! * [`ship`]        - resumable ship pipeline (`run_enhanced_phase1`,
