@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-11-10
+
 ### Template 1.1.3 (merge commits, quieter CI, fresh dependencies)
 
 - Merge commits only, never squash: `just merge` defaults to a merge
@@ -106,3 +108,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions pins refreshed to their latest releases; `deny.toml`
   ignores the workspace's own license; `sccache` detection no longer breaks
   `just` on Windows.
+
