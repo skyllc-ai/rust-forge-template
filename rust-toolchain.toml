@@ -10,9 +10,9 @@
 # CI must NOT override this with `@nightly`; workflows install via
 # `rustup show` (which reads this file) so the pin is always honored.
 #
-# Current pin: nightly-2026-07-06.  Requires ethnum >= 1.5.3 (the
-# workspace Cargo.lock resolves 1.5.3 transitively via polars-compute +
-# parquet - verify with `grep -A1 'name = "ethnum"' Cargo.lock`).
+# Current pin: nightly-2026-11-10 (validated by `just toolchain-sync`:
+# clippy both feature sets, Windows xwin and Linux zigbuild).  If your
+# Cargo.lock pulls ethnum, it must be >= 1.5.3 (see the note below).
 #
 # Resolved-history note (kept so a future bump does not re-tread this):
 #   * nightly-2026-04-13 broke tokio 1.51.1 (unresolved imports in
@@ -32,7 +32,7 @@
 # Run `just toolchain-sync` to re-attempt a channel bump; the CI
 # pipeline auto-refreshes on `ship --fresh` unless `--skip-toolchain-sync`
 # is passed.
-channel = "nightly-2026-09-26"
+channel = "nightly-2026-11-10"
 
 # Specify components that should always be available
 components = [
