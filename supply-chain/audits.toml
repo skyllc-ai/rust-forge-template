@@ -91,6 +91,24 @@ criteria = "safe-to-deploy"
 delta = "0.5.2 -> 0.5.3"
 notes = "Reviewed full crate-source diff 0.5.2 -> 0.5.3 (crates.io tarballs). Only changes: version bump, authors field dropped from the manifest, and doc-comment example tweaks in src/lib.rs (no_run/custom fences, an unsafe block around CString::from_raw in the example). No code change outside doc comments, no unsafe added, no new dependencies."
 
+[[audits.itoa]]
+who = "Robert Nio <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "1.0.18 -> 1.0.19"
+notes = "Reviewed the full delta (same review as the owner's docenta audit of this delta). The digit writers replace bounds-checked buf[offset] stores with get_unchecked_mut; offsets start at the buffer length and decrease by exactly the digit groups written, and the signed path reserves one byte for the minus sign, so every unchecked index stays in bounds. No build script, I/O, process or network changes; tests only add black_box."
+
+[[audits.libc]]
+who = "Robert Nio <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "0.2.190 -> 0.2.191"
+notes = "Reviewed the full diff: new constants, structs and extern declarations (Apple ifaliasreq/in6_aliasreq, F_SETNOSIGPIPE, FreeBSD PT_*, Haiku AI_/NI_*, Hurd POSIX_SPAWN_*, OpenBSD sensordev, QuRT isatty, WASI condattr clock), FreeBSD aarch64 register struct fixes, Mach API cfg widened beyond macOS. build.rs only adds three Emscripten version cfgs derived from the existing emcc version probe (Emscripten targets only). No new unsafe code paths, I/O or network access."
+
+[[audits.log]]
+who = "Robert Nio <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "0.4.34 -> 0.4.35"
+notes = "Reviewed the delta (same finding as the owner's docenta audit): no source changes beyond the dropped html_root_url doc attribute; the release only reworks the upstream CI/CD (release-plz publish workflow, trusted publishing) and the changelog. No build script, unsafe, I/O, process or network changes."
+
 [[audits.mio]]
 who = "Robert Nio <50460704+githubrobbi@users.noreply.github.com>"
 criteria = "safe-to-deploy"
@@ -127,6 +145,12 @@ criteria = "safe-to-deploy"
 delta = "1.53.0 -> 1.53.1"
 notes = "Reviewed diff scoped to what this workspace's feature set compiles (same scoping as the 1.52.3->1.53.0 audit; time_alt/taskdump/uring remain tokio_unstable-gated, excluded as dead code). runtime.rs: doc-comment removal only. signal/windows/sys.rs: genuine correctness fix - splits REGISTRY and HANDLER_RESULT into two separately-initialized OnceLocks so REGISTRY is guaranteed initialized before the OS console-ctrl handler is registered, letting the handler use a non-blocking get() instead of a wait(); SetConsoleCtrlHandler call itself unchanged. No new unsafe, no new dependencies."
 
+[[audits.tokio]]
+who = "Robert Nio <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "1.53.1 -> 1.54.1"
+notes = "Reviewed the full 1.53.1 to 1.54.1 diff, focusing on code compiled with io-util, macros, rt, rt-multi-thread, signal, sync, time and no tokio_unstable. There is still no build.rs; Cargo.toml only raises MSRV to 1.85 and adjusts dev-dependencies and target cfgs, with no new runtime dependencies. Unsafe changes are refactors or hardening: the I/O event dispatch moved into a helper with an identical pointer cast, deregister no longer frees a registration the OS still holds, the inject queue now owns its mutex (removing the unsafe Lock parameter), and timer wheel and mpsc block index wraparound bugs are fixed. The one new environment read, TOKIO_UNSTABLE_SHARDED_BLOCKING_QUEUE, only selects a new safe-code sharded blocking queue. Emscripten/JSPI FFI, io_uring, AsyncFd and fs/net/process changes are outside the enabled feature set."
+
 [[audits.tokio-macros]]
 who = "Robert Nio <50460704+githubrobbi@users.noreply.github.com>"
 criteria = "safe-to-deploy"
@@ -145,6 +169,18 @@ criteria = "safe-to-deploy"
 delta = "1.1.1+spec-1.1.0 -> 1.1.2+spec-1.1.0"
 notes = "Reviewed full crate-source diff (crates.io tarballs). Matches upstream 'fix(writer): Don't overflow' (#1189): src/string.rs's consecutive-quote-run counters (prev_single_quotes/prev_double_quotes) switch from a plain usize += 1 to core::num::Saturating, preventing overflow on a pathological run of thousands of consecutive quote characters in a single TOML string value. Worst case pre-fix was a wrong escaping-metric count (or a debug-mode overflow panic), not memory unsafety. No unsafe, no new external dependencies (core::num::Saturating is a stdlib type), no public-API change."
 
+[[audits.unicase]]
+who = "Robert Nio <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "2.9.0 -> 2.10.0"
+notes = "Reviewed the full diff (same review as the owner's iv and uffs-products audits): Unicode 17 case-fold table additions in the generated map.rs, ASCII comparison switched from chars to bytes, a to_folded_chars helper replacing a hand-rolled UTF-8 encoder with char::encode_utf8, and a fix to the order of three-char folds. No unsafe, build script, I/O, process or network changes."
+
+[[audits.unicode-width]]
+who = "Robert Nio <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "0.2.2 -> 0.2.3"
+notes = "Reviewed the 0.2.2 to 0.2.3 diff. The large old tables.rs was split into generated data (src/gen/tables.rs, only static lookup arrays for Unicode 18; src/gen/tables_test.rs, normalization test strings compiled only under cfg(test)) and hand-written modules (lookup.rs, props.rs, width_info.rs) that merge the CJK and non-CJK width state machines into one const-generic function and add char_iter_width. Crate keeps forbid(unsafe_code) and no_std; no build script, no include macros, no I/O, env, process or network access, no dependency or feature changes."
+
 [[audits.uuid]]
 who = "Robert M1 (via Claude review) <openclauderobert@nios.net>"
 criteria = "safe-to-deploy"
@@ -162,6 +198,12 @@ who = "Robert M1 (via Claude review) <openclauderobert@nios.net>"
 criteria = "safe-to-deploy"
 delta = "1.24.1 -> 1.26.0"
 notes = "Reviewed full crate-source diff 1.24.1 -> 1.26.0 (crates.io tarballs). Additive only: a new serde::bytes module (serialize_bytes/deserialize_bytes through the existing UuidBytesVisitor) and ContextV7::with_additional_precision_bits(bits) with the 12-bit method delegating to it (bits capped at 12 via cmp::min); a unit test for the new setter; version strings. No unsafe, no I/O, no new dependencies, no change to existing behavior."
+
+[[audits.uuid]]
+who = "Robert Nio <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "1.26.1 -> 1.29.2"
+notes = "Reviewed the full 1.26.1 to 1.29.2 diff. Changes: NonNilUuid::new_vN/now_vN constructors using new_unchecked (sound: every Uuid::new_vN sets non-zero version bits), Timestamp stored as u128 nanos with pure conversion helpers, case-insensitive urn:uuid: parsing with bounds checked, serde option helpers, wasm cfgs moved to target_family, zerocopy gated behind cfg(uuid_unstable), MSRV 1.89. No build script, no I/O, env, process or network access, no new runtime dependencies; v4 still uses getrandom unchanged."
 
 [[trusted.aho-corasick]]
 criteria = "safe-to-deploy"
