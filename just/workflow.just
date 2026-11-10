@@ -43,7 +43,7 @@ phase1-test:
 # Phase 2: commit and push (version bump retired - release-plz handles it).
 phase2-ship:
     @printf "\033[0;34m🚀 PHASE 2: Explicit Ship Lane\033[0m\n"
-    @printf "\033[1;33mThis lane performs commit and push. Version bumping now handled by release-plz on `main`.\033[0m\n"
+    @printf "\033[1;33mThis lane performs commit and push. Version bumping now handled by release-plz on main.\033[0m\n"
     @echo "========================================================"
     cargo run -q --release --target-dir target/ci-bootstrap -p acmex-ci-pipeline -- phase2
 
@@ -205,7 +205,7 @@ pre-pr:
     cargo run -q --release -p acmex-gen-workflow -- --check
     just audit-gate
     bash scripts/ci/check_commit_subjects.sh range origin/main..HEAD
-    @printf "\033[0;32m✅ pre-pr: the branch is ready for `just pr`\033[0m\n"
+    @printf "\033[0;32m✅ pre-pr: the branch is ready for 'just pr'\033[0m\n"
 
 # Open the PR for the current branch with a title the server-side title
 # check will accept: the title is validated locally against the same
