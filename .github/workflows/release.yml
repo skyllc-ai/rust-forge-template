@@ -1301,7 +1301,7 @@ jobs:
               ``,
               `⚠️ **This is a release pipeline failure - immediate attention required.**`,
               ``,
-              `📧 Notification sent to: releasefail@acmex.example`,
+              `📧 Failure mail: the CI Failure Notify workflow files the issue and mails acmexfailed@nios.net`,
             ].join('\n');
 
             const existing = await github.rest.issues.listForRepo({
