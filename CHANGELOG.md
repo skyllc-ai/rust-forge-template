@@ -12,6 +12,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-11-10
+
+### Template 1.1.3 (merge commits, quieter CI, fresh dependencies)
+
+- Merge commits only, never squash: `just merge` defaults to a merge
+  commit and refuses squash and rebase; `scripts/ci/main-ruleset.json`
+  allows merge commits only (merge queue on MERGE, no linear-history rule)
+  and `bootstrap-github.sh` sets the repo to merge commits only. The
+  commit-signature gate now checks merge commits too, since a branch's
+  merges reach `main` as they are.
+- `just ship` no longer queues `gh pr merge --auto --squash` (refused under
+  a merge-commit-only ruleset, and on a plan without required checks an
+  auto-merge fires before any check has run): it opens the release PR and
+  names `just merge <PR>`. It merges `origin/main` into the release branch
+  instead of rebasing, so signed commits are never rewritten.
+- The cargo-vet weekly refresh reports the refreshed imports (job summary
+  and artifact) instead of opening a PR: opening a PR is the maintainer's
+  call, and the job now needs read access only.
+- The failure notifier watches every workflow that can fail on `main`,
+  files a labelled issue for an unlisted one instead of dropping it, and
+  mails `<repo>failed@nios.net` (also when filing the issue failed).
+- The crates.io publish job installs the pinned toolchain (`rustup show`)
+  instead of a floating, unpinned `dtolnay/rust-toolchain@nightly`.
+- Toolchain nightly-2026-09-26 -> nightly-2026-11-10 (clippy, Windows and
+  Linux cross gates green); dependencies at their latest
+  releases (tokio 1.54.1, serde_json 1.0.154, toml 1.2.1, uuid 1.29.2 and
+  the lockfile), every new version vetted (seven deltas reviewed and
+  certified, nine exemptions retired by the refreshed imports); GitHub
+  Actions pinned to their latest release SHAs.
+
 ### Template 1.1.2 (upgrade baseline fix)
 
 - `adopt.sh --upgrade`: the template's HEAD is never a merge base. With an
@@ -78,3 +108,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions pins refreshed to their latest releases; `deny.toml`
   ignores the workspace's own license; `sccache` detection no longer breaks
   `just` on Windows.
+

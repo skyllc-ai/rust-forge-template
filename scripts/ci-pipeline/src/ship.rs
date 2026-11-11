@@ -552,11 +552,11 @@ pub(crate) async fn run_enhanced_phase2(
     // Step 10: Git commit (signed commit on the working branch).
     execute_step_with_tracking(state, STEP_GIT_COMMIT, || async { git_commit(ctx).await }).await?;
 
-    // Step 11: Git push -- opens release/vX.Y.Z PR with auto-merge
-    // queued.
+    // Step 11: Git push -- opens the release/vX.Y.Z PR; the operator
+    // lands it with `just merge <PR>` (a merge commit, never squash).
     //
     // Binaries are NOT built here.  Once the PR merges to main,
-    // release-plz creates the tag and dispatches `release.yml`,
+    // release-auto-trigger.yml dispatches `release.yml`,
     // which produces the reproducible cross-platform binaries on
     // GitHub-hosted runners.
     //
@@ -720,7 +720,10 @@ pub(crate) async fn print_sccache_stats_if_verbose(ctx: &PipelineContext) {
 /// the developer at the release-workflow run list.
 fn print_ship_next_steps(state: &WorkflowState) {
     println!();
-    println!("{} Release PR opened; auto-merge queued", "📤".green());
+    println!(
+        "{} Release PR opened; land it with `just merge <PR>`",
+        "📤".green()
+    );
     println!(
         "{} GitHub Actions will build + publish v{} on merge",
         "👷".green(),

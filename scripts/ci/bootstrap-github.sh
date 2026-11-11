@@ -14,7 +14,7 @@
 # NOTE: rulesets (and therefore the merge queue) require a PUBLIC repo or
 # GitHub Pro/Team. On a private free-plan repo this section degrades to a
 # warning - re-run this script once the repo goes public.
-#   * squash-merge + auto-merge repo settings
+#   * merge-commit-only + auto-merge repo settings
 #
 # Requires: gh CLI authenticated with admin on the repo.
 # Idempotent: safe to re-run.
@@ -55,10 +55,10 @@ for lane in LANE_RELEASE LANE_RELEASE_PLZ LANE_CRATES LANE_WINGET LANE_CODECOV L
 done
 
 # ── 3. Repo merge settings ───────────────────────────────────────────
-echo "── merge settings (squash-only + auto-merge + delete-branch-on-merge)"
+echo "── merge settings (merge-commit-only + auto-merge + delete-branch-on-merge)"
 gh repo edit \
-  --enable-squash-merge \
-  --enable-merge-commit=false \
+  --enable-merge-commit \
+  --enable-squash-merge=false \
   --enable-rebase-merge=false \
   --enable-auto-merge \
   --delete-branch-on-merge >/dev/null
@@ -66,7 +66,7 @@ echo "   ✅ done"
 
 # ── 4. Branch ruleset for main ───────────────────────────────────────
 # The ruleset is DATA: `scripts/ci/main-ruleset.json` (deletion,
-# force-push and linear-history protection, required signatures, a PR
+# force-push protection, required signatures, a PR
 # with every thread resolved, the two required checks whose literal
 # names the workflow-drift gate pins, and the merge queue).
 # `apply_main_ruleset.sh` creates it the first time and updates it in

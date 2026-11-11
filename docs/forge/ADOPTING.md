@@ -155,7 +155,7 @@ your default branch.
 2. **Harmless server-side state, any time after the merge.** Labels, the
    `LANE_*` variables (all false), and Dependabot config activate nothing
    by themselves; `bootstrap-github.sh` sets them idempotently. The
-   merge-method settings (squash-only, auto-merge, delete-branch-on-merge)
+   merge-method settings (merge commits only, auto-merge, delete-branch-on-merge)
    change team workflow, so announce them, but they block nothing.
 3. **Rulesets LAST, and only after two preconditions.** The
    `main-protection` ruleset (required `PR Fast CI / required` check +

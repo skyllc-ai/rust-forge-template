@@ -13,9 +13,10 @@ version:
 # releases for the application crates.  The release lives in your normal flow:
 #
 #   1.  just ship            # validate (Phase 1) → bump → commit →
-#                            #   open auto-merging release/vX.Y.Z PR (Phase 2)
-#   2.  (PR auto-merges once its CI is green; the merge fires
-#        release-auto-trigger.yml → release.yml builds the binaries)
+#                            #   open the release/vX.Y.Z PR (Phase 2)
+#   2.  just merge <PR>      # watches its checks, merges (merge commit);
+#                            #   the merge fires release-auto-trigger.yml
+#                            #   → release.yml builds the binaries
 #
 # `just ship` Phase 2 bumps the lockstep `[workspace.package].version`
 # (patch) ONLY after Phase 1 validation passes - code is verified clean

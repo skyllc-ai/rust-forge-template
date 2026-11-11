@@ -290,8 +290,8 @@ the same machine you do.
   activation is a repo variable plus, at most, a TOML flag. Nothing needs to
   be built.
 - **Ship**: `just ship` validates, bumps the version, rolls the changelog,
-  opens an auto-merging release PR. (Enable `LANE_RELEASE` first if you want
-  merged release PRs to build binaries.)
+  opens the release PR; `just merge <PR>` lands it as a merge commit. (Enable
+  `LANE_RELEASE` first if you want merged release PRs to build binaries.)
 
 ## Troubleshooting
 

@@ -173,8 +173,9 @@ pub(crate) fn generate_commit_draft() -> Result<Option<String>> {
 
 /// Commit subjects (one per line) since the most recent `v*` tag - i.e. the
 /// work that a pending release would ship. Falls back to the whole history when
-/// no release tag exists yet. Merge commits are excluded (main squash-merges,
-/// so each PR is one Conventional-Commit subject).
+/// no release tag exists yet. Merge commits are excluded: PRs land as merge
+/// commits, and each branch commit under one carries its own
+/// Conventional-Commit subject.
 ///
 /// # Errors
 ///

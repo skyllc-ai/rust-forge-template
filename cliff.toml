@@ -66,9 +66,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #
 # We deliberately do NOT emit an explicit `[#NN](URL)` markdown
 # link for the PR number.  GitHub-flavored markdown auto-links
-# the trailing `(#NN)` that squash-merge subjects already carry,
-# so adding our own link produces ugly `(#63) ([#63](...))`
-# duplication.  The squash subject is the single source of truth.
+# a trailing `(#NN)` when a subject carries one, so adding our own
+# link produces ugly `(#63) ([#63](...))` duplication.
 body = """
 {% if version -%}
 ## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
@@ -146,10 +145,10 @@ conventional_commits = true
 # is the place that surfaces the issue at PR-time.
 filter_unconventional = true
 
-# Don't split multi-paragraph commits into separate entries.  ACMEX
-# uses squash-merge, so each commit on `main` already represents
-# one logical change.  Splitting would produce duplicate entries
-# from the body's prose paragraphs.
+# Don't split multi-paragraph commits into separate entries: each
+# commit is one logical change (PRs land as merge commits, the branch
+# commits kept), and splitting would produce duplicate entries from
+# the body's prose paragraphs.
 split_commits = false
 
 # Commit parsers - first-match wins.  Order matters: most-

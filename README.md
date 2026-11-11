@@ -126,7 +126,7 @@ right tool.** Come back when the sketch becomes a plan.
 | --- | --- |
 | **Lint posture** | ~200-lint deny-everything `[workspace.lints]` (no `unwrap`/`panic`/`todo`, everything documented, `#[expect]` with reason instead of `allow`), nightly rustfmt, clippy.toml test relaxations |
 | **Local gates** | `gates.toml` manifest → generated pre-commit / pre-push hooks (fmt, typos, REUSE, taplo, file-size, commit conventions, signatures, clippy tiers, tests, vet, deny, machete) with drift detection |
-| **Pipeline** | `just go` (validation lane) and `just ship` (resumable bump → changelog → signed release PR → auto-merge) driven by the `acmex-ci-pipeline` crate |
+| **Pipeline** | `just go` (validation lane) and `just ship` (resumable bump → changelog → signed release PR → `just merge`) driven by the `acmex-ci-pipeline` crate |
 | **CI** | `pr-fast.yml` tier-1 required gate (validated against gates.toml by `acmex-gen-workflow`), weekly tier-2 (miri, careful, mutants, udeps, hack, coverage), CodeQL, commitlint, nightly canary, dependabot triage + auto-merge, CI-failure notify + auto-rerun |
 | **Supply chain** | cargo-vet (5 community audit-set imports, zero exemption debt), cargo-deny, SHA-pinned actions, committed `Cargo.lock` |
 | **Licensing** | REUSE/SPDX compliance (checked at commit time), per-file headers, LICENSES/ store |

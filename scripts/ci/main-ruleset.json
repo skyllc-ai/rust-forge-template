@@ -7,7 +7,6 @@
     { "type": "deletion" },
     { "type": "non_fast_forward" },
     { "type": "required_signatures" },
-    { "type": "required_linear_history" },
     {
       "type": "pull_request",
       "parameters": {
@@ -16,7 +15,7 @@
         "require_code_owner_review": false,
         "require_last_push_approval": false,
         "required_review_thread_resolution": true,
-        "allowed_merge_methods": ["squash"]
+        "allowed_merge_methods": ["merge"]
       }
     },
     {
@@ -33,7 +32,7 @@
     {
       "type": "merge_queue",
       "parameters": {
-        "merge_method": "SQUASH",
+        "merge_method": "MERGE",
         "grouping_strategy": "ALLGREEN",
         "max_entries_to_build": 5,
         "min_entries_to_merge": 1,
